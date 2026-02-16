@@ -76,7 +76,8 @@ const option = computed<EChartsOption>(() => ({
     trigger: 'axis',
     backgroundColor: '#1e2a3f',
     borderColor: '#243049',
-    textStyle: { color: '#e8ecf4', fontSize: 11 }
+    textStyle: { color: '#e8ecf4', fontSize: 11 },
+    valueFormatter: (val: any) => val != null ? Number(val).toFixed(2) : '-'
   },
   legend: {
     data: ['K', 'D', 'RSI'],

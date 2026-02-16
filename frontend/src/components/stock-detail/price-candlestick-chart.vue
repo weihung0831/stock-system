@@ -94,7 +94,20 @@ const option = computed<EChartsOption>(() => ({
     axisPointer: { type: 'cross' },
     backgroundColor: '#1e2a3f',
     borderColor: '#243049',
-    textStyle: { color: '#e8ecf4', fontFamily: 'JetBrains Mono', fontSize: 12 }
+    textStyle: { color: '#e8ecf4', fontFamily: 'JetBrains Mono', fontSize: 12 },
+    formatter: (params: any) => {
+      const candle = params.find((p: any) => p.seriesType === 'candlestick')
+      const vol = params.find((p: any) => p.seriesType === 'bar')
+      if (!candle) return ''
+      const [open, close, low, high] = candle.data
+      let html = `<div style="margin-bottom:4px">${candle.axisValue}</div>`
+      html += `<div>開盤: <b>${open}</b></div>`
+      html += `<div>收盤: <b>${close}</b></div>`
+      html += `<div>最低: <b>${low}</b></div>`
+      html += `<div>最高: <b>${high}</b></div>`
+      if (vol) html += `<div>成交量: <b>${Number(vol.value).toLocaleString()}</b></div>`
+      return html
+    }
   }
 }))
 </script>

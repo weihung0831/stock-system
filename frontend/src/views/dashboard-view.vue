@@ -25,7 +25,20 @@ const currentPage = ref(1)
 const pageSize = 10
 const topN = 30
 
-const top30 = computed(() => sectorFiltered.value.slice(0, topN))
+const top30 = computed(() => {
+  const sliced = sectorFiltered.value.slice(0, topN)
+  if (!sortKey.value) return sliced
+  const arr = [...sliced]
+  const key = sortKey.value as keyof ScoreResult
+  const dir = sortOrder.value === 'asc' ? 1 : -1
+  arr.sort((a, b) => {
+    const va = a[key] ?? 0
+    const vb = b[key] ?? 0
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+    return String(va).localeCompare(String(vb)) * dir
+  })
+  return arr
+})
 const totalPages = computed(() => Math.ceil(top30.value.length / pageSize))
 
 const filteredResults = computed(() => {
@@ -84,6 +97,24 @@ const categoryTabs = computed(() => {
   }))
   return [all, ...tagTabs]
 })
+
+/* ========== Sort ========== */
+const sortKey = ref<string>('')
+const sortOrder = ref<'asc' | 'desc'>('asc')
+
+function toggleSort(key: string) {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortOrder.value = 'desc'
+  }
+}
+
+function sortIcon(key: string): string {
+  if (sortKey.value !== key) return '⇅'
+  return sortOrder.value === 'asc' ? '↑' : '↓'
+}
 
 /* ========== Score class helpers ========== */
 const scoreClass = (v: number) => v >= 80 ? 'score-high' : v >= 65 ? 'score-mid' : 'score-low'
@@ -149,14 +180,14 @@ onMounted(async () => {
         <thead>
           <tr>
             <th style="width: 50px">#</th>
-            <th>代號</th>
+            <th class="sortable-th" @click="toggleSort('stock_id')">代號 <span class="sort-icon">{{ sortIcon('stock_id') }}</span></th>
             <th>名稱</th>
-            <th>收盤價</th>
-            <th>漲跌</th>
-            <th>籌碼</th>
-            <th>基本面</th>
-            <th>技術面</th>
-            <th>總分</th>
+            <th class="sortable-th" @click="toggleSort('close_price')">收盤價 <span class="sort-icon">{{ sortIcon('close_price') }}</span></th>
+            <th class="sortable-th" @click="toggleSort('change_percent')">漲跌 <span class="sort-icon">{{ sortIcon('change_percent') }}</span></th>
+            <th class="sortable-th" @click="toggleSort('chip_score')">籌碼 <span class="sort-icon">{{ sortIcon('chip_score') }}</span></th>
+            <th class="sortable-th" @click="toggleSort('fundamental_score')">基本面 <span class="sort-icon">{{ sortIcon('fundamental_score') }}</span></th>
+            <th class="sortable-th" @click="toggleSort('technical_score')">技術面 <span class="sort-icon">{{ sortIcon('technical_score') }}</span></th>
+            <th class="sortable-th" @click="toggleSort('total_score')">總分 <span class="sort-icon">{{ sortIcon('total_score') }}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -245,6 +276,24 @@ onMounted(async () => {
 .page-btn:hover:not(:disabled) { border-color: var(--amber, #e5a91a); color: var(--amber, #e5a91a); }
 .page-btn.active { background: var(--amber, #e5a91a); color: var(--bg-dark, #0e1525); border-color: var(--amber, #e5a91a); font-weight: 700; }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.sortable-th:hover {
+  color: var(--amber);
+}
+.sort-icon {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+.sortable-th:hover .sort-icon {
+  color: var(--amber);
+}
 
 .ai-report-badge {
   display: inline-block;
