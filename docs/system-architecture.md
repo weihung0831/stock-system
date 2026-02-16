@@ -1,0 +1,364 @@
+# TW Stock Screener 系統架構
+
+## 系統總覽
+
+```
+┌── Frontend (Vue 3 + TypeScript + Vite) ─────────────────────┐
+│                                                             │
+│  Views (頁面)                                                │
+│  ├─ dashboard-view        首頁：Top 排名總覽                   │
+│  ├─ stock-detail-view     個股詳情：三因子分數 + AI 摘要         │
+│  ├─ chip-stats-view       籌碼統計：法人/融資融券趨勢            │
+│  ├─ custom-screening-view 自訂篩選：多條件組合篩選              │
+│  ├─ history-backtest-view 歷史回測：策略模擬                    │
+│  ├─ reports-list-view     報告列表：LLM 分析報告                │
+│  ├─ settings-view         設定：評分權重調整                    │
+│  └─ login-view            登入                               │
+│                                                             │
+│  Stores (Pinia 狀態管理)                                      │
+│  ├─ screening-store       篩選結果 & 排名                      │
+│  ├─ stock-store           個股資料                             │
+│  ├─ settings-store        權重設定 (chip/fund/tech)            │
+│  ├─ auth-store            JWT 登入狀態                         │
+│  └─ sector-tags-store     產業分類標籤                          │
+└─────────────────────────────────────────────────────────────┘
+                           │ HTTP API
+                           ▼
+┌── Backend (FastAPI + Python) ───────────────────────────────┐
+│                                                             │
+│  Routers (API 端點)                                          │
+│  ├─ screening.py    GET/PUT 篩選結果 & 權重                    │
+│  ├─ stocks.py       股票列表 & 個股資料                         │
+│  ├─ chip_stats.py   籌碼統計 API                              │
+│  ├─ custom_screening.py  自訂篩選條件                          │
+│  ├─ backtest.py     回測 API                                 │
+│  ├─ reports.py      LLM 報告 API                              │
+│  ├─ scheduler.py    手動觸發 Pipeline                          │
+│  ├─ auth.py         JWT 登入/註冊                              │
+│  ├─ data.py         資料管理                                   │
+│  └─ sector_tags.py  產業標籤                                   │
+│                                                             │
+│  Services (核心業務邏輯)                                       │
+│  ├─ scoring_engine.py      評分引擎 (協調三因子)                 │
+│  │   ├─ chip_scorer.py     籌碼面評分                          │
+│  │   ├─ fundamental_scorer.py 基本面評分                       │
+│  │   └─ technical_scorer.py   技術面評分                       │
+│  ├─ hard_filter.py         硬篩選 (量能異常 + Top N)            │
+│  ├─ twse_collector.py      TWSE 資料收集 (免費)                 │
+│  ├─ finmind_collector.py   FinMind 資料收集 (財報/營收)          │
+│  ├─ news_collector.py      新聞抓取                            │
+│  ├─ llm_analyzer.py        LLM 分析 (Gemini)                  │
+│  ├─ gemini_client.py       Gemini API 客戶端                   │
+│  ├─ backtest_service.py    回測邏輯                            │
+│  ├─ stock_service.py       股票查詢服務                         │
+│  ├─ auth_service.py        JWT 認證服務                        │
+│  └─ rate_limiter.py        API 限速器                          │
+│                                                             │
+│  Tasks (排程任務)                                              │
+│  ├─ daily_pipeline.py      Pipeline 協調器 (5步驟)              │
+│  ├─ data_fetch_steps.py    資料抓取步驟 (A~G)                   │
+│  ├─ analysis_steps.py      分析步驟 (篩選+評分+LLM)             │
+│  └─ pipeline_status.py     Pipeline 狀態追蹤                    │
+│                                                             │
+│  Models (ORM 資料模型，共 13 張表)                               │
+│  ├─ stock          股票基本資料 + PER/PBR/殖利率                 │
+│  ├─ daily_price    每日收盤價/量                                │
+│  ├─ institutional  三大法人買賣超                                │
+│  ├─ margin_trading 融資融券                                    │
+│  ├─ revenue        月營收 + YoY/MoM                            │
+│  ├─ financial      季財報 (EPS/毛利率/ROE/負債比/現金流)           │
+│  ├─ score_result   評分結果 + 排名                              │
+│  ├─ llm_report     AI 分析報告                                 │
+│  ├─ news           新聞資料                                    │
+│  ├─ pipeline_log   Pipeline 執行紀錄                            │
+│  ├─ sector_tag     產業分類                                    │
+│  ├─ system_setting 系統設定 (權重、排程時間等)                    │
+│  └─ user           使用者帳號                                   │
+└─────────────────────────────────────────────────────────────┘
+                           │ SQLAlchemy ORM
+                           ▼
+┌── Database (MySQL) ─────────────────────────────────────────┐
+│  儲存所有股票、價格、財報、評分、報告資料                          │
+└─────────────────────────────────────────────────────────────┘
+
+┌── 外部資料源 ───────────────────────────────────────────────┐
+│  TWSE 官方 API (免費) → 每日收盤/法人/融資/PER/PBR/歷史K線      │
+│  FinMind API (免費額度) → 股票清單/月營收/季財報                  │
+│  Gemini API (免費額度) → AI 摘要分析                            │
+│  Google News RSS → 台股新聞                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 每日 Pipeline（5 步驟）
+
+### Step 1：資料抓取 `data_fetch_steps.py`
+
+```
+A. 股票清單 (FinMind)
+   └─ 全市場股票 → stock_id + stock_name + industry → Stock 表
+
+B. 當日收盤 (TWSE bulk，1次 API)
+   └─ 全市場 ~1300 檔 → DailyPrice 表
+
+C. 歷史回補 (TWSE STOCK_DAY，逐檔)
+   ├─ 對象：Top 100 成交量 ∪ 47 檔優先股
+   ├─ 過濾：只補不足 120 天的
+   └─ 每檔抓 8 個月 → DailyPrice 表 (3秒/次限速)
+
+D. 三大法人 (TWSE T86 bulk，1次 API)
+   └─ 全市場外資/投信/自營買賣超 → Institutional 表
+
+E. 融資融券 (TWSE MI_MARGN bulk，1次 API)
+   └─ 全市場融資餘額/融券餘額 → MarginTrading 表
+
+F-1. 月營收 (TWSE bulk)
+     └─ 已公告公司的當月營收 → Revenue 表
+
+F-2. 營收 YoY/MoM (FinMind，逐檔)
+     ├─ 抓 18 個月營收算 YoY = (本月 - 去年同月) / 去年同月
+     └─ 更新 Revenue.revenue_yoy / revenue_mom
+
+F-3. PER/PBR/殖利率 (TWSE BWIBBU bulk)
+     └─ 全市場估值 → Stock.per / pbr / dividend_yield
+
+G. 季財報 (FinMind，逐檔，3 個 dataset)
+   ├─ 損益表 → EPS / 毛利率 / 營業利益率
+   ├─ 資產負債表 → 負債比 / ROE
+   ├─ 現金流量表 → 營業現金流 / 自由現金流
+   └─ → Financial 表
+```
+
+### Step 2：新聞 `step_fetch_news`
+
+```
+Google News 搜尋「台股 OR 台灣股市」→ 最多 20 篇 → News 表
+```
+
+### Step 3：硬篩選 `hard_filter.py`
+
+```
+兩路合併：
+  路線 A：量能異常比篩選
+    ├─ 計算本週成交量 vs 上週成交量
+    ├─ 比值 > 2.5x 的股票 = 量能突增
+    └─ 結果：ratio_filtered（可能 0~數十檔）
+
+  路線 B：Top 50 成交量 (FALLBACK_TOP_N = 50)
+    └─ 最新交易日成交量前 50 名
+
+  合併策略：ratio_filtered 在前 + top_50 填充
+  └─ 去重後輸出 ~50 檔候選股
+```
+
+### Step 4：三因子評分 `scoring_engine.py`
+
+對每檔候選股計算三因子分數（各 0-100 分）：
+
+#### 籌碼面 chip_score
+
+```
+A. 連續買超天數 (30%)
+   ├─ 外資連買：每天 5 分，最高 50
+   ├─ 投信連買：每天 3 分，最高 30
+   └─ 自營連買：每天 2 分，最高 20
+
+B. 法人買超佔成交量比 (40%)
+   ├─ 近 5 天法人淨買超 / 成交量
+   ├─ >=5% → 100 分
+   ├─ 0% → 50 分
+   └─ <=-5% → 0 分（線性映射）
+
+C. 融資融券變化 (30%)
+   ├─ 基礎 50 分
+   ├─ 融資減少 → 加分（散戶退出=正面）
+   └─ 融券增加 → 加分（軋空潛力）
+```
+
+#### 基本面 fundamental_score
+
+```
+有季財報時（7 指標加權）：
+  ├─ 營收 YoY (20%)：>=20% →100, >=10% →80, >=5% →60 ...
+  ├─ EPS 趨勢 (15%)：連續成長季數比例 x 100
+  ├─ 毛利率穩定度 (10%)：低波動+上升趨勢
+  ├─ ROE (15%)：>=15% →100, >=12% →80, >=8% →60 ...
+  ├─ 負債比 (15%)：<30% →100, <50% →80, <70% →40 ...
+  ├─ 現金流 (15%)：營業CF正 +50, 自由CF正 +50
+  └─ 本益比 (10%)：目前固定 50（待完善）
+
+無季財報但有營收時：
+  └─ 營收獨佔 60% 權重，其餘給中性 50 分
+
+完全無資料時 → PER/PBR/殖利率估值替代：
+  ├─ PER (30%)：10-15 最佳 →100
+  ├─ PBR (30%)：<1 最佳 →90
+  └─ 殖利率 (40%)：>=6% →100, >=4% →80
+```
+
+#### 技術面 technical_score
+
+```
+需要 120 天以上日K資料，6 指標：
+  ├─ MA 排列 (20%)：MA5>10>20>60>120 每層 25 分
+  ├─ KD (15%)：低檔黃金交叉 →100, 低檔整理 →70
+  ├─ MACD (20%)：柱狀翻正 →70, DIF 穿越 →100
+  ├─ RSI (15%)：50-70 →100, >80 超買罰分 →20
+  ├─ 布林通道 (15%)：價格在中軌上方 →100
+  └─ 量能 (15%)：>1.5 倍 MA20 量 →100
+```
+
+#### 加權合計
+
+```
+total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
+預設權重：chip=40 / fundamental=25 / technical=35 (可由使用者調整)
+```
+
+→ 排序 → 寫入 ScoreResult 表（含 rank）
+
+### Step 5：LLM 分析 `step_llm_analysis`
+
+```
+取所有評分股票 (不限數量) → 打包分數資料 → Gemini 2.5 Flash
+  ├─ 分析所有評分股票（無上限限制）
+  ├─ 速率限制：0.5 秒/次（Gemini 2.5 Flash 高速率額度）
+  └─ 產出每檔股票的 AI 分析摘要 → LLMReport 表
+```
+
+---
+
+## 日常運作流程
+
+```
+交易日自訂時間 (APScheduler，預設 PM 4:30，可由使用者調整)
+    │
+    ├─ 檢測交易日狀態
+    │  ├─ 交易日：正常執行 Pipeline (5步驟)
+    │  └─ 非交易日：略過 (不產生 pipeline_log，減少 DB 寫入)
+    │
+    ├─ 1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR
+    ├─ 2. news        → 抓相關新聞
+    ├─ 3. hard_filter → 篩出 ~50 檔候選股 (FALLBACK_TOP_N=50)
+    ├─ 4. scoring     → 三因子加權評分 → 排名寫入 DB
+    └─ 5. llm_analysis → Gemini 產出所有評分股票的 AI 分析 (0.5s/次)
+    │
+    ▼
+使用者開 Dashboard → 看到最新排名 + AI 建議
+  └─ 可選擇顯示 Top 20 / Top 50 / All
+```
+
+---
+
+## 前端頁面與 API 對應
+
+```
+Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
+  ├─ 顯示限制下拉選單：Top 20 / Top 50 / All（預設 Top 20）
+  ├─ 顯示計數：「共 X 檔，顯示 Y 檔」
+  └─ 每張卡片：排名 + 股票名 + 總分 + 三因子分數 + 收盤價 + 漲跌幅
+
+個股詳情 → GET /screening/{stock_id} → score_single_stock() 即時算分
+  └─ 三因子雷達圖 + 子指標明細 + AI 摘要
+
+設定頁面 → GET/PUT /screening/settings → SystemSetting 表
+  ├─ 三滑桿調權重（總和自動維持 100%）
+  ├─ 「自動配置最佳比例」按鈕 → GET /screening/settings/auto-weights
+  │    └─ 依資料覆蓋率自動分配權重
+  ├─ 硬過濾門檻值滑桿（0-5，預設 2.5）
+  └─ Pipeline 排程設定
+      ├─ GET /api/scheduler/settings → 讀取排程設定
+      └─ PUT /api/scheduler/settings → 儲存並即時重新排程
+
+執行評分計算 → POST /screening/run
+  └─ 用當前權重重新跑篩選+評分（不抓資料不跑 AI）
+```
+
+---
+
+## 外部資料源
+
+| 來源 | 資料 | 費用 | 限制 |
+|------|------|------|------|
+| TWSE 官方 | 每日收盤、法人、融資融券、PER/PBR | 免費 | bulk API 無限速 |
+| TWSE 假期 API | 年度交易假期表 | 免費 | 自動快取 |
+| TWSE STOCK_DAY | 個股歷史日K | 免費 | 3秒/次限速 |
+| FinMind | 股票清單、月營收、季財報 | 免費 | 有額度限制 (402) |
+| Gemini API | AI 分析摘要 | 免費額度 | 按需呼叫 |
+| Google News RSS | 台股新聞 | 免費 | 每次最多 20 篇 |
+
+---
+
+## 環境設定
+
+| 變數 | 用途 |
+|------|------|
+| DATABASE_URL | MySQL 連線字串 |
+| FINMIND_TOKEN | FinMind API 令牌 |
+| LLM_API_KEY | Gemini API 金鑰 |
+| LLM_BASE_URL | LLM API 端點 |
+| LLM_MODEL | LLM 模型名稱 |
+| JWT_SECRET_KEY | JWT 簽署密鑰 |
+| CORS_ORIGINS | 允許跨域來源 |
+
+---
+
+## 啟動方式
+
+```bash
+# 後端
+cd backend && uvicorn app.main:app --reload
+
+# 前端
+cd frontend && npm run dev
+```
+
+---
+
+## 已知限制
+
+| 問題 | 位置 | 影響 |
+|------|------|------|
+| 技術面 <120 天 = 0 分 | technical_scorer | 部分候選股直接 0 分 |
+| PE 評分固定 50 | fundamental_scorer L251-255 | 本益比指標未啟用 |
+| 財報只抓新股 | data_fetch_steps L520-529 | 已有財報不更新最新季 |
+
+---
+
+---
+
+## 新增功能與改進 (2026-02-16)
+
+### as_of_date 參數（歷史回溯評分）
+- `hard_filter.py`, `chip_scorer.py`, `technical_scorer.py`, `scoring_engine.py` 新增 `as_of_date` 參數
+- 支援以過去某日期評分股票
+- 用於 backtest 系統計算歷史績效
+
+### TWSE 假期自動偵測
+- `daily_pipeline.py` 已棄用硬編碼 `_twse_holidays()` 字典
+- 新增 `_fetch_twse_holidays()` 函數，從 TWSE 官方 API 動態獲取假期表
+- 自動轉換為 ROC 年份格式相容
+- 年度結果在記憶體快取
+- API 失敗自動降級（回傳空集合）
+
+### 非交易日最佳化
+- Pipeline 在非交易日時完全略過（無 pipeline_log 記錄）
+- 減少 DB 寫入
+- 手動觸發在非交易日時改用最後交易日
+
+### Backtest 股票篩選
+- `backtest_service.py` 新增 `stock_ids` 參數
+- 支援特定股票列表的績效計算
+
+### LLM 分析全面升級
+- 不再限制 Top 10 股票
+- 對所有評分股票進行 AI 分析
+- 利用 Gemini 2.5 Flash 高速率額度
+
+### 依賴更新
+- `bcrypt` 降至 4.2.0 版本（相容性改進）
+- `requests` 新增（TWSE 假期 API）
+
+**最後更新**: 2026-02-16
+**版本**: 2.2

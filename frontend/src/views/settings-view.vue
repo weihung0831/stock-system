@@ -1,0 +1,436 @@
+<script setup lang="ts">
+import { ref, reactive, onMounted } from 'vue'
+import { useScreeningStore } from '@/stores/screening-store'
+import { ElMessage } from 'element-plus'
+import WeightSliderGroup from '@/components/settings/weight-slider-group.vue'
+import SchedulerConfigForm from '@/components/settings/scheduler-config-form.vue'
+import { useSettingsStore } from '@/stores/settings-store'
+import { useSectorTagsStore } from '@/stores/sector-tags-store'
+import type { SectorTagCreate } from '@/api/sector-tags-api'
+import apiClient from '@/api/client'
+
+const screeningStore = useScreeningStore()
+const settingsStore = useSettingsStore()
+const sectorTagsStore = useSectorTagsStore()
+
+/* ========== Sector Tags CRUD ========== */
+const editingTagId = ref<number | null>(null)
+const tagForm = reactive<SectorTagCreate>({ name: '', color: '#3b82f6', keywords: '', sort_order: 0 })
+
+const resetTagForm = () => {
+  tagForm.name = ''
+  tagForm.color = '#3b82f6'
+  tagForm.keywords = ''
+  tagForm.sort_order = 0
+  editingTagId.value = null
+}
+
+const handleSaveTag = async () => {
+  if (!tagForm.name.trim()) {
+    ElMessage.warning('請輸入標籤名稱')
+    return
+  }
+  try {
+    if (editingTagId.value !== null) {
+      await sectorTagsStore.editTag(editingTagId.value, { ...tagForm })
+      ElMessage.success('標籤已更新')
+    } else {
+      await sectorTagsStore.addTag({ ...tagForm })
+      ElMessage.success('標籤已新增')
+    }
+    resetTagForm()
+  } catch {
+    ElMessage.error('儲存標籤失敗')
+  }
+}
+
+const startEditTag = (tag: { id: number; name: string; color: string; keywords: string; sort_order: number }) => {
+  editingTagId.value = tag.id
+  tagForm.name = tag.name
+  tagForm.color = tag.color
+  tagForm.keywords = tag.keywords
+  tagForm.sort_order = tag.sort_order
+}
+
+const handleDeleteTag = async (id: number) => {
+  try {
+    await sectorTagsStore.removeTag(id)
+    if (editingTagId.value === id) resetTagForm()
+    ElMessage.success('標籤已刪除')
+  } catch {
+    ElMessage.error('刪除失敗')
+  }
+}
+
+const handleRunScreening = async () => {
+  try {
+    await screeningStore.runScreening(settingsStore.weights, settingsStore.threshold)
+    ElMessage.success('評分計算已完成')
+  } catch {
+    ElMessage.error('評分計算失敗')
+  }
+}
+
+const handleTriggerPipeline = async () => {
+  try {
+    ElMessage.info('手動觸發 Pipeline...')
+    await apiClient.post('/scheduler/trigger')
+    ElMessage.success('Pipeline 已觸發，背景執行中')
+    setTimeout(fetchLogs, 2000)
+  } catch (error: any) {
+    const detail = error.response?.data?.detail ?? '觸發失敗，請稍後再試'
+    ElMessage.error(detail)
+  }
+}
+
+// Execution logs
+interface PipelineLog {
+  id: number
+  started_at: string
+  finished_at: string | null
+  status: string
+  steps_completed: number
+  total_steps: number
+  error: string | null
+  trigger_type: string
+}
+
+const recentLogs = ref<PipelineLog[]>([])
+
+const fetchLogs = async () => {
+  try {
+    const { data } = await apiClient.get('/scheduler/logs', { params: { limit: 10 } })
+    recentLogs.value = data.logs ?? []
+  } catch {
+    // Logs are optional
+  }
+}
+
+const formatDate = (d: string) => new Date(d).toLocaleString('zh-TW')
+
+const formatDuration = (s: string, f: string | null) => {
+  if (!f) return '執行中...'
+  const sec = Math.round((new Date(f).getTime() - new Date(s).getTime()) / 1000)
+  return sec >= 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : `${sec}s`
+}
+
+const statusText = (s: string) =>
+  s === 'success' ? '成功' : s === 'running' ? '執行中' : s === 'skipped' ? '跳過' : '失敗'
+
+const statusClass = (s: string) =>
+  s === 'success' ? 'st-ok' : s === 'running' ? 'st-run' : 'st-err'
+
+const handleClearLogs = async () => {
+  try {
+    await apiClient.delete('/scheduler/logs')
+    recentLogs.value = []
+    ElMessage.success('執行記錄已清除')
+  } catch {
+    ElMessage.error('清除失敗')
+  }
+}
+
+onMounted(() => {
+  fetchLogs()
+  sectorTagsStore.fetchTags()
+})
+</script>
+
+<template>
+  <div class="settings-page">
+    <div class="page-header">
+      <h2>系統設定</h2>
+      <button
+        class="btn-primary"
+        :disabled="screeningStore.loading"
+        @click="handleRunScreening"
+      >
+        {{ screeningStore.loading ? '計算中...' : '執行評分計算' }}
+      </button>
+    </div>
+    <div class="settings-grid">
+      <div class="settings-card">
+        <h3>因子權重配置</h3>
+        <WeightSliderGroup />
+      </div>
+
+      <div class="settings-card">
+        <h3>排程與篩選設定</h3>
+        <SchedulerConfigForm @trigger-pipeline="handleTriggerPipeline" />
+      </div>
+    </div>
+
+    <!-- Sector Tags CRUD -->
+    <div class="settings-card tags-card">
+      <h3>標籤分類管理</h3>
+      <!-- Tag form -->
+      <div class="tag-form">
+        <input v-model="tagForm.name" class="tag-input" placeholder="標籤名稱" />
+        <input v-model="tagForm.keywords" class="tag-input" placeholder="關鍵字（產業比對用）" />
+        <input v-model="tagForm.color" type="color" class="tag-color" />
+        <input v-model.number="tagForm.sort_order" type="number" class="tag-input tag-sort" placeholder="排序" />
+        <button class="btn-primary btn-sm" @click="handleSaveTag">
+          {{ editingTagId !== null ? '更新' : '新增' }}
+        </button>
+        <button v-if="editingTagId !== null" class="btn-text" @click="resetTagForm">取消</button>
+      </div>
+      <!-- Tag list -->
+      <div class="tag-list">
+        <div v-for="tag in sectorTagsStore.tags" :key="tag.id" class="tag-row">
+          <span class="tag-dot" :style="{ background: tag.color }" />
+          <span class="tag-name">{{ tag.name }}</span>
+          <span class="tag-kw">{{ tag.keywords }}</span>
+          <span class="tag-order">#{{ tag.sort_order }}</span>
+          <button class="btn-text" @click="startEditTag(tag)">編輯</button>
+          <button class="btn-text danger" @click="handleDeleteTag(tag.id)">刪除</button>
+        </div>
+        <div v-if="sectorTagsStore.tags.length === 0" class="tag-empty">尚無標籤</div>
+      </div>
+    </div>
+
+    <!-- Execution logs card (full width) -->
+    <div v-if="recentLogs.length > 0" class="settings-card logs-card">
+      <div class="logs-header">
+        <h3>最近執行記錄</h3>
+        <div class="logs-actions">
+          <button class="btn-text" @click="fetchLogs">重新整理</button>
+          <button class="btn-text danger" @click="handleClearLogs">清除記錄</button>
+        </div>
+      </div>
+      <table class="logs-table">
+        <thead>
+          <tr>
+            <th>執行時間</th>
+            <th>狀態</th>
+            <th>步驟</th>
+            <th>耗時</th>
+            <th>觸發</th>
+            <th>錯誤</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="log in recentLogs" :key="log.id">
+            <td class="mono">{{ formatDate(log.started_at) }}</td>
+            <td><span class="status-badge" :class="statusClass(log.status)">{{ statusText(log.status) }}</span></td>
+            <td class="mono">{{ log.steps_completed }}/{{ log.total_steps }}</td>
+            <td class="mono">{{ formatDuration(log.started_at, log.finished_at) }}</td>
+            <td>{{ log.trigger_type === 'manual' ? '手動' : '排程' }}</td>
+            <td class="error-cell">{{ log.error || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.settings-page {
+  padding: 0;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.settings-card {
+  background: var(--bg-card, #151d2e);
+  border: 1px solid var(--border, #243049);
+  border-radius: 10px;
+  padding: 28px;
+}
+
+.settings-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border, #243049);
+  color: var(--text, #e8ecf4);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text, #e8ecf4);
+}
+
+.btn-primary {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #d4960a, #e5a91a);
+  border: none;
+  border-radius: 6px;
+  color: #0e1525;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  font-size: 0.88rem;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 20px rgba(240, 185, 41, 0.5); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+/* Logs card */
+.logs-card {
+  margin-top: 24px;
+}
+
+.logs-card h3 {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border, #243049);
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--text-muted, #556178);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  transition: color 0.15s;
+}
+.btn-text:hover { color: #e5a91a; }
+.btn-text.danger:hover { color: #ef4444; }
+
+.logs-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.logs-table thead { background: var(--bg-surface, #1e2a3f); }
+
+.logs-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted, #556178);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border, #243049);
+  white-space: nowrap;
+}
+
+.logs-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border, #243049);
+  color: var(--text-secondary, #8c9ab5);
+  white-space: nowrap;
+}
+
+.logs-table tbody tr:last-child td { border-bottom: none; }
+.logs-table tbody tr:hover { background: var(--bg-card-hover, #1a2338); }
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+.error-cell {
+  color: var(--text-muted, #556178);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+.st-ok { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+.st-run { background: rgba(234, 179, 8, 0.1); color: #eab308; }
+.st-err { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+/* Sector tags */
+.tags-card { margin-top: 24px; }
+
+.tag-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tag-input {
+  background: var(--bg-surface, #1e2a3f);
+  border: 1px solid var(--border, #243049);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text, #e8ecf4);
+  font-size: 0.85rem;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.tag-input:focus { border-color: #e5a91a; }
+.tag-sort { width: 70px; }
+
+.tag-color {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border, #243049);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.btn-sm { padding: 8px 16px; font-size: 0.82rem; }
+
+.tag-list { display: flex; flex-direction: column; gap: 6px; }
+
+.tag-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-surface, #1e2a3f);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.tag-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tag-name { font-weight: 600; color: var(--text, #e8ecf4); min-width: 80px; }
+.tag-kw { color: var(--text-muted, #556178); flex: 1; }
+.tag-order { color: var(--text-muted, #556178); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+.tag-empty { text-align: center; color: var(--text-muted, #556178); padding: 20px; }
+
+@media (max-width: 1024px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

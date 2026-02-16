@@ -1,0 +1,30 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Claude Code (personal config)
+.claude/
+
+# Contract / confidential docs
+**/合約*
+**/contract*
+**/generate-contract*
+
+# Cache
+.ruff_cache/

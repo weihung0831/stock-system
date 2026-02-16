@@ -1,0 +1,266 @@
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useScreeningStore } from '@/stores/screening-store'
+import { useSectorTagsStore } from '@/stores/sector-tags-store'
+import { getLatestReports } from '@/api/reports-api'
+import type { ScoreResult } from '@/types/screening'
+
+const router = useRouter()
+const screeningStore = useScreeningStore()
+const sectorTagsStore = useSectorTagsStore()
+const reportStockIds = ref<Set<string>>(new Set())
+const activeSector = ref('all')
+
+/* ========== Sector filtering ========== */
+const sectorFiltered = computed(() => {
+  if (activeSector.value === 'all') return screeningStore.results
+  const tag = sectorTagsStore.tags.find(t => t.name === activeSector.value)
+  const keyword = tag?.keywords || activeSector.value
+  return screeningStore.results.filter(r => r.industry?.includes(keyword))
+})
+
+/* ========== Pagination ========== */
+const currentPage = ref(1)
+const pageSize = 10
+const topN = 30
+
+const top30 = computed(() => sectorFiltered.value.slice(0, topN))
+const totalPages = computed(() => Math.ceil(top30.value.length / pageSize))
+
+const filteredResults = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return top30.value.slice(start, start + pageSize)
+})
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+}
+
+/* ========== Stat cards ========== */
+const statCards = computed(() => {
+  const results = top30.value
+  const top = results[0]
+  const highChip = results.filter(r => r.chip_score >= 60).length
+  return [
+    {
+      label: '分析股票數',
+      value: results.length.toLocaleString(),
+      change: '全市場覆蓋',
+      changeClass: 'up',
+    },
+    {
+      label: '今日最高分',
+      value: top ? top.total_score.toFixed(1) : '-',
+      change: top ? `${top.stock_id} ${top.stock_name}` : '',
+      changeClass: 'up',
+      valueStyle: 'color: var(--amber)',
+    },
+    {
+      label: '高籌碼分數',
+      value: highChip.toString(),
+      change: '籌碼分 ≥ 60',
+      changeClass: 'up',
+      valueStyle: 'color: var(--up)',
+    },
+    {
+      label: '資料日期',
+      value: screeningStore.latestDate || '-',
+      change: screeningStore.updatedAt ? `更新於 ${screeningStore.updatedAt}` : '',
+      changeClass: '',
+      valueStyle: 'font-size: 1.2rem',
+    },
+  ]
+})
+
+/* ========== Category tabs ========== */
+const categoryTabs = computed(() => {
+  const all = { key: 'all', label: '全部', color: '', count: screeningStore.results.length }
+  const tagTabs = sectorTagsStore.tags.map(tag => ({
+    key: tag.name,
+    label: tag.name,
+    color: tag.color,
+    count: screeningStore.results.filter(r => r.industry?.includes(tag.keywords || tag.name)).length,
+  }))
+  return [all, ...tagTabs]
+})
+
+/* ========== Score class helpers ========== */
+const scoreClass = (v: number) => v >= 80 ? 'score-high' : v >= 65 ? 'score-mid' : 'score-low'
+const rankClass = (i: number) => i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''
+
+const formatChange = (row: ScoreResult) => {
+  const pct = row.change_percent
+  const arrow = pct >= 0 ? '▲' : '▼'
+  const sign = pct >= 0 ? '+' : ''
+  return `${arrow} ${sign}${pct.toFixed(2)}%`
+}
+
+/* ========== Navigation ========== */
+const openStock = (row: ScoreResult) => {
+  router.push(`/stock/${row.stock_id}`)
+}
+
+/* ========== Init ========== */
+onMounted(async () => {
+  const [, reports] = await Promise.all([
+    screeningStore.fetchResults(),
+    getLatestReports().catch(() => []),
+  ])
+  reportStockIds.value = new Set(reports.map(r => r.stock_id))
+  sectorTagsStore.fetchTags()
+})
+</script>
+
+<template>
+  <div class="dashboard-page" style="animation: fadeIn 0.3s ease">
+    <!-- Stat cards -->
+    <div class="stat-grid">
+      <div v-for="(card, i) in statCards" :key="i" class="stat-card">
+        <div class="stat-label">{{ card.label }}</div>
+        <div class="stat-value" :style="card.valueStyle">{{ card.value }}</div>
+        <div :class="['stat-change', card.changeClass]">{{ card.change }}</div>
+      </div>
+    </div>
+
+    <!-- Section header: title + category tabs -->
+    <div class="section-header">
+      <div class="section-title" style="margin-bottom: 0">
+        每日精選排行
+        <span class="badge">TOP {{ top30.length }}</span>
+      </div>
+      <div class="category-tabs">
+        <div
+          v-for="tab in categoryTabs"
+          :key="tab.key"
+          :class="['cat-tab', { active: activeSector === tab.key }]"
+          @click="activeSector = tab.key; currentPage = 1"
+        >
+          <span v-if="tab.color" class="cat-dot" :style="{ background: tab.color }" />
+          {{ tab.label }}
+          <span class="cat-count">{{ tab.count }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock ranking table -->
+    <div class="card" style="margin-bottom: 20px">
+      <table class="stock-table">
+        <thead>
+          <tr>
+            <th style="width: 50px">#</th>
+            <th>代號</th>
+            <th>名稱</th>
+            <th>收盤價</th>
+            <th>漲跌</th>
+            <th>籌碼</th>
+            <th>基本面</th>
+            <th>技術面</th>
+            <th>總分</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="(row, idx) in filteredResults"
+            :key="row.stock_id"
+            @click="openStock(row)"
+          >
+            <td :class="['rank-num', rankClass((currentPage - 1) * pageSize + idx)]">{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
+            <td class="stock-code">{{ row.stock_id }}</td>
+            <td class="stock-name">
+              {{ row.stock_name }}
+              <span
+                v-if="reportStockIds.has(row.stock_id)"
+                class="ai-report-badge"
+                @click.stop="router.push(`/reports?stock=${row.stock_id}`)"
+              >AI</span>
+            </td>
+            <td style="font-family: var(--font-mono)">${{ row.close_price?.toFixed(2) ?? '-' }}</td>
+            <td :class="['price-change', row.change_percent >= 0 ? 'up' : 'down']" style="font-family: var(--font-mono)">
+              {{ formatChange(row) }}
+            </td>
+            <td><span :class="['score-pill', scoreClass(row.chip_score)]">{{ row.chip_score.toFixed(1) }}</span></td>
+            <td><span :class="['score-pill', scoreClass(row.fundamental_score)]">{{ row.fundamental_score.toFixed(1) }}</span></td>
+            <td><span :class="['score-pill', scoreClass(row.technical_score)]">{{ row.technical_score.toFixed(1) }}</span></td>
+            <td class="total-score">{{ row.total_score.toFixed(1) }}</td>
+          </tr>
+          <tr v-if="filteredResults.length === 0">
+            <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px">
+              {{ screeningStore.loading ? '載入中...' : '尚無資料' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="currentPage === 1" @click="handlePageChange(currentPage - 1)">‹</button>
+        <button
+          v-for="p in totalPages"
+          :key="p"
+          :class="['page-btn', { active: p === currentPage }]"
+          @click="handlePageChange(p)"
+        >{{ p }}</button>
+        <button class="page-btn" :disabled="currentPage === totalPages" @click="handlePageChange(currentPage + 1)">›</button>
+      </div>
+    </div>
+
+  </div>
+</template>
+
+<style scoped>
+.dashboard-page {
+  padding: 24px 28px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 0 8px;
+}
+
+.page-btn {
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid var(--border, #243049);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #8c9ab5);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--amber, #e5a91a); color: var(--amber, #e5a91a); }
+.page-btn.active { background: var(--amber, #e5a91a); color: var(--bg-dark, #0e1525); border-color: var(--amber, #e5a91a); font-weight: 700; }
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.ai-report-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--bg-dark);
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border-radius: 3px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: box-shadow 0.15s;
+}
+.ai-report-badge:hover {
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+}
+</style>
