@@ -88,13 +88,20 @@ const statCards = computed(() => {
 
 /* ========== Category tabs ========== */
 const categoryTabs = computed(() => {
-  const all = { key: 'all', label: '全部', color: '', count: screeningStore.results.length }
-  const tagTabs = sectorTagsStore.tags.map(tag => ({
-    key: tag.name,
-    label: tag.name,
-    color: tag.color,
-    count: screeningStore.results.filter(r => r.industry?.includes(tag.keywords || tag.name)).length,
-  }))
+  // For "all" tab: show count from top30 (limited by topN)
+  const all = { key: 'all', label: '全部', color: '', count: Math.min(screeningStore.results.length, topN) }
+
+  // For sector tabs: show count of stocks in that sector (also limited by topN)
+  const tagTabs = sectorTagsStore.tags.map(tag => {
+    const keyword = tag.keywords || tag.name
+    const sectorCount = screeningStore.results.filter(r => r.industry?.includes(keyword)).length
+    return {
+      key: tag.name,
+      label: tag.name,
+      color: tag.color,
+      count: Math.min(sectorCount, topN),
+    }
+  })
   return [all, ...tagTabs]
 })
 
