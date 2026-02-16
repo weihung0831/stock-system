@@ -1,0 +1,10 @@
+{
+	order reverse_proxy before file_server
+}
+:8080 {
+	reverse_proxy /api/* {$BACKEND_URL:localhost:8080}
+	root * /srv
+	encode gzip
+	try_files {path} /index.html
+	file_server
+}
