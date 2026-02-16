@@ -207,4 +207,59 @@ onMounted(() => {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .detail-page {
+    padding: 16px 16px;
+  }
+
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 16px;
+  }
+
+  .detail-header > div:last-child {
+    margin-left: 0 !important;
+    text-align: left !important;
+    width: 100%;
+  }
+
+  .stock-title {
+    font-size: 1.4rem !important;
+  }
+
+  .stock-price {
+    font-size: 1.6rem !important;
+  }
+
+  .stock-price-change {
+    font-size: 0.9rem !important;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .llm-panel {
+    padding: 16px !important;
+  }
+
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 12px;
+  }
+
+  .panel-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .btn-generate {
+    width: 100%;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+  }
+}
 </style>

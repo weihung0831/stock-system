@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useScreeningStore } from '@/stores/screening-store'
 import { ElMessage } from 'element-plus'
 import WeightSliderGroup from '@/components/settings/weight-slider-group.vue'
@@ -96,14 +96,58 @@ interface PipelineLog {
 }
 
 const recentLogs = ref<PipelineLog[]>([])
+const logSortKey = ref<string>('')
+const logSortOrder = ref<'asc' | 'desc'>('asc')
+const logCurrentPage = ref(1)
+const logPageSize = 10
 
 const fetchLogs = async () => {
   try {
-    const { data } = await apiClient.get('/scheduler/logs', { params: { limit: 10 } })
+    const { data } = await apiClient.get('/scheduler/logs', { params: { limit: 100 } })
     recentLogs.value = data.logs ?? []
   } catch {
     // Logs are optional
   }
+}
+
+const sortedLogs = computed(() => {
+  if (!logSortKey.value) return recentLogs.value
+  const arr = [...recentLogs.value]
+  const key = logSortKey.value as keyof PipelineLog
+  const dir = logSortOrder.value === 'asc' ? 1 : -1
+  arr.sort((a, b) => {
+    const va = a[key] ?? ''
+    const vb = b[key] ?? ''
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+    return String(va).localeCompare(String(vb)) * dir
+  })
+  return arr
+})
+
+const logTotalPages = computed(() => Math.ceil(sortedLogs.value.length / logPageSize))
+
+const pagedLogs = computed(() => {
+  const start = (logCurrentPage.value - 1) * logPageSize
+  return sortedLogs.value.slice(start, start + logPageSize)
+})
+
+function toggleLogSort(key: string) {
+  if (logSortKey.value === key) {
+    logSortOrder.value = logSortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    logSortKey.value = key
+    logSortOrder.value = 'desc'
+  }
+  logCurrentPage.value = 1
+}
+
+function logSortIcon(key: string): string {
+  if (logSortKey.value !== key) return '⇅'
+  return logSortOrder.value === 'asc' ? '↑' : '↓'
+}
+
+function handleLogPageChange(page: number) {
+  logCurrentPage.value = page
 }
 
 const formatDate = (d: string) => new Date(d).toLocaleString('zh-TW')
@@ -197,28 +241,50 @@ onMounted(() => {
           <button class="btn-text danger" @click="handleClearLogs">清除記錄</button>
         </div>
       </div>
-      <table class="logs-table">
-        <thead>
-          <tr>
-            <th>執行時間</th>
-            <th>狀態</th>
-            <th>步驟</th>
-            <th>耗時</th>
-            <th>觸發</th>
-            <th>錯誤</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="log in recentLogs" :key="log.id">
-            <td class="mono">{{ formatDate(log.started_at) }}</td>
-            <td><span class="status-badge" :class="statusClass(log.status)">{{ statusText(log.status) }}</span></td>
-            <td class="mono">{{ log.steps_completed }}/{{ log.total_steps }}</td>
-            <td class="mono">{{ formatDuration(log.started_at, log.finished_at) }}</td>
-            <td>{{ log.trigger_type === 'manual' ? '手動' : '排程' }}</td>
-            <td class="error-cell">{{ log.error || '-' }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="logs-scroll">
+        <table class="logs-table">
+          <thead>
+            <tr>
+              <th class="sortable-th" @click="toggleLogSort('started_at')">
+                執行時間 <span class="sort-icon">{{ logSortIcon('started_at') }}</span>
+              </th>
+              <th class="sortable-th" @click="toggleLogSort('status')">
+                狀態 <span class="sort-icon">{{ logSortIcon('status') }}</span>
+              </th>
+              <th class="sortable-th" @click="toggleLogSort('steps_completed')">
+                步驟 <span class="sort-icon">{{ logSortIcon('steps_completed') }}</span>
+              </th>
+              <th>耗時</th>
+              <th class="sortable-th" @click="toggleLogSort('trigger_type')">
+                觸發 <span class="sort-icon">{{ logSortIcon('trigger_type') }}</span>
+              </th>
+              <th>錯誤</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="log in pagedLogs" :key="log.id">
+              <td class="mono">{{ formatDate(log.started_at) }}</td>
+              <td><span class="status-badge" :class="statusClass(log.status)">{{ statusText(log.status) }}</span></td>
+              <td class="mono">{{ log.steps_completed }}/{{ log.total_steps }}</td>
+              <td class="mono">{{ formatDuration(log.started_at, log.finished_at) }}</td>
+              <td>{{ log.trigger_type === 'manual' ? '手動' : '排程' }}</td>
+              <td class="error-cell">{{ log.error || '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="logTotalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="logCurrentPage === 1" @click="handleLogPageChange(logCurrentPage - 1)">‹</button>
+        <button
+          v-for="p in logTotalPages"
+          :key="p"
+          :class="['page-btn', { active: p === logCurrentPage }]"
+          @click="handleLogPageChange(p)"
+        >{{ p }}</button>
+        <button class="page-btn" :disabled="logCurrentPage === logTotalPages" @click="handleLogPageChange(logCurrentPage + 1)">›</button>
+      </div>
     </div>
   </div>
 </template>
@@ -316,10 +382,16 @@ onMounted(() => {
   gap: 12px;
 }
 
+.logs-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .logs-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
+  min-width: 800px;
 }
 
 .logs-table thead { background: var(--bg-surface, #1e2a3f); }
@@ -366,6 +438,47 @@ onMounted(() => {
 .st-ok { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
 .st-run { background: rgba(234, 179, 8, 0.1); color: #eab308; }
 .st-err { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+.sortable-th:hover {
+  color: #e5a91a;
+}
+.sort-icon {
+  font-size: 0.7rem;
+  color: var(--text-muted, #556178);
+  margin-left: 2px;
+}
+.sortable-th:hover .sort-icon {
+  color: #e5a91a;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 0 0;
+}
+
+.page-btn {
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid var(--border, #243049);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #8c9ab5);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.page-btn:hover:not(:disabled) { border-color: #e5a91a; color: #e5a91a; }
+.page-btn.active { background: #e5a91a; color: #0e1525; border-color: #e5a91a; font-weight: 700; }
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* Sector tags */
 .tags-card { margin-top: 24px; }

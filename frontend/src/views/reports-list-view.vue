@@ -12,7 +12,7 @@ const searchKeyword = ref('')
 const confidenceFilter = ref('')
 const expandedIds = ref<Set<number>>(new Set())
 const currentPage = ref(1)
-const pageSize = 10
+const pageSize = 5
 
 const filteredReports = computed(() => {
   return reports.value.filter((report) => {
@@ -179,30 +179,54 @@ onMounted(() => {
         </div>
 
         <div class="report-preview">
-          <span class="rec-label">建議:</span>
-          <span class="rec-text">{{ report.recommendation }}</span>
+          <div class="rec-label">建議:</div>
+          <ul class="rec-list">
+            <li v-for="(line, idx) in report.recommendation.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
+              {{ line.trim() }}
+            </li>
+          </ul>
         </div>
 
         <div v-if="isExpanded(report.id)" class="report-details">
           <div class="detail-section">
             <h4>💰 籌碼分析</h4>
-            <p>{{ report.chip_analysis }}</p>
+            <ul class="detail-list">
+              <li v-for="(line, idx) in report.chip_analysis.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
+                {{ line.trim() }}
+              </li>
+            </ul>
           </div>
           <div class="detail-section">
             <h4>📊 基本面分析</h4>
-            <p>{{ report.fundamental_analysis }}</p>
+            <ul class="detail-list">
+              <li v-for="(line, idx) in report.fundamental_analysis.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
+                {{ line.trim() }}
+              </li>
+            </ul>
           </div>
           <div class="detail-section">
             <h4>📈 技術面分析</h4>
-            <p>{{ report.technical_analysis }}</p>
+            <ul class="detail-list">
+              <li v-for="(line, idx) in report.technical_analysis.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
+                {{ line.trim() }}
+              </li>
+            </ul>
           </div>
           <div class="detail-section">
             <h4>📰 新聞情緒</h4>
-            <p>{{ report.news_sentiment }}</p>
+            <ul class="detail-list">
+              <li v-for="(line, idx) in report.news_sentiment.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
+                {{ line.trim() }}
+              </li>
+            </ul>
           </div>
           <div class="detail-section" v-if="report.news_summary">
             <h4>📰 新聞摘要</h4>
-            <p>{{ report.news_summary }}</p>
+            <ul class="detail-list">
+              <li v-for="(line, idx) in report.news_summary.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
+                {{ line.trim() }}
+              </li>
+            </ul>
           </div>
           <div class="detail-section" v-if="report.risk_alerts && report.risk_alerts.length > 0">
             <h4 style="color: var(--down)">⚠️ 風險警示</h4>
@@ -359,12 +383,23 @@ onMounted(() => {
 .rec-label {
   font-weight: 600;
   color: var(--amber);
-  margin-right: 8px;
+  margin-bottom: 8px;
 }
-.rec-text {
+
+.rec-list {
+  margin: 0;
+  padding-left: 20px;
   color: var(--text-secondary);
   font-size: 0.88rem;
   line-height: 1.6;
+}
+
+.rec-list li {
+  margin-bottom: 4px;
+}
+
+.rec-list li:last-child {
+  margin-bottom: 0;
 }
 
 .report-details {
@@ -383,13 +418,23 @@ onMounted(() => {
   font-size: 0.92rem;
   font-weight: 700;
   color: var(--text);
-  margin: 0 0 6px 0;
+  margin: 0 0 8px 0;
 }
-.detail-section p {
-  font-size: 0.88rem;
-  color: var(--text-secondary);
-  line-height: 1.75;
+
+.detail-list {
   margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.75;
+}
+
+.detail-list li {
+  margin-bottom: 4px;
+}
+
+.detail-list li:last-child {
+  margin-bottom: 0;
 }
 
 .risk-list {

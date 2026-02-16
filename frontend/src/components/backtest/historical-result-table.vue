@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 interface PerformanceData {
@@ -19,6 +19,11 @@ interface Props {
 const props = defineProps<Props>()
 const router = useRouter()
 
+const sortKey = ref<string>('')
+const sortOrder = ref<'asc' | 'desc'>('asc')
+const currentPage = ref(1)
+const pageSize = 10
+
 const hasPartialNA = computed(() => {
   if (props.data.length === 0) return false
   const all5d = props.data.every(r => r.return_5d == null)
@@ -26,6 +31,46 @@ const hasPartialNA = computed(() => {
   const all20d = props.data.every(r => r.return_20d == null)
   return (all5d || all10d || all20d) && !(all5d && all10d && all20d)
 })
+
+const sortedData = computed(() => {
+  if (!sortKey.value) return props.data
+  const arr = [...props.data]
+  const key = sortKey.value as keyof PerformanceData
+  const dir = sortOrder.value === 'asc' ? 1 : -1
+  arr.sort((a, b) => {
+    const va = a[key] ?? -Infinity
+    const vb = b[key] ?? -Infinity
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+    return String(va).localeCompare(String(vb)) * dir
+  })
+  return arr
+})
+
+const totalPages = computed(() => Math.ceil(sortedData.value.length / pageSize))
+
+const pagedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return sortedData.value.slice(start, start + pageSize)
+})
+
+function toggleSort(key: string) {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortOrder.value = 'desc'
+  }
+  currentPage.value = 1
+}
+
+function sortIcon(key: string): string {
+  if (sortKey.value !== key) return '⇅'
+  return sortOrder.value === 'asc' ? '↑' : '↓'
+}
+
+function handlePageChange(page: number) {
+  currentPage.value = page
+}
 
 function formatReturn(val: number): string {
   const sign = val >= 0 ? '+' : ''
@@ -57,17 +102,27 @@ function navigateToStock(stockId: string) {
         <thead>
           <tr>
             <th>排名</th>
-            <th>代碼</th>
+            <th class="sortable-th" @click="toggleSort('stock_id')">
+              代碼 <span class="sort-icon">{{ sortIcon('stock_id') }}</span>
+            </th>
             <th>股票名稱</th>
-            <th class="num">總分</th>
-            <th class="num">5日報酬</th>
-            <th class="num">10日報酬</th>
-            <th class="num">20日報酬</th>
+            <th class="num sortable-th" @click="toggleSort('total_score')">
+              總分 <span class="sort-icon">{{ sortIcon('total_score') }}</span>
+            </th>
+            <th class="num sortable-th" @click="toggleSort('return_5d')">
+              5日報酬 <span class="sort-icon">{{ sortIcon('return_5d') }}</span>
+            </th>
+            <th class="num sortable-th" @click="toggleSort('return_10d')">
+              10日報酬 <span class="sort-icon">{{ sortIcon('return_10d') }}</span>
+            </th>
+            <th class="num sortable-th" @click="toggleSort('return_20d')">
+              20日報酬 <span class="sort-icon">{{ sortIcon('return_20d') }}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(row, idx) in data" :key="row.stock_id">
-            <td class="rank">{{ idx + 1 }}</td>
+          <tr v-for="(row, idx) in pagedData" :key="row.stock_id">
+            <td class="rank">{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
             <td>
               <span class="stock-code clickable" @click="navigateToStock(row.stock_id)">
                 {{ row.stock_id }}
@@ -98,6 +153,18 @@ function navigateToStock(stockId: string) {
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pagination -->
+    <div v-if="totalPages > 1" class="pagination">
+      <button class="page-btn" :disabled="currentPage === 1" @click="handlePageChange(currentPage - 1)">‹</button>
+      <button
+        v-for="p in totalPages"
+        :key="p"
+        :class="['page-btn', { active: p === currentPage }]"
+        @click="handlePageChange(p)"
+      >{{ p }}</button>
+      <button class="page-btn" :disabled="currentPage === totalPages" @click="handlePageChange(currentPage + 1)">›</button>
     </div>
   </div>
 </template>
@@ -152,4 +219,46 @@ function navigateToStock(stockId: string) {
 .return-val.up { color: var(--up); }
 .return-val.down { color: var(--down); }
 .return-val.na { color: var(--text-muted); }
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.sortable-th:hover {
+  color: var(--amber);
+}
+.sort-icon {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+.sortable-th:hover .sort-icon {
+  color: var(--amber);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 0 8px;
+}
+
+.page-btn {
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); }
+.page-btn.active { background: var(--amber); color: var(--bg-dark); border-color: var(--amber); font-weight: 700; }
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 </style>

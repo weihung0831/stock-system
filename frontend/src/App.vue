@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSettingsStore } from '@/stores/settings-store'
 import AppSidebar from '@/components/layout/app-sidebar.vue'
 import AppHeader from '@/components/layout/app-header.vue'
+import ScrollToTop from '@/components/shared/scroll-to-top.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 const isLoginPage = computed(() => route.path === '/login')
+const sidebarVisible = ref(false)
 
 onMounted(async () => {
   if (authStore.token) {
@@ -18,6 +20,18 @@ onMounted(async () => {
     await settingsStore.loadFromBackend()
   }
 })
+
+// Toggle sidebar on mobile
+const toggleSidebar = () => {
+  sidebarVisible.value = !sidebarVisible.value
+}
+
+// Close sidebar when clicking outside on mobile
+const closeSidebar = () => {
+  if (window.innerWidth <= 768) {
+    sidebarVisible.value = false
+  }
+}
 </script>
 
 <template>
@@ -26,17 +40,24 @@ onMounted(async () => {
 
   <!-- App layout with sidebar + header -->
   <el-container v-else class="app-layout">
-    <el-aside width="240px" class="app-aside">
-      <AppSidebar />
+    <!-- Overlay for mobile -->
+    <div v-if="sidebarVisible" class="sidebar-overlay" @click="closeSidebar"></div>
+
+    <!-- Sidebar -->
+    <el-aside :class="['app-aside', { 'mobile-visible': sidebarVisible }]" width="240px">
+      <AppSidebar @navigate="closeSidebar" />
     </el-aside>
+
     <el-container>
       <el-header class="app-header-wrapper" height="56px">
-        <AppHeader />
+        <AppHeader :sidebar-visible="sidebarVisible" @toggle-sidebar="toggleSidebar" />
       </el-header>
       <el-main class="app-main">
         <router-view />
       </el-main>
     </el-container>
+
+    <ScrollToTop />
   </el-container>
 </template>
 
@@ -309,13 +330,45 @@ input, select, button { font-family: inherit; font-size: inherit; }
 /* ========== Page animation ========== */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
+/* Sidebar overlay for mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+}
+
 /* ========== Responsive ========== */
 @media (max-width: 1024px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-grid { grid-template-columns: 1fr; }
   .detail-grid { grid-template-columns: 1fr; }
 }
+
 @media (max-width: 768px) {
+  /* Hide sidebar by default on mobile */
+  .app-aside {
+    position: fixed;
+    left: -240px;
+    top: 0;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    height: 100vh;
+  }
+
+  /* Show sidebar when mobile-visible */
+  .app-aside.mobile-visible {
+    left: 0;
+  }
+
+  /* Show overlay when sidebar is visible */
+  .mobile-visible ~ .sidebar-overlay,
+  .sidebar-overlay {
+    display: block;
+  }
+
   .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .stat-card { padding: 14px; }
   .stat-card .stat-value { font-size: 1.3rem; }

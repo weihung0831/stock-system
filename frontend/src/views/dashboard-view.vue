@@ -167,7 +167,9 @@ onMounted(async () => {
         每日精選排行
         <span class="badge">TOP {{ top30.length }}</span>
       </div>
-      <div class="category-tabs">
+
+      <!-- Desktop: tabs -->
+      <div class="category-tabs desktop-only">
         <div
           v-for="tab in categoryTabs"
           :key="tab.key"
@@ -179,6 +181,21 @@ onMounted(async () => {
           <span class="cat-count">{{ tab.count }}</span>
         </div>
       </div>
+
+      <!-- Mobile: dropdown -->
+      <select
+        v-model="activeSector"
+        class="category-select mobile-only"
+        @change="currentPage = 1"
+      >
+        <option
+          v-for="tab in categoryTabs"
+          :key="tab.key"
+          :value="tab.key"
+        >
+          {{ tab.label }} ({{ tab.count }})
+        </option>
+      </select>
     </div>
 
     <!-- Stock ranking table -->
@@ -249,6 +266,86 @@ onMounted(async () => {
 <style scoped>
 .dashboard-page {
   padding: 24px 28px;
+}
+
+/* Desktop/Mobile toggle */
+.desktop-only {
+  display: flex;
+}
+
+.mobile-only {
+  display: none;
+}
+
+/* Category select dropdown */
+.category-select {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.category-select:hover {
+  border-color: var(--border-light);
+}
+
+.category-select:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px rgba(229, 169, 26, 0.1);
+}
+
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 16px 16px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-title {
+    font-size: 0.95rem;
+  }
+
+  /* Hide desktop tabs, show mobile select */
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .category-select {
+    margin-top: 8px;
+  }
+
+  /* Pagination adjustments for mobile */
+  .pagination {
+    gap: 6px;
+    padding: 12px 0 6px;
+  }
+
+  .page-btn {
+    min-width: 40px;
+    height: 40px;
+    font-size: 15px;
+  }
+
+  .page-btn.active {
+    font-size: 16px;
+    font-weight: 900;
+    color: #0e1525 !important;
+  }
 }
 
 .section-header {

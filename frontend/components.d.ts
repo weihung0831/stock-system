@@ -33,6 +33,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SchedulerConfigForm: typeof import('./src/components/settings/scheduler-config-form.vue')['default']
     ScreeningResultTable: typeof import('./src/components/screening/screening-result-table.vue')['default']
+    ScrollToTop: typeof import('./src/components/shared/scroll-to-top.vue')['default']
     SectorFilterTabs: typeof import('./src/components/dashboard/sector-filter-tabs.vue')['default']
     SectorTag: typeof import('./src/components/shared/sector-tag.vue')['default']
     StockRankingTable: typeof import('./src/components/dashboard/stock-ranking-table.vue')['default']

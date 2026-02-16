@@ -26,6 +26,11 @@ function initChart() {
   const marginBalance = props.data.map((d) => d.margin_balance)
   const shortBalance = props.data.map((d) => d.short_balance)
 
+  // 檢測是否為手機版
+  const isMobile = window.innerWidth <= 768
+  const legendTop = isMobile ? -5 : 4
+  const gridTop = isMobile ? 55 : 40
+
   chartInstance.setOption({
     backgroundColor: 'transparent',
     tooltip: {
@@ -37,9 +42,9 @@ function initChart() {
     legend: {
       data: ['融資餘額', '融券餘額'],
       textStyle: { color: '#8c9ab5', fontSize: 11 },
-      top: 4,
+      top: legendTop,
     },
-    grid: { left: 60, right: 60, top: 40, bottom: 40 },
+    grid: { left: 60, right: 60, top: gridTop, bottom: 40 },
     xAxis: {
       type: 'category',
       data: dates,

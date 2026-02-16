@@ -49,9 +49,9 @@ function initChart() {
     legend: {
       data: ['5日報酬', '10日報酬', '20日報酬'],
       textStyle: { color: '#8c9ab5', fontSize: 11 },
-      top: 4,
+      top: -3,
     },
-    grid: { left: 60, right: 40, top: 40, bottom: 100 },
+    grid: { left: 60, right: 40, top: 50, bottom: 100 },
     xAxis: {
       type: 'category',
       data: stockNames,

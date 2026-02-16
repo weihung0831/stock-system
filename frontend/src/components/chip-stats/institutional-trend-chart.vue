@@ -28,6 +28,12 @@ function initChart() {
   const trustNet = props.data.map((d) => d.trust_net)
   const dealerNet = props.data.map((d) => d.dealer_net)
 
+  // 檢測是否為手機版
+  const isMobile = window.innerWidth <= 768
+  const legendTop = isMobile ? -5 : 4
+  const gridTop = isMobile ? 55 : 40
+  const gridBottom = isMobile ? 60 : 40
+
   chartInstance.setOption({
     backgroundColor: 'transparent',
     tooltip: {
@@ -40,9 +46,10 @@ function initChart() {
     legend: {
       data: ['外資', '投信', '自營商'],
       textStyle: { color: '#8c9ab5', fontSize: 11 },
-      top: 4,
+      top: legendTop,
     },
-    grid: { left: 60, right: 20, top: 40, bottom: 40 },
+    grid: { left: 60, right: 20, top: gridTop, bottom: gridBottom },
+    dataZoom: isMobile ? [] : undefined,
     xAxis: {
       type: 'category',
       data: dates,

@@ -8,6 +8,10 @@ const router = useRouter()
 const authStore = useAuthStore()
 const currentPath = computed(() => route.path)
 
+const emit = defineEmits<{
+  (e: 'navigate'): void
+}>()
+
 const navSections = [
   {
     label: '總覽',
@@ -39,11 +43,13 @@ function isActive(path: string) {
 
 function navigate(path: string) {
   router.push(path)
+  emit('navigate')
 }
 
 function handleLogout() {
   authStore.logout()
   router.push('/login')
+  emit('navigate')
 }
 
 const userInitial = computed(() => {
