@@ -35,8 +35,8 @@ const dateRange = computed(() => {
 const currentPrice = computed(() => {
   const prices = stockStore.prices
   if (prices.length === 0) return null
-  const latest = prices[prices.length - 1]
-  const prev = prices.length >= 2 ? prices[prices.length - 2] : null
+  const latest = prices[prices.length - 1]!
+  const prev = prices.length >= 2 ? prices[prices.length - 2]! : null
   const close = Number(latest.close) || 0
   const prevClose = prev ? Number(prev.close) || 0 : 0
   const change = prevClose > 0 ? close - prevClose : 0

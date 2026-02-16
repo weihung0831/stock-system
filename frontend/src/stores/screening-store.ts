@@ -14,7 +14,7 @@ export const useScreeningStore = defineStore('screening', () => {
     try {
       results.value = await getResults(date)
       if (results.value.length > 0) {
-        latestDate.value = results.value[0].score_date
+        latestDate.value = results.value[0]?.score_date ?? ''
         updatedAt.value = new Date().toLocaleTimeString('zh-TW', {
           hour: '2-digit', minute: '2-digit',
         })

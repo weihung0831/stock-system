@@ -23,7 +23,7 @@ const calculateKD = (prices: DailyPrice[]) => {
       return
     }
     const period = prices.slice(i - 8, i + 1)
-    const close = Number(period[period.length - 1].close)
+    const close = Number(period[period.length - 1]?.close ?? 0)
     const lowest = Math.min(...period.map(p => Number(p.low)))
     const highest = Math.max(...period.map(p => Number(p.high)))
     const rsv = ((close - lowest) / (highest - lowest)) * 100
@@ -44,7 +44,7 @@ const calculateRSI = (prices: DailyPrice[], period = 14) => {
     let gains = 0
     let losses = 0
     for (let j = i - period + 1; j <= i; j++) {
-      const change = Number(prices[j].close) - Number(prices[j - 1].close)
+      const change = Number(prices[j]?.close ?? 0) - Number(prices[j - 1]?.close ?? 0)
       if (change > 0) gains += change
       else losses += Math.abs(change)
     }

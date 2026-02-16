@@ -18,8 +18,6 @@ const factors = computed(() => {
   ]
 })
 
-const totalScore = computed(() => props.scoreResult?.total_score ?? 0)
-
 /* SVG ring: circumference = 2 * PI * 42 ≈ 263.9 */
 const CIRC = 263.9
 const ringOffset = (score: number) => CIRC - (CIRC * Math.min(score, 100) / 100)

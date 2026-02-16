@@ -59,7 +59,7 @@ onMounted(async () => {
     availableDates.value = dates
     if (dates.length > 0) {
       const backtestable = dates.find(d => d.backtestable)
-      selectedDate.value = backtestable ? backtestable.date : dates[0].date
+      selectedDate.value = backtestable ? backtestable.date : dates[0]!.date
       fetchBacktestData()
     }
   } catch {

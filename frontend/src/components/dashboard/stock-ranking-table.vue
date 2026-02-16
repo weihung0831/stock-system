@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import SectorTag from '@/components/shared/sector-tag.vue'
 import type { ScoreResult } from '@/types/screening'
 
 interface Props {

@@ -81,7 +81,7 @@ const option = computed<EChartsOption>(() => ({
       data: chartData.value.volumes.map((v, i) => ({
         value: v,
         itemStyle: {
-          color: chartData.value.ohlc[i][1] >= chartData.value.ohlc[i][0]
+          color: (chartData.value.ohlc[i]?.[1] ?? 0) >= (chartData.value.ohlc[i]?.[0] ?? 0)
             ? '#22c55e40' : '#ef444440'
         }
       })),

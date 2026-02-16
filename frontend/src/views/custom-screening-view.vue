@@ -39,10 +39,10 @@ async function handleFilterChange(filters: any) {
       <div class="stat-card">
         <div class="stat-label">最高總分</div>
         <div class="stat-value" style="color: var(--amber)">
-          {{ results.length ? results[0].total_score.toFixed(1) : '-' }}
+          {{ results.length ? results[0]!.total_score.toFixed(1) : '-' }}
         </div>
         <div class="stat-change up">
-          {{ results.length ? `${results[0].stock_id} ${results[0].stock_name}` : '' }}
+          {{ results.length ? `${results[0]!.stock_id} ${results[0]!.stock_name}` : '' }}
         </div>
       </div>
       <div class="stat-card">
