@@ -28,8 +28,8 @@ function initChart() {
 
   // 檢測是否為手機版
   const isMobile = window.innerWidth <= 768
-  const legendTop = isMobile ? -5 : 4
-  const gridTop = isMobile ? 55 : 40
+  const legendTop = isMobile ? -5 : 0
+  const gridTop = isMobile ? 55 : 35
 
   chartInstance.setOption({
     backgroundColor: 'transparent',

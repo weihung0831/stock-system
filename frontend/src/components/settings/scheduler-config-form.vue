@@ -102,6 +102,7 @@ onMounted(fetchSettings)
 .scheduler-form {
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
 .form-row {
@@ -186,9 +187,9 @@ onMounted(fetchSettings)
 .form-actions {
   display: flex;
   gap: 12px;
-  justify-content: flex-end;
+  justify-content: center;
   padding-top: 16px;
-  margin-top: 4px;
+  margin-top: auto;
 }
 
 .btn-primary {

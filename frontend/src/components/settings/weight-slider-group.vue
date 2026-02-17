@@ -333,7 +333,7 @@ watch(
   display: flex;
   gap: 12px;
   margin-top: 20px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .btn-primary {

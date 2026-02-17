@@ -305,6 +305,8 @@ onMounted(() => {
   border: 1px solid var(--border, #243049);
   border-radius: 10px;
   padding: 28px;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-card h3 {
