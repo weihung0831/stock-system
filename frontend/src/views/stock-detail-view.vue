@@ -55,11 +55,14 @@ const loadStockData = async () => {
   report.value = null
   const id = stockId.value
   try {
-    await Promise.all([
-      stockStore.fetchPrices(id, dateRange.value.start, dateRange.value.end),
-      getStockScore(id).then(data => { scoreResult.value = data }),
+    // Score first — triggers on-demand data fetch for non-pipeline stocks
+    const [scoreData] = await Promise.all([
+      getStockScore(id),
       getStockReport(id).then(data => { report.value = data }).catch(() => { report.value = null })
     ])
+    scoreResult.value = scoreData
+    // Fetch prices after on-demand data is populated
+    await stockStore.fetchPrices(id, dateRange.value.start, dateRange.value.end)
   } catch (error) {
     console.error('載入股票資料失敗:', error)
   } finally {

@@ -270,6 +270,9 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
 
 個股詳情 → GET /screening/results/{stock_id} → score_single_stock() 即時算分
   ├─ 自動按需抓取缺失資料 (OnDemandDataFetcher)
+  ├─ **循序資料載入模式**（避免競態條件）
+  │  ├─ 步驟 1: getStockScore() → 觸發按需資料抓取（非 Pipeline 股票）
+  │  └─ 步驟 2: fetchPrices() → 確保抓取完整 6 個月價格資料
   ├─ 三因子雷達圖 + 子指標明細 + AI 摘要
   └─ 支援搜尋欄直接輸入股票代碼/名稱導航
 
@@ -364,6 +367,11 @@ cd frontend && npm run dev
 - `reports.py`: 無報告時回傳 null（非 404）
 - `stock_service.py`: 搜尋結果排除 6+ 位代碼權證
 - `stock-detail-view.vue`: 使用 watch + immediate 取代 onMounted，修正同元件路由切換不刷新
+- **個股詳情頁資料載入順序修正**（`stock-detail-view.vue`）
+  - 問題：非 Pipeline 股票（搜尋欄查詢）僅顯示 1 天價格資料，而非完整 6 個月
+  - 原因：`getStockScore()` 與 `fetchPrices()` 並行執行（Promise.all），價格查詢在按需資料抓取完成前就執行
+  - 解決：改為循序執行 → 先呼叫 `getStockScore()`（觸發 `OnDemandDataFetcher`），待資料填充後再執行 `fetchPrices()`
+  - 影響：確保所有透過搜尋欄查詢的個股都能取得完整歷史價格資料進行圖表繪製
 
 ### 2026-02-17: Pipeline 簡化與新聞架構優化
 

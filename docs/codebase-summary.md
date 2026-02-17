@@ -565,6 +565,10 @@ API 路由器測試 (計畫)
 **Bug 修正**
 - stocks/reports router: 無資料回傳空值（非 404）
 - stock-detail-view: watch + immediate 修正路由切換不刷新
+- **競態條件修正**（`stock-detail-view.vue`）
+  - 問題：非 Pipeline 股票（搜尋欄查詢）僅顯示 1 天價格資料
+  - 修復：`getStockScore()` 與 `fetchPrices()` 從並行改為循序執行
+  - 結果：確保按需資料抓取完成後再查詢價格，取得完整 6 個月歷史資料
 
 ### 2026-02-17: Pipeline 簡化與新聞架構優化 + UI 體驗優化
 
