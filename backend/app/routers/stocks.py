@@ -80,13 +80,6 @@ def get_stock_price_history(
         List of daily price records
     """
     prices = get_stock_prices(db, stock_id, start_date, end_date)
-
-    if not prices:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No price data found for stock {stock_id}"
-        )
-
     return prices
 
 
@@ -112,13 +105,6 @@ def get_stock_institutional_data(
         List of institutional investor records
     """
     data = get_stock_institutional(db, stock_id, start_date, end_date)
-
-    if not data:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No institutional data found for stock {stock_id}"
-        )
-
     return data
 
 
@@ -144,11 +130,4 @@ def get_stock_margin_data(
         List of margin trading records
     """
     data = get_stock_margin(db, stock_id, start_date, end_date)
-
-    if not data:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No margin trading data found for stock {stock_id}"
-        )
-
     return data

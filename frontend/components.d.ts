@@ -24,6 +24,7 @@ declare module 'vue' {
     ElMain: typeof import('element-plus/es')['ElMain']
     FactorScoreCard: typeof import('./src/components/stock-detail/factor-score-card.vue')['default']
     FilterBuilderForm: typeof import('./src/components/screening/filter-builder-form.vue')['default']
+    HeaderStockSearch: typeof import('./src/components/layout/header-stock-search.vue')['default']
     HistoricalResultTable: typeof import('./src/components/backtest/historical-result-table.vue')['default']
     InstitutionalTrendChart: typeof import('./src/components/chip-stats/institutional-trend-chart.vue')['default']
     LlmReportPanel: typeof import('./src/components/stock-detail/llm-report-panel.vue')['default']

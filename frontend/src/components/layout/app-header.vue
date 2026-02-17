@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import HeaderStockSearch from './header-stock-search.vue'
 
 const route = useRoute()
 
@@ -44,6 +45,9 @@ const pageTitle = computed(() => {
       </button>
       <div class="header-title">{{ pageTitle }}</div>
     </div>
+    <div class="header-center">
+      <HeaderStockSearch />
+    </div>
     <div class="header-meta">
       <div class="status-dot" />
       <span class="meta-text">系統運行中</span>
@@ -66,6 +70,13 @@ const pageTitle = computed(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+}
+
+.header-center {
+  flex: 1;
+  max-width: 400px;
+  margin: 0 16px;
 }
 
 .mobile-menu-btn {
@@ -131,6 +142,10 @@ const pageTitle = computed(() => {
 
   .header-title {
     font-size: 1rem;
+  }
+
+  .header-center {
+    display: none;
   }
 }
 </style>

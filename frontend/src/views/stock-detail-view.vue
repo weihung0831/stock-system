@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStockStore } from '@/stores/stock-store'
 import { getStockScore } from '@/api/screening-api'
@@ -15,7 +15,7 @@ import type { LLMReport } from '@/types/report'
 const route = useRoute()
 const router = useRouter()
 const stockStore = useStockStore()
-const stockId = route.params.id as string
+const stockId = computed(() => route.params.id as string)
 
 const loading = ref(true)
 const generating = ref(false)
@@ -51,11 +51,14 @@ const priceClass = computed(() => {
 
 const loadStockData = async () => {
   loading.value = true
+  scoreResult.value = null
+  report.value = null
+  const id = stockId.value
   try {
     await Promise.all([
-      stockStore.fetchPrices(stockId, dateRange.value.start, dateRange.value.end),
-      getStockScore(stockId).then(data => { scoreResult.value = data }),
-      getStockReport(stockId).then(data => { report.value = data }).catch(() => { report.value = null })
+      stockStore.fetchPrices(id, dateRange.value.start, dateRange.value.end),
+      getStockScore(id).then(data => { scoreResult.value = data }),
+      getStockReport(id).then(data => { report.value = data }).catch(() => { report.value = null })
     ])
   } catch (error) {
     console.error('載入股票資料失敗:', error)
@@ -67,7 +70,7 @@ const loadStockData = async () => {
 const handleGenerateReport = async () => {
   generating.value = true
   try {
-    report.value = await generateStockReport(stockId)
+    report.value = await generateStockReport(stockId.value)
   } catch (error) {
     console.error('產生 AI 分析失敗:', error)
   } finally {
@@ -75,9 +78,10 @@ const handleGenerateReport = async () => {
   }
 }
 
-onMounted(() => {
+// Load on mount + reload when route param changes (same component reused)
+watch(() => route.params.id, () => {
   loadStockData()
-})
+}, { immediate: true })
 </script>
 
 <template>

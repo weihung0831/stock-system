@@ -3,7 +3,7 @@ import logging
 from typing import List, Optional
 from datetime import date
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from app.models.stock import Stock
 from app.models.daily_price import DailyPrice
@@ -40,6 +40,9 @@ def get_stocks(
                 Stock.stock_name.contains(search)
             )
         )
+
+    # Exclude warrants/structured products (6+ digit codes)
+    query = query.filter(func.length(Stock.stock_id) <= 5)
 
     total = query.count()
     stocks = query.offset(skip).limit(limit).all()

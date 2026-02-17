@@ -235,15 +235,18 @@ def get_results(
 def get_stock_score(
     stock_id: str,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: Annotated[User, Depends(get_current_user)],
+    fetch_data: bool = True
 ):
     """
     Get single stock score details with breakdown.
+    Auto-fetches missing data from FinMind if fetch_data=True.
 
     Args:
         stock_id: Stock ID
         db: Database session
         current_user: Authenticated user
+        fetch_data: If True, fetch missing data on-demand before scoring
 
     Returns:
         Detailed score breakdown for the stock
@@ -256,6 +259,13 @@ def get_stock_score(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Stock {stock_id} not found"
             )
+
+        # On-demand fetch missing data before scoring
+        if fetch_data:
+            from app.services.on_demand_data_fetcher import OnDemandDataFetcher
+            fetcher = OnDemandDataFetcher(db)
+            fetch_result = fetcher.fetch_missing_data(stock_id)
+            logger.info(f"On-demand fetch for {stock_id}: {fetch_result}")
 
         # Calculate fresh score
         engine = ScoringEngine()

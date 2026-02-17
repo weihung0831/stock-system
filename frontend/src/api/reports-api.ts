@@ -7,8 +7,8 @@ export async function getLatestReports(): Promise<LLMReport[]> {
   return data
 }
 
-export async function getStockReport(stockId: string): Promise<LLMReport> {
-  const { data } = await apiClient.get<LLMReport>(`/reports/${stockId}`)
+export async function getStockReport(stockId: string): Promise<LLMReport | null> {
+  const { data } = await apiClient.get<LLMReport | null>(`/reports/${stockId}`)
   return data
 }
 

@@ -1,6 +1,6 @@
 """LLM report endpoints."""
 import logging
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -148,7 +148,7 @@ def generate_stock_report(
         raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
 
 
-@router.get("/{stock_id}", response_model=LLMReportResponse)
+@router.get("/{stock_id}", response_model=Optional[LLMReportResponse])
 def get_stock_report(
     stock_id: str,
     db: Annotated[Session, Depends(get_db)],
@@ -178,10 +178,7 @@ def get_stock_report(
         )
 
         if not row:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No report found for stock {stock_id}"
-            )
+            return None
 
         report, stock_name = row
         report.stock_name = stock_name or stock_id

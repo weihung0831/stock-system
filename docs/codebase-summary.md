@@ -42,7 +42,7 @@ stock-system/
 │   │   │   ├── custom_screening.py   # /api/custom-screening/* (自訂篩選)
 │   │   │   ├── chip_stats.py         # /api/chip-stats/* (籌碼統計)
 │   │   │   └── backtest.py           # /api/backtest/* (回測+評分日期)
-│   │   ├── services/                 # 18 個業務邏輯服務
+│   │   ├── services/                 # 19 個業務邏輯服務
 │   │   │   ├── auth_service.py       # JWT & Bcrypt 認證
 │   │   │   ├── finmind_collector.py  # FinMind API 整合
 │   │   │   ├── news_collector.py     # Google News RSS 爬蟲
@@ -60,6 +60,7 @@ stock-system/
 │   │   │   ├── llm_analyzer.py       # AI 分析 (新聞摘要，0.5s 速率限制)
 │   │   │   ├── gemini_client.py      # Google Gemini API 包裝
 │   │   │   ├── news_preparator.py    # 新聞預處理
+│   │   │   ├── on_demand_data_fetcher.py # 按需資料抓取 (非 Pipeline 股票)
 │   │   │   └── prompt_templates.py   # LLM 提示詞範本
 │   │   └── tasks/                    # 5 個自動化任務檔案
 │   │       ├── daily_pipeline.py     # 日常流程協調 (3步驟，16:30 執行)
@@ -95,7 +96,8 @@ stock-system/
 │   │   │   └── settings-view.vue     # 系統設定
 │   │   ├── components/               # 20 個可重用元件
 │   │   │   ├── layout/
-│   │   │   │   ├── app-header.vue    # 頂部導航欄
+│   │   │   │   ├── app-header.vue    # 頂部導航欄 (含搜尋欄)
+│   │   │   │   ├── header-stock-search.vue # 股票搜尋 (autocomplete)
 │   │   │   │   └── app-sidebar.vue   # 側邊欄菜單
 │   │   │   ├── dashboard/
 │   │   │   │   ├── stock-ranking-table.vue # 排名表格
@@ -550,6 +552,20 @@ API 路由器測試 (計畫)
 
 ## 近期更新摘要
 
+### 2026-02-17: 股票搜尋 + 按需資料抓取
+
+**新功能：Header 股票搜尋**
+- `header-stock-search.vue`: debounced autocomplete 搜尋欄，支援鍵盤導航
+- 整合至 `app-header.vue`，過濾 6+ 位代碼（排除權證）
+
+**新功能：按需資料抓取**
+- `on_demand_data_fetcher.py`: 查看非 Pipeline 股票時自動從 FinMind 抓取缺失資料
+- 支援 prices / institutional / margin / revenue / financial
+
+**Bug 修正**
+- stocks/reports router: 無資料回傳空值（非 404）
+- stock-detail-view: watch + immediate 修正路由切換不刷新
+
 ### 2026-02-17: Pipeline 簡化與新聞架構優化 + UI 體驗優化
 
 **Pipeline 架構變更（5步驟 → 3步驟）**
@@ -606,4 +622,4 @@ API 路由器測試 (計畫)
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
 **最後更新**: 2026-02-17
-**版本**: 1.4
+**版本**: 1.5

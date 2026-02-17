@@ -25,6 +25,8 @@ export const useStockStore = defineStore('stock', () => {
     loading.value = true
     try {
       prices.value = await getStockPrices(stockId, startDate, endDate)
+    } catch {
+      prices.value = []
     } finally {
       loading.value = false
     }

@@ -44,13 +44,14 @@
 │  │   ├─ fundamental_scorer.py 基本面評分                       │
 │  │   └─ technical_scorer.py   技術面評分                       │
 │  ├─ hard_filter.py         硬篩選 (量能異常 + Top N)            │
+│  ├─ on_demand_data_fetcher.py 按需資料抓取 (非 Pipeline 股票)   │
 │  ├─ twse_collector.py      TWSE 資料收集 (免費)                 │
 │  ├─ finmind_collector.py   FinMind 資料收集 (財報/營收)          │
 │  ├─ news_collector.py      新聞抓取                            │
 │  ├─ llm_analyzer.py        LLM 分析 (Gemini)                  │
 │  ├─ gemini_client.py       Gemini API 客戶端                   │
 │  ├─ backtest_service.py    回測邏輯                            │
-│  ├─ stock_service.py       股票查詢服務                         │
+│  ├─ stock_service.py       股票查詢服務 (含權證過濾)              │
 │  ├─ auth_service.py        JWT 認證服務                        │
 │  └─ rate_limiter.py        API 限速器                          │
 │                                                             │
@@ -267,8 +268,15 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
   ├─ 顯示計數：「共 X 檔，顯示 Y 檔」
   └─ 每張卡片：排名 + 股票名 + 總分 + 三因子分數 + 收盤價 + 漲跌幅
 
-個股詳情 → GET /screening/{stock_id} → score_single_stock() 即時算分
-  └─ 三因子雷達圖 + 子指標明細 + AI 摘要
+個股詳情 → GET /screening/results/{stock_id} → score_single_stock() 即時算分
+  ├─ 自動按需抓取缺失資料 (OnDemandDataFetcher)
+  ├─ 三因子雷達圖 + 子指標明細 + AI 摘要
+  └─ 支援搜尋欄直接輸入股票代碼/名稱導航
+
+搜尋功能 → GET /stocks?search=xxx → 股票清單搜尋
+  ├─ Header 搜尋欄 (debounced autocomplete)
+  ├─ 過濾 6+ 位代碼 (排除權證/結構化商品)
+  └─ 點擊導航至個股詳情頁
 
 設定頁面 → GET/PUT /screening/settings → SystemSetting 表
   ├─ 三滑桿調權重（總和自動維持 100%）
@@ -339,6 +347,24 @@ cd frontend && npm run dev
 
 ## 新增功能與改進
 
+### 2026-02-17: 股票搜尋 + 按需資料抓取
+
+**新功能：Header 股票搜尋**
+- `header-stock-search.vue`: 搜尋欄位 + debounced autocomplete + 鍵盤導航
+- 整合至 `app-header.vue`，支援股票代碼/名稱模糊搜尋
+- 過濾 6+ 位代碼（排除權證/結構化商品）
+
+**新功能：按需資料抓取 (OnDemandDataFetcher)**
+- `on_demand_data_fetcher.py`: 檢查資料新鮮度 → 缺失時從 FinMind 即時抓取
+- 支援 5 種資料：prices / institutional / margin / revenue / financial
+- 整合至 `GET /screening/results/{stock_id}` endpoint
+
+**Bug 修正**
+- `stocks.py`: prices/institutional/margin 無資料時回傳空陣列（非 404）
+- `reports.py`: 無報告時回傳 null（非 404）
+- `stock_service.py`: 搜尋結果排除 6+ 位代碼權證
+- `stock-detail-view.vue`: 使用 watch + immediate 取代 onMounted，修正同元件路由切換不刷新
+
 ### 2026-02-17: Pipeline 簡化與新聞架構優化
 
 **Pipeline 架構變更（5步驟 → 3步驟）**
@@ -389,4 +415,4 @@ cd frontend && npm run dev
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
 **最後更新**: 2026-02-17
-**版本**: 2.3
+**版本**: 2.4
