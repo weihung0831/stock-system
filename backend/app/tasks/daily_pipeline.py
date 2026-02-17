@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.pipeline_log import PipelineLog
 from app.models.system_setting import SystemSetting
-from app.tasks.data_fetch_steps import step_fetch_stock_data, step_fetch_news
+from app.tasks.data_fetch_steps import step_fetch_stock_data
 from app.tasks.analysis_steps import step_hard_filter, step_scoring
 
 logger = logging.getLogger(__name__)
@@ -91,10 +91,9 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
 
     Pipeline steps:
     1. Fetch stock data (prices, institutional, margin)
-    2. Fetch news articles
-    3. Hard filter candidates by volume
-    4. Calculate composite scores
-    5. Generate LLM analysis for top stocks
+    2. Hard filter candidates by volume
+    3. Calculate composite scores
+    News is fetched on-demand during LLM report generation.
 
     Args:
         trigger_type: "scheduled" or "manual"
@@ -124,7 +123,7 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
             started_at=now_taipei(),
             status="running",
             steps_completed=0,
-            total_steps=4,
+            total_steps=3,
             trigger_type=trigger_type
         )
         db.add(pipeline_log)
@@ -137,7 +136,7 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
         errors = []
 
         # Step 1: Fetch stock data
-        logger.info("Step 1/4: Fetching stock data")
+        logger.info("Step 1/3: Fetching stock data")
         result = step_fetch_stock_data(db, date_str)
         if result["success"]:
             pipeline_log.steps_completed = 1
@@ -147,30 +146,19 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
             errors.append(f"Step 1: {result['message']}")
             logger.error(f"Stock data fetch failed: {result['message']}")
 
-        # Step 2: Fetch news
-        logger.info("Step 2/4: Fetching news")
-        result = step_fetch_news(db)
-        if result["success"]:
-            pipeline_log.steps_completed = 2
-            db.commit()
-            logger.info("News fetch completed")
-        else:
-            errors.append(f"Step 2: {result['message']}")
-            logger.error(f"News fetch failed: {result['message']}")
-
-        # Step 3: Hard filter
-        logger.info("Step 3/4: Running hard filter")
+        # Step 2: Hard filter
+        logger.info("Step 2/3: Running hard filter")
         result = step_hard_filter(db, date_str, threshold=2.5)
         candidates = result.get("candidates", [])
         if result["success"]:
-            pipeline_log.steps_completed = 3
+            pipeline_log.steps_completed = 2
             db.commit()
             logger.info(f"Hard filter completed: {len(candidates)} candidates")
         else:
-            errors.append(f"Step 3: {result['message']}")
+            errors.append(f"Step 2: {result['message']}")
             logger.error(f"Hard filter failed: {result['message']}")
 
-        # Step 4: Scoring (only if we have candidates)
+        # Step 3: Scoring (only if we have candidates)
         # Read user-configured weights from DB settings
         settings_row = db.query(SystemSetting).first()
         if settings_row:
@@ -184,18 +172,18 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
             user_weights = None  # will fallback to defaults in step_scoring
 
         if candidates:
-            logger.info("Step 4/4: Running scoring engine")
+            logger.info("Step 3/3: Running scoring engine")
             result = step_scoring(db, candidates, date_str, weights=user_weights)
             if result["success"]:
-                pipeline_log.steps_completed = 4
+                pipeline_log.steps_completed = 3
                 db.commit()
                 logger.info("Scoring completed")
             else:
-                errors.append(f"Step 4: {result['message']}")
+                errors.append(f"Step 3: {result['message']}")
                 logger.error(f"Scoring failed: {result['message']}")
         else:
             logger.warning("Skipping scoring: no candidates from hard filter")
-            pipeline_log.steps_completed = 4
+            pipeline_log.steps_completed = 3
             db.commit()
 
         # Finalize pipeline log

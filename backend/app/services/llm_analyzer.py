@@ -69,8 +69,8 @@ class LLMAnalyzer:
             # Gather all data
             stock_data = self._gather_stock_data(db, stock_id)
 
-            # Prepare news summary
-            news_text = self.news_prep.prepare_stock_news(db, stock_id, days=7)
+            # Prepare news summary (14 days to cover holidays/weekends)
+            news_text = self.news_prep.prepare_stock_news(db, stock_id, days=14)
 
             # Build prompt
             prompt = build_analysis_prompt(

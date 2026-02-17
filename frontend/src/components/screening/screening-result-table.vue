@@ -78,7 +78,9 @@ function openStock(row: ScoreResult) {
           <th class="sortable-th" @click="toggleSort('stock_id')">
             代號 <span class="sort-icon">{{ sortIcon('stock_id') }}</span>
           </th>
-          <th>名稱</th>
+          <th class="sortable-th" @click="toggleSort('stock_name')">
+            名稱 <span class="sort-icon">{{ sortIcon('stock_name') }}</span>
+          </th>
           <th class="sortable-th" @click="toggleSort('close_price')">
             收盤價 <span class="sort-icon">{{ sortIcon('close_price') }}</span>
           </th>

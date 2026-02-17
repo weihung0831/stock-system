@@ -54,7 +54,8 @@ class LLMClient:
         json_instruction = (
             f"\n\n請以 JSON 格式回覆，必須包含以下欄位：\n{schema_desc}\n"
             f"必填欄位: {required}\n"
-            "回覆僅包含 JSON，不要加上其他文字或 markdown。"
+            "每個欄位限制在 150 字以內，risk_alerts 最多 3 項。\n"
+            "回覆僅包含 JSON，不要加上其他文字或 markdown code fence。"
         )
 
         for attempt in range(self.max_retries):
@@ -66,19 +67,30 @@ class LLMClient:
                         {"role": "user", "content": user_prompt},
                     ],
                     temperature=0.3,
-                    max_tokens=4096,
+                    max_tokens=8192,
                 )
 
+                finish_reason = response.choices[0].finish_reason
                 content = response.choices[0].message.content
                 if not content:
-                    logger.warning(f"LLM returned empty content (attempt {attempt + 1}), finish_reason={response.choices[0].finish_reason}")
+                    logger.warning(f"LLM returned empty content (attempt {attempt + 1}), finish_reason={finish_reason}")
                     if attempt < self.max_retries - 1:
                         time.sleep(self.base_delay)
                         continue
                     return None
 
                 raw = content.strip()
-                logger.info(f"LLM API call successful (attempt {attempt + 1}), len={len(raw)}")
+                logger.info(f"LLM API call successful (attempt {attempt + 1}), len={len(raw)}, finish_reason={finish_reason}")
+
+                # Detect truncated response
+                if finish_reason == 'length':
+                    logger.warning(f"Response truncated (attempt {attempt + 1})")
+                    if attempt < self.max_retries - 1:
+                        # Retry with shorter instruction
+                        user_prompt = user_prompt + "\n\n[重要] 回覆被截斷，請大幅精簡每個欄位，每欄位最多 80 字。"
+                        time.sleep(self.base_delay)
+                        continue
+                    return None
 
                 # Strip markdown code fence if present
                 if raw.startswith("```"):

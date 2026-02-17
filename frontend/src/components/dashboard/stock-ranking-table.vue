@@ -64,7 +64,7 @@ const formatPercent = (val: number) => {
         <tr>
           <th class="sortable" @click="toggleSort('rank')"># <span class="sort-icon">{{ sortIcon('rank') }}</span></th>
           <th class="sortable" @click="toggleSort('stock_id')">代號 <span class="sort-icon">{{ sortIcon('stock_id') }}</span></th>
-          <th>名稱</th>
+          <th class="sortable" @click="toggleSort('stock_name')">名稱 <span class="sort-icon">{{ sortIcon('stock_name') }}</span></th>
           <th class="num sortable" @click="toggleSort('close_price')">收盤價 <span class="sort-icon">{{ sortIcon('close_price') }}</span></th>
           <th class="num sortable" @click="toggleSort('change_percent')">漲跌 <span class="sort-icon">{{ sortIcon('change_percent') }}</span></th>
           <th class="num sortable" @click="toggleSort('chip_score')">籌碼 <span class="sort-icon">{{ sortIcon('chip_score') }}</span></th>

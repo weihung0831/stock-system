@@ -205,7 +205,7 @@ onMounted(async () => {
           <tr>
             <th style="width: 50px">#</th>
             <th class="sortable-th" @click="toggleSort('stock_id')">代號 <span class="sort-icon">{{ sortIcon('stock_id') }}</span></th>
-            <th>名稱</th>
+            <th class="sortable-th" @click="toggleSort('stock_name')">名稱 <span class="sort-icon">{{ sortIcon('stock_name') }}</span></th>
             <th class="sortable-th" @click="toggleSort('close_price')">收盤價 <span class="sort-icon">{{ sortIcon('close_price') }}</span></th>
             <th class="sortable-th" @click="toggleSort('change_percent')">漲跌 <span class="sort-icon">{{ sortIcon('change_percent') }}</span></th>
             <th class="sortable-th" @click="toggleSort('chip_score')">籌碼 <span class="sort-icon">{{ sortIcon('chip_score') }}</span></th>

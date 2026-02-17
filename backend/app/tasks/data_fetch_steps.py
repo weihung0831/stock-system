@@ -687,41 +687,66 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
 
 
 def step_fetch_news(db: Session) -> Dict[str, Any]:
-    """Fetch latest news articles for Taiwan stocks."""
+    """Fetch latest news articles per stock from Google News RSS."""
     try:
-        logger.info("Starting news fetch")
+        logger.info("Starting per-stock news fetch")
         collector = NewsCollector()
-        articles = collector.fetch_news(
-            query="台股 OR 台灣股市", max_results=20
-        )
 
-        if not articles:
-            return {"success": True, "message": "No news articles found"}
+        # Get target stocks: priority + top volume
+        top_ids = _get_top_stocks_by_volume(db, limit=50)
+        target_ids = list(set(top_ids) | set(PRIORITY_STOCKS))
+        target_ids = [sid for sid in target_ids if sid.isdigit()]
+
+        # Build stock_id -> stock_name mapping
+        stocks = (
+            db.query(Stock.stock_id, Stock.stock_name)
+            .filter(Stock.stock_id.in_(target_ids))
+            .all()
+        )
+        stock_map = {s.stock_id: s.stock_name for s in stocks}
 
         saved_count = 0
-        for article in articles:
-            try:
-                existing = db.query(News).filter_by(
-                    url=article['url']
-                ).first()
-                if not existing:
-                    db.add(News(
-                        title=article['title'],
-                        source=article['source'],
-                        url=article['url'],
-                        published_at=datetime.fromisoformat(
-                            article['published_at']
-                        ),
-                        content=article['content']
-                    ))
-                    saved_count += 1
-            except Exception as e:
-                logger.warning(f"Failed to save article: {e}")
+        fetched_stocks = 0
+        for sid in target_ids:
+            name = stock_map.get(sid, sid)
+            # Search by "stock_id stock_name" for precise results
+            query = f"{sid} {name} 股票"
+            articles = collector.fetch_news(query=query, max_results=3)
+
+            for article in articles:
+                try:
+                    existing = db.query(News).filter_by(
+                        url=article['url']
+                    ).first()
+                    if not existing:
+                        db.add(News(
+                            stock_id=sid,
+                            title=article['title'],
+                            source=article['source'],
+                            url=article['url'],
+                            published_at=datetime.fromisoformat(
+                                article['published_at']
+                            ),
+                            content=article['content'],
+                        ))
+                        saved_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to save article for {sid}: {e}")
+
+            fetched_stocks += 1
+            # Commit periodically and brief pause to avoid rate limiting
+            if fetched_stocks % 20 == 0:
+                db.commit()
+                time.sleep(1)
+                logger.info(
+                    f"News progress: {fetched_stocks}/{len(target_ids)}, "
+                    f"saved {saved_count}"
+                )
+
         db.commit()
-        return {
-            "success": True,
-            "message": f"Saved {saved_count} new articles",
-        }
+        msg = f"Saved {saved_count} articles for {fetched_stocks} stocks"
+        logger.info(f"News fetch done: {msg}")
+        return {"success": True, "message": msg}
 
     except Exception as e:
         logger.error(f"News fetch failed: {e}", exc_info=True)

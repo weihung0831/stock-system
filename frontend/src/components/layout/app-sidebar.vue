@@ -37,7 +37,9 @@ const navSections = [
 ]
 
 function isActive(path: string) {
-  if (path === '/') return currentPath.value === '/'
+  if (path === '/') {
+    return currentPath.value === '/' || currentPath.value.startsWith('/stock/')
+  }
   return currentPath.value.startsWith(path)
 }
 
