@@ -64,8 +64,9 @@ const handleKeydown = (e: KeyboardEvent) => {
     selectedIndex.value = (selectedIndex.value - 1 + results.value.length) % results.value.length
   } else if (e.key === 'Enter') {
     e.preventDefault()
-    if (results.value[selectedIndex.value]) {
-      selectStock(results.value[selectedIndex.value])
+    const selected = results.value[selectedIndex.value]
+    if (selected) {
+      selectStock(selected)
     }
   } else if (e.key === 'Escape') {
     isOpen.value = false
