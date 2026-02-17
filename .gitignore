@@ -28,3 +28,12 @@ __pycache__/
 
 # Cache
 .ruff_cache/
+
+# Test artifacts
+coverage.json
+*.coverage
+test_output.log
+
+# Plans & reports (local only)
+plans/reports/
+frontend/plans/
