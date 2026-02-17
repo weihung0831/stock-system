@@ -93,7 +93,7 @@ stock-system/
 │   │   │   ├── reports-list-view.vue # 報告清單
 │   │   │   ├── history-backtest-view.vue # 回測歷史
 │   │   │   └── settings-view.vue     # 系統設定
-│   │   ├── components/               # 19 個可重用元件
+│   │   ├── components/               # 20 個可重用元件
 │   │   │   ├── layout/
 │   │   │   │   ├── app-header.vue    # 頂部導航欄
 │   │   │   │   └── app-sidebar.vue   # 側邊欄菜單
@@ -109,18 +109,19 @@ stock-system/
 │   │   │   │   └── llm-report-panel.vue    # AI 報告面板
 │   │   │   ├── screening/
 │   │   │   │   ├── filter-builder-form.vue # 篩選條件構建
-│   │   │   │   └── screening-result-table.vue # 篩選結果表
+│   │   │   │   └── screening-result-table.vue # 篩選結果表 (含分頁+排序)
 │   │   │   ├── chip-stats/
 │   │   │   │   ├── institutional-trend-chart.vue # 機構趨勢
 │   │   │   │   └── margin-trend-chart.vue  # 融資融券趨勢
 │   │   │   ├── backtest/
 │   │   │   │   ├── backtest-performance-chart.vue # 績效圖
-│   │   │   │   └── historical-result-table.vue    # 結果表
+│   │   │   │   └── historical-result-table.vue    # 結果表 (含分頁+排序)
 │   │   │   ├── settings/
 │   │   │   │   ├── scheduler-config-form.vue # 排程設定 (持久化)
 │   │   │   │   └── weight-slider-group.vue   # 權重滑桿
 │   │   │   └── shared/
-│   │   │       └── sector-tag.vue   # 產業標籤
+│   │   │       ├── sector-tag.vue   # 產業標籤
+│   │   │       └── scroll-to-top.vue # 回到頂部按鈕 (全域)
 │   │   ├── stores/                   # 4 個 Pinia 狀態存儲
 │   │   │   ├── auth-store.ts         # 使用者與令牌管理
 │   │   │   ├── stock-store.ts        # 股票數據快取
@@ -329,7 +330,7 @@ stockStore
 ```typescript
 // 基礎設定 (client.ts)
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api'
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 })
 
 // JWT 令牌自動添加
@@ -537,33 +538,37 @@ API 路由器測試 (計畫)
 
 ---
 
-## 近期更新摘要 (2026-02-16)
+## 近期更新摘要
 
-### 新增測試模組
+### 2026-02-17: UI 體驗優化與表格分頁排序
+
+**新增元件**
+- `scroll-to-top.vue`: 全域回到頂部按鈕（App.vue 層級整合）
+
+**表格分頁排序功能**
+- `screening-result-table.vue`: 多欄位排序 + 分頁（每頁 10 筆）
+- `historical-result-table.vue`: 多欄位排序 + 分頁（每頁 10 筆）
+- `settings-view.vue` 執行紀錄表: 排序 + 分頁 + 水平捲動
+
+**UI 優化**
+- Dashboard: 統計卡片 + 分頁切換（Top 30，每頁 10 筆）
+- Reports: 卡片式佈局 + 項目符號推薦清單
+- Stock Detail: 介面強化
+- App Header/Sidebar: 功能增強
+- 圖表 tooltip 改進（籌碼趨勢圖、融資融券圖）
+- 回測績效圖 grid 位置調整
+
+**環境變數**
+- 前端支援 `VITE_API_BASE_URL` 環境變數設定 API 端點
+
+### 2026-02-16: 後端功能增強
+
 - `test_analysis_steps.py`: 7 個測試涵蓋管道分析步驟
-  - 測試硬篩選、評分、LLM 分析等核心邏輯
-  - 整合測試驗證完整 pipeline 流程
-
-### as_of_date 參數支援
-- 評分服務支援歷史日期評分
-- `hard_filter.py`, `chip_scorer.py`, `technical_scorer.py`, `scoring_engine.py` 都已集成
-- 用於 backtest 系統的歷史績效計算
-
-### TWSE 假期自動化
-- 動態獲取假期表而非硬編碼
-- API 端點: `https://www.twse.com.tw/holidaySchedule/holidaySchedule`
-- ROC 年份自動轉換
-- 年度快取機制
-
-### 依賴更新
-- `bcrypt`: 4.1.1 → 4.2.0 (相容性改進)
-- `requests`: 新增至 requirements.txt (TWSE API)
-- 所有核心依賴升至最新穩定版本
-
-### 優化改進
-- Pipeline 非交易日略過無記錄
-- Backtest 支援特定股票篩選
+- 評分服務支援 `as_of_date` 歷史日期評分
+- TWSE 假期自動化（動態 API + 快取）
+- Pipeline 非交易日略過、Backtest 支援特定股票篩選
 - LLM 分析擴展至所有評分股票
+- `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
-**最後更新**: 2026-02-16
-**版本**: 1.3
+**最後更新**: 2026-02-17
+**版本**: 1.4

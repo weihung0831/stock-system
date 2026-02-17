@@ -255,7 +255,8 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
 
 ```
 Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
-  ├─ 顯示限制下拉選單：Top 20 / Top 50 / All（預設 Top 20）
+  ├─ 統計卡片：總股票數、平均分數等摘要資訊
+  ├─ 分頁顯示：Top 30，每頁 10 筆，支援分頁切換
   ├─ 顯示計數：「共 X 檔，顯示 Y 檔」
   └─ 每張卡片：排名 + 股票名 + 總分 + 三因子分數 + 收盤價 + 漲跌幅
 
@@ -301,6 +302,7 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
 | LLM_MODEL | LLM 模型名稱 |
 | JWT_SECRET_KEY | JWT 簽署密鑰 |
 | CORS_ORIGINS | 允許跨域來源 |
+| VITE_API_BASE_URL | 前端 API 端點（預設 http://localhost:8000/api） |
 
 ---
 
@@ -328,37 +330,31 @@ cd frontend && npm run dev
 
 ---
 
-## 新增功能與改進 (2026-02-16)
+## 新增功能與改進
 
-### as_of_date 參數（歷史回溯評分）
-- `hard_filter.py`, `chip_scorer.py`, `technical_scorer.py`, `scoring_engine.py` 新增 `as_of_date` 參數
-- 支援以過去某日期評分股票
-- 用於 backtest 系統計算歷史績效
+### 2026-02-17: UI 體驗優化與表格互動功能
 
-### TWSE 假期自動偵測
-- `daily_pipeline.py` 已棄用硬編碼 `_twse_holidays()` 字典
-- 新增 `_fetch_twse_holidays()` 函數，從 TWSE 官方 API 動態獲取假期表
-- 自動轉換為 ROC 年份格式相容
-- 年度結果在記憶體快取
-- API 失敗自動降級（回傳空集合）
+**全域元件**
+- `scroll-to-top.vue`: 回到頂部按鈕，整合於 App.vue 層級
 
-### 非交易日最佳化
-- Pipeline 在非交易日時完全略過（無 pipeline_log 記錄）
-- 減少 DB 寫入
-- 手動觸發在非交易日時改用最後交易日
+**表格分頁排序**
+- 篩選結果表、回測結果表、執行紀錄表均支援多欄位排序 + 分頁（每頁 10 筆）
+- 排序支援升降序切換，分頁含上/下頁按鈕與頁碼
 
-### Backtest 股票篩選
-- `backtest_service.py` 新增 `stock_ids` 參數
-- 支援特定股票列表的績效計算
+**Dashboard 改進**
+- 新增統計摘要卡片
+- 分頁切換（Top 30，每頁 10 筆）
 
-### LLM 分析全面升級
-- 不再限制 Top 10 股票
-- 對所有評分股票進行 AI 分析
-- 利用 Gemini 2.5 Flash 高速率額度
+**環境變數**
+- 前端新增 `VITE_API_BASE_URL` 支援部署時設定 API 端點
 
-### 依賴更新
-- `bcrypt` 降至 4.2.0 版本（相容性改進）
-- `requests` 新增（TWSE 假期 API）
+### 2026-02-16: 後端功能增強
 
-**最後更新**: 2026-02-16
-**版本**: 2.2
+- `as_of_date` 參數支援歷史回溯評分
+- TWSE 假期自動偵測（動態 API + 快取 + 降級）
+- Pipeline 非交易日略過、Backtest 股票篩選
+- LLM 分析全面升級（所有評分股票）
+- 依賴更新：bcrypt 4.2.0, 新增 requests
+
+**最後更新**: 2026-02-17
+**版本**: 2.3
