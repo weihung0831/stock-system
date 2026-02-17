@@ -248,6 +248,7 @@ function handleReset() {
 /* Buttons */
 .filter-actions {
   display: flex;
+  justify-content: center;
   gap: 10px;
   margin-top: 20px;
   padding-top: 16px;

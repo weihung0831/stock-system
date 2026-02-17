@@ -291,7 +291,7 @@ onMounted(() => {
 
 <style scoped>
 .settings-page {
-  padding: 0;
+  padding: 24px 28px;
 }
 
 .settings-grid {

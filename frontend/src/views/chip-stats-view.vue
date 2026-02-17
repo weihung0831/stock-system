@@ -267,4 +267,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 20px;
 }
+.charts-stack .card {
+  overflow: hidden;
+}
 </style>

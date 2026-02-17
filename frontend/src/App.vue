@@ -121,6 +121,7 @@ input, select, button { font-family: inherit; font-size: inherit; }
   background: var(--bg-deepest);
   min-height: calc(100vh - var(--header-h));
   overflow-y: auto;
+  padding: 0 !important;
 }
 
 /* Element Plus dark overrides */

@@ -163,18 +163,20 @@ onMounted(() => {
     <div v-else class="reports-list">
       <div v-for="report in pagedReports" :key="report.id" class="report-card card">
         <div class="report-header" @click="toggleExpand(report.id)">
-          <div class="report-info">
-            <span class="stock-code clickable" @click.stop="navigateToStock(report.stock_id)">
-              {{ report.stock_id }}
-            </span>
-            <span class="report-stock-name">{{ report.stock_name }}</span>
-            <span :class="['llm-tag', confidenceClass(report.confidence)]">
-              信心度: {{ report.confidence }}
-            </span>
-          </div>
-          <div class="report-meta">
-            <span class="panel-date">{{ report.report_date }}</span>
+          <div class="report-top-row">
+            <div class="report-info">
+              <span class="stock-code clickable" @click.stop="navigateToStock(report.stock_id)">
+                {{ report.stock_id }}
+              </span>
+              <span class="report-stock-name">{{ report.stock_name }}</span>
+              <span :class="['llm-tag', confidenceClass(report.confidence)]">
+                信心度: {{ report.confidence }}
+              </span>
+            </div>
             <span :class="['expand-arrow', { expanded: isExpanded(report.id) }]">▼</span>
+          </div>
+          <div class="report-date-row">
+            <span class="panel-date">{{ report.report_date }}</span>
           </div>
         </div>
 
@@ -332,17 +334,25 @@ onMounted(() => {
 }
 
 .report-header {
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.report-top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  cursor: pointer;
-  margin-bottom: 12px;
 }
 
 .report-info {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.report-date-row {
+  margin-top: 6px;
 }
 
 .clickable {
@@ -358,11 +368,6 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.report-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 
 .expand-arrow {
   font-size: 0.75rem;
