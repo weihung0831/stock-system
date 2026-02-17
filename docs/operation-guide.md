@@ -78,15 +78,14 @@ curl -X POST http://localhost:8000/api/scheduler/trigger \
 from app.tasks.daily_pipeline import run_daily_pipeline
 result = run_daily_pipeline(trigger_type="manual")
 print(result)
-# {'status': 'success', 'pipeline_id': 21, 'steps_completed': 5}
+# {'status': 'success', 'pipeline_id': 21, 'steps_completed': 3}
 ```
 
-Pipeline 5 步驟：
+Pipeline 3 步驟：
 1. 資料抓取（收盤價、法人、融資、PER/PBR、營收、財報）
-2. 新聞抓取
-3. 硬篩選（~50 檔候選股，FALLBACK_TOP_N=50）
-4. 三因子評分 + 排名
-5. AI 分析（所有評分股票，無限制）
+2. 硬篩選（~50 檔候選股，FALLBACK_TOP_N=50）
+3. 三因子評分 + 排名 + AI 分析（所有評分股票，無限制）
+   - 新聞不再獨立步驟，改為 LLM 分析時按需抓取
 
 ### 只重新評分（不抓資料）
 
@@ -225,10 +224,18 @@ db.close()
 - 例如：只計算特定3檔股票的歷史績效
 - 使用 `as_of_date` 參數可查詢過去任意日期的評分
 
+### Pipeline 簡化與新聞架構優化
+- Pipeline 從 5 步驟簡化為 3 步驟
+- 新聞不再是獨立步驟，改為 LLM 分析時按需抓取
+- NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector 即時抓取個股新聞
+- 新聞回溯期從 7 天增至 14 天
+
 ### AI分析全面升級
 - 現在所有評分股票都會進行 AI 分析（不再限制Top 10）
-- Pipeline 第5步會對所有候選股產出Gemini分析報告
+- Pipeline 第3步會對所有候選股產出Gemini分析報告
 - 利用Gemini 2.5 Flash高速率額度 (0.5秒/次)
+- max_tokens 增至 8192，支援更長報告
+- 新增截斷檢測與自動重試機制
 
 ### 例行維護檢查
 

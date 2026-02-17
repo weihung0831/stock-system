@@ -177,13 +177,15 @@
 ## 核心流程
 
 ### 日常篩選流程（自動化，預設 16:30，可調整）
-1. 數據收集（TWSE 批次 + FinMind 個股補充 + News RSS）
+1. 數據收集（TWSE 批次 + FinMind 個股補充）
 2. 硬篩選（量能異常比 > 2.5x 或 Top 50 成交量）
-3. 逐股評分（籌碼+基本面+技術面）
-4. 加權計算（Chip 40% + Fund 35% + Tech 25%）
-5. 排名與儲存
-6. LLM 分析所有評分股票（Gemini 2.5 Flash，0.5s/次）
-7. 報告生成
+3. 逐股評分 + LLM 分析
+   - 籌碼+基本面+技術面評分
+   - 加權計算（Chip 40% + Fund 35% + Tech 25%）
+   - 排名與儲存
+   - LLM 分析所有評分股票（Gemini 2.5 Flash，0.5s/次）
+   - 新聞按需抓取：NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector
+4. 報告生成
 
 ### 使用者互動流程
 1. 登入系統
@@ -264,10 +266,15 @@
 #### R3: AI 輔助分析
 - 所有評分股票進行分析（完全無限制）
 - 使用 Gemini 2.5 Flash 模型
+- 新聞按需抓取：NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector
+  - 新聞回溯期：14 天
+  - URL 編碼修正 + HTML 標籤過濾
 - 新聞自動摘要
 - 投資建議生成
 - 情緒分析
 - 速率限制：0.5 秒/次（利用 Gemini 高速率額度）
+- max_tokens: 8192（支援更長報告）
+- 截斷檢測與自動重試機制
 - step_llm_analysis 以 top_n=0 方式呼叫
 
 #### R4: 回測與驗證
@@ -314,12 +321,32 @@
 
 ## 最新更新
 
-### 2026-02-17: UI 體驗優化
-- **回到頂部按鈕**: 全域 scroll-to-top 元件（App.vue 層級）
-- **表格分頁排序**: 篩選結果表、回測結果表、執行紀錄表支援多欄位排序 + 分頁（每頁 10 筆）
-- **Dashboard 改進**: 統計卡片 + 分頁切換（Top 30）
-- **環境變數**: 前端支援 `VITE_API_BASE_URL` 設定 API 端點
-- **UI 細節**: 圖表 tooltip 優化、報告卡片佈局改進
+### 2026-02-17: Pipeline 簡化與新聞架構優化
+- **Pipeline 架構**：5 步驟簡化為 3 步驟
+  - Step 1: 資料抓取
+  - Step 2: 硬篩選
+  - Step 3: 綜合評分 + LLM 分析
+- **新聞架構重構**
+  - 舊：Pipeline 批次抓「台股」通用新聞
+  - 新：LLM 分析時按需抓取個股新聞
+  - NewsPreparator 依賴注入 NewsCollector
+  - 新聞回溯期：7 天 → 14 天
+- **LLM 客戶端改進**
+  - max_tokens: 4096 → 8192
+  - 新增截斷檢測與自動重試
+  - 欄位長度限制（每欄 150 字元，最多 3 個風險提示）
+- **NewsCollector 修正**
+  - URL 編碼使用 urllib.parse.quote
+  - HTML 標籤自動過濾
+- **前端優化**
+  - 表格「名稱」欄位可排序（3 個表格）
+  - Sidebar：個股詳情頁顯示 dashboard 為 active
+- **UI 體驗優化**
+  - 回到頂部按鈕：全域 scroll-to-top 元件（App.vue 層級）
+  - 表格分頁排序：篩選結果表、回測結果表、執行紀錄表支援多欄位排序 + 分頁（每頁 10 筆）
+  - Dashboard 改進：統計卡片 + 分頁切換（Top 30）
+  - 環境變數：前端支援 `VITE_API_BASE_URL` 設定 API 端點
+  - UI 細節：圖表 tooltip 優化、報告卡片佈局改進
 
 ### 2026-02-16: 後端功能增強
 - TWSE 假期自動化、as_of_date 歷史評分、AI 分析全面升級

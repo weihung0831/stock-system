@@ -62,9 +62,9 @@ stock-system/
 │   │   │   ├── news_preparator.py    # 新聞預處理
 │   │   │   └── prompt_templates.py   # LLM 提示詞範本
 │   │   └── tasks/                    # 5 個自動化任務檔案
-│   │       ├── daily_pipeline.py     # 日常流程協調 (16:30 執行)
+│   │       ├── daily_pipeline.py     # 日常流程協調 (3步驟，16:30 執行)
 │   │       ├── data_fetch_steps.py   # 數據收集步驟
-│   │       ├── analysis_steps.py     # 分析與評分步驟
+│   │       ├── analysis_steps.py     # 分析與評分步驟（含按需新聞抓取）
 │   │       ├── pipeline_status.py    # 進度與日誌
 │   │       └── __init__.py
 │   ├── tests/                        # 單元測試 (140+ 個測試)
@@ -270,16 +270,26 @@ RateLimiter (自訂)
 流程:
 ScoreResult 表 (所有評分股票) → NewsPreparator → Gemini API → LLMReport 表
 
-NewsPreparator
-├─ 篩選相關新聞
+NewsPreparator（新架構：按需新聞）
+├─ 建構子注入 NewsCollector
+├─ 檢查 News 表是否有該股票新聞
+├─ 若無 → 呼叫 NewsCollector.fetch_news(stock_id, days=14)
 ├─ 格式化文本
 └─ 準備提示詞
 
-GeminiClient
+GeminiClient（改進版）
 ├─ 調用 Google Generative AI (Gemini 2.5 Flash)
+├─ max_tokens: 8192（支援更長報告）
+├─ 截斷檢測：finish_reason='length' 時自動重試
+├─ 欄位長度限制（每欄 150 字元，最多 3 個風險提示）
 ├─ 處理回應
 ├─ 錯誤重試
 └─ 速率限制: 0.5 秒/次
+
+NewsCollector（修正版）
+├─ URL 編碼：urllib.parse.quote 處理特殊字元
+├─ HTML 標籤過濾：清理 RSS 摘要
+└─ Google News RSS 搜尋
 
 PromptTemplates
 ├─ 新聞摘要範本
@@ -540,7 +550,32 @@ API 路由器測試 (計畫)
 
 ## 近期更新摘要
 
-### 2026-02-17: UI 體驗優化與表格分頁排序
+### 2026-02-17: Pipeline 簡化與新聞架構優化 + UI 體驗優化
+
+**Pipeline 架構變更（5步驟 → 3步驟）**
+- Step 1: 資料抓取（價格、法人、融資、營收、財報）
+- Step 2: 硬篩選（量能異常 > 2.5x 或 Top 50）
+- Step 3: 綜合評分 + LLM 分析
+- 新聞不再是獨立步驟，改為 LLM 分析時按需抓取
+
+**新聞架構重構**
+- 舊：`daily_pipeline.py` → `step_fetch_news()` → 批次抓「台股」通用新聞 → News 表
+- 新：LLM 分析時 → NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector.fetch_news()
+- NewsPreparator 依賴注入 NewsCollector（建構子注入）
+- 新聞回溯期：7 天 → 14 天
+
+**LLM 客戶端改進**
+- max_tokens: 4096 → 8192（支援更長報告）
+- 新增截斷檢測：finish_reason='length' 時自動重試
+- 欄位長度限制（每欄 150 字元，最多 3 個風險提示）
+
+**NewsCollector 修正**
+- URL 編碼：urllib.parse.quote 處理特殊字元
+- HTML 標籤過濾：清理 RSS 摘要
+
+**前端優化**
+- 表格「名稱」欄位可排序（dashboard-view, stock-ranking-table, screening-result-table）
+- Sidebar：個股詳情頁 (/stock/*) 顯示 dashboard 為 active
 
 **新增元件**
 - `scroll-to-top.vue`: 全域回到頂部按鈕（App.vue 層級整合）

@@ -195,27 +195,25 @@ class TestRunDailyPipeline:
 
         with patch("app.tasks.daily_pipeline.date") as mock_date:
             with patch("app.tasks.daily_pipeline.step_fetch_stock_data") as mock_fetch:
-                with patch("app.tasks.daily_pipeline.step_fetch_news") as mock_news:
-                    with patch("app.tasks.daily_pipeline.step_hard_filter") as mock_filter:
-                        with patch("app.tasks.daily_pipeline.step_scoring") as mock_score:
-                            with patch("app.tasks.daily_pipeline.requests.get") as mock_get:
-                                mock_date.today.return_value = date(2024, 1, 2)  # Tuesday
-                                mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+                with patch("app.tasks.daily_pipeline.step_hard_filter") as mock_filter:
+                    with patch("app.tasks.daily_pipeline.step_scoring") as mock_score:
+                        with patch("app.tasks.daily_pipeline.requests.get") as mock_get:
+                            mock_date.today.return_value = date(2024, 1, 2)  # Tuesday
+                            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
 
-                                mock_get.return_value.json.return_value = {
-                                    "stat": "ok",
-                                    "data": []
-                                }
+                            mock_get.return_value.json.return_value = {
+                                "stat": "ok",
+                                "data": []
+                            }
 
-                                mock_fetch.return_value = {"stocks_fetched": 100}
-                                mock_news.return_value = {"news_fetched": 50}
-                                mock_filter.return_value = ["2330", "2454"]
-                                mock_score.return_value = {"scores_calculated": 2}
+                            mock_fetch.return_value = {"success": True}
+                            mock_filter.return_value = {"success": True, "candidates": ["2330", "2454"]}
+                            mock_score.return_value = {"success": True}
 
-                                result = run_daily_pipeline(trigger_type="scheduled")
+                            result = run_daily_pipeline(trigger_type="scheduled")
 
-                                # Should have executed the pipeline
-                                assert mock_fetch.called or result.get("status") in ["success", "completed"]
+                            # Should have executed the pipeline
+                            assert mock_fetch.called or result.get("status") in ["success", "completed"]
 
     def test_run_daily_pipeline_manual_trigger_uses_last_trading_day(self, test_db):
         """Test manual trigger on weekend uses last trading day."""

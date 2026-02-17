@@ -55,9 +55,9 @@
 │  └─ rate_limiter.py        API 限速器                          │
 │                                                             │
 │  Tasks (排程任務)                                              │
-│  ├─ daily_pipeline.py      Pipeline 協調器 (5步驟)              │
+│  ├─ daily_pipeline.py      Pipeline 協調器 (3步驟)              │
 │  ├─ data_fetch_steps.py    資料抓取步驟 (A~G)                   │
-│  ├─ analysis_steps.py      分析步驟 (篩選+評分+LLM)             │
+│  ├─ analysis_steps.py      分析步驟 (篩選+評分+LLM+按需新聞)    │
 │  └─ pipeline_status.py     Pipeline 狀態追蹤                    │
 │                                                             │
 │  Models (ORM 資料模型，共 13 張表)                               │
@@ -91,7 +91,7 @@
 
 ---
 
-## 每日 Pipeline（5 步驟）
+## 每日 Pipeline（3 步驟）
 
 ### Step 1：資料抓取 `data_fetch_steps.py`
 
@@ -130,13 +130,7 @@ G. 季財報 (FinMind，逐檔，3 個 dataset)
    └─ → Financial 表
 ```
 
-### Step 2：新聞 `step_fetch_news`
-
-```
-Google News 搜尋「台股 OR 台灣股市」→ 最多 20 篇 → News 表
-```
-
-### Step 3：硬篩選 `hard_filter.py`
+### Step 2：硬篩選 `hard_filter.py`
 
 ```
 兩路合併：
@@ -152,7 +146,7 @@ Google News 搜尋「台股 OR 台灣股市」→ 最多 20 篇 → News 表
   └─ 去重後輸出 ~50 檔候選股
 ```
 
-### Step 4：三因子評分 `scoring_engine.py`
+### Step 3：三因子評分與 LLM 分析 `scoring_engine.py` + `llm_analyzer.py`
 
 對每檔候選股計算三因子分數（各 0-100 分）：
 
@@ -218,13 +212,25 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
 
 → 排序 → 寫入 ScoreResult 表（含 rank）
 
-### Step 5：LLM 分析 `step_llm_analysis`
+#### LLM 分析 `step_llm_analysis`
 
 ```
-取所有評分股票 (不限數量) → 打包分數資料 → Gemini 2.5 Flash
+取所有評分股票 (不限數量) → NewsPreparator → Gemini 2.5 Flash → LLMReport 表
+  ├─ NewsPreparator 檢查 News 表
+  │  ├─ 若該股票無新聞 → 呼叫 NewsCollector.fetch_news() 即時抓取
+  │  └─ 格式化新聞為 LLM 輸入
   ├─ 分析所有評分股票（無上限限制）
+  ├─ max_tokens: 8192（支援更長報告）
+  ├─ 截斷檢測：finish_reason='length' 時自動重試
   ├─ 速率限制：0.5 秒/次（Gemini 2.5 Flash 高速率額度）
   └─ 產出每檔股票的 AI 分析摘要 → LLMReport 表
+
+**新聞架構變更**
+- 舊：Pipeline 批次抓「台股」通用新聞
+- 新：LLM 分析時按需抓個股新聞
+  ├─ NewsPreparator 依賴注入 NewsCollector
+  ├─ 先查 DB，無資料則即時 fetch_news(stock_id, days=14)
+  └─ URL 編碼修正（urllib.parse.quote）+ HTML 標籤過濾
 ```
 
 ---
@@ -235,14 +241,15 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
 交易日自訂時間 (APScheduler，預設 PM 4:30，可由使用者調整)
     │
     ├─ 檢測交易日狀態
-    │  ├─ 交易日：正常執行 Pipeline (5步驟)
+    │  ├─ 交易日：正常執行 Pipeline (3 步驟)
     │  └─ 非交易日：略過 (不產生 pipeline_log，減少 DB 寫入)
     │
-    ├─ 1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR
-    ├─ 2. news        → 抓相關新聞
-    ├─ 3. hard_filter → 篩出 ~50 檔候選股 (FALLBACK_TOP_N=50)
-    ├─ 4. scoring     → 三因子加權評分 → 排名寫入 DB
-    └─ 5. llm_analysis → Gemini 產出所有評分股票的 AI 分析 (0.5s/次)
+    ├─ 1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR、營收、財報
+    ├─ 2. hard_filter → 篩出 ~50 檔候選股 (FALLBACK_TOP_N=50)
+    └─ 3. scoring + llm_analysis
+       ├─ 三因子加權評分 → 排名寫入 DB
+       └─ Gemini 產出所有評分股票的 AI 分析 (0.5s/次)
+          └─ 新聞按需抓取：NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector
     │
     ▼
 使用者開 Dashboard → 看到最新排名 + AI 建議
@@ -332,7 +339,32 @@ cd frontend && npm run dev
 
 ## 新增功能與改進
 
-### 2026-02-17: UI 體驗優化與表格互動功能
+### 2026-02-17: Pipeline 簡化與新聞架構優化
+
+**Pipeline 架構變更（5步驟 → 3步驟）**
+- Step 1: 資料抓取（價格、法人、融資、營收、財報）
+- Step 2: 硬篩選（量能異常 > 2.5x 或 Top 50）
+- Step 3: 綜合評分 + LLM 分析
+  - 新聞不再是獨立步驟，改為 LLM 分析時按需抓取
+
+**新聞架構重構**
+- 舊：Pipeline 批次抓「台股」通用新聞 → 存 DB → LLM 讀取
+- 新：LLM 分析時 → NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector 即時抓取個股新聞
+- NewsPreparator 依賴注入 NewsCollector（建構子注入）
+- 新聞回溯期從 7 天增至 14 天
+
+**LLM 客戶端改進**
+- max_tokens: 4096 → 8192（支援更長報告）
+- 新增截斷檢測：finish_reason='length' 時自動重試
+- 欄位長度限制：每欄位 150 字元，最多 3 個風險提示
+
+**NewsCollector 修正**
+- URL 編碼使用 urllib.parse.quote 處理特殊字元
+- HTML 標籤自動過濾（RSS 摘要清理）
+
+**前端優化**
+- 表格「名稱」欄位可排序（dashboard-view, stock-ranking-table, screening-result-table）
+- Sidebar：個股詳情頁 (/stock/*) 顯示 dashboard 為 active 狀態
 
 **全域元件**
 - `scroll-to-top.vue`: 回到頂部按鈕，整合於 App.vue 層級
