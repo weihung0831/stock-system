@@ -5,6 +5,9 @@ import { getStocks } from '@/api/stocks-api'
 import type { Stock } from '@/types/stock'
 
 const router = useRouter()
+const emit = defineEmits<{
+  (e: 'navigate'): void
+}>()
 
 const query = ref('')
 const results = ref<Stock[]>([])
@@ -50,6 +53,7 @@ const selectStock = (stock: Stock) => {
   query.value = ''
   results.value = []
   isOpen.value = false
+  emit('navigate')
 }
 
 // Keyboard navigation

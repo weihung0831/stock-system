@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth-store'
+import HeaderStockSearch from './header-stock-search.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,6 +72,11 @@ const userInitial = computed(() => {
         </svg>
       </div>
       <span class="brand-text">Stock Screener</span>
+    </div>
+
+    <!-- Mobile search -->
+    <div class="sidebar-search">
+      <HeaderStockSearch @navigate="emit('navigate')" />
     </div>
 
     <!-- Navigation -->
@@ -178,6 +184,19 @@ const userInitial = computed(() => {
   font-size: 0.95rem;
   letter-spacing: -0.01em;
   color: var(--text, #e8ecf4);
+}
+
+/* Mobile search — only visible on small screens */
+.sidebar-search {
+  display: none;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border, #243049);
+}
+
+@media (max-width: 768px) {
+  .sidebar-search {
+    display: block;
+  }
 }
 
 /* Navigation */
