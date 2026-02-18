@@ -3,11 +3,18 @@ import { ref } from 'vue'
 import FilterBuilderForm from '@/components/screening/filter-builder-form.vue'
 import ScreeningResultTable from '@/components/screening/screening-result-table.vue'
 import { runCustomScreening } from '@/api/custom-screening-api'
+import { getLatestReports } from '@/api/reports-api'
 import type { ScoreResult } from '@/types/screening'
 
 const loading = ref(false)
 const results = ref<ScoreResult[]>([])
 const errorMsg = ref('')
+const reportStockIds = ref<Set<string>>(new Set())
+
+// Load report stock IDs on mount
+getLatestReports().then(reports => {
+  reportStockIds.value = new Set(reports.map(r => r.stock_id))
+}).catch(() => {})
 
 async function handleFilterChange(filters: any) {
   loading.value = true
@@ -86,7 +93,7 @@ async function handleFilterChange(filters: any) {
           <span class="badge">共 {{ results.length }} 檔</span>
         </div>
       </div>
-      <ScreeningResultTable :results="results" />
+      <ScreeningResultTable :results="results" :report-stock-ids="reportStockIds" />
     </template>
 
     <!-- Empty state -->

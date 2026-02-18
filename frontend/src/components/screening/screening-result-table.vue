@@ -5,6 +5,7 @@ import type { ScoreResult } from '@/types/screening'
 
 interface Props {
   results: ScoreResult[]
+  reportStockIds?: Set<string>
 }
 
 const props = defineProps<Props>()
@@ -109,7 +110,14 @@ function openStock(row: ScoreResult) {
         >
           <td class="rank-num">{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
           <td class="stock-code">{{ row.stock_id }}</td>
-          <td class="stock-name">{{ row.stock_name }}</td>
+          <td class="stock-name">
+            {{ row.stock_name }}
+            <span
+              v-if="reportStockIds?.has(row.stock_id)"
+              class="ai-report-badge"
+              @click.stop="router.push(`/reports?stock=${row.stock_id}`)"
+            >AI</span>
+          </td>
           <td style="font-family: var(--font-mono)">${{ row.close_price?.toFixed(2) ?? '-' }}</td>
           <td :class="['price-change', (row.change_percent ?? 0) >= 0 ? 'up' : 'down']" style="font-family: var(--font-mono)">
             {{ formatChange(row) }}
@@ -183,4 +191,22 @@ function openStock(row: ScoreResult) {
 .page-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); }
 .page-btn.active { background: var(--amber); color: var(--bg-dark); border-color: var(--amber); font-weight: 700; }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.ai-report-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--bg-dark);
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border-radius: 3px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: box-shadow 0.15s;
+}
+.ai-report-badge:hover {
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+}
 </style>
