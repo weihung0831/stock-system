@@ -237,6 +237,9 @@ onUnmounted(() => {
   font-weight: 500;
   font-size: 0.88rem;
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .search-item-industry {
@@ -246,5 +249,11 @@ onUnmounted(() => {
   border-radius: 4px;
   background: var(--bg-card);
   white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .search-item-industry {
+    display: none;
+  }
 }
 </style>
