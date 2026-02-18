@@ -147,6 +147,6 @@ const option = computed<EChartsOption>(() => ({
 <style scoped>
 .indicator-chart {
   width: 100%;
-  height: 220px;
+  height: 350px;
 }
 </style>
