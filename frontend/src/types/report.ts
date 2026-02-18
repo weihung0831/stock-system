@@ -11,4 +11,5 @@ export interface LLMReport {
   risk_alerts: string[]
   recommendation: string
   confidence: string
+  model_used: string
 }
