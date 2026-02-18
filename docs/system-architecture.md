@@ -356,17 +356,25 @@ cd frontend && npm run dev
 - `finmind_collector.py` `fetch_stock_list()` 新增已下市股票過濾（`date` < 30 天 cutoff 排除）
 - 新增 `test_finmind_collector.py` 22 個測試
 
+### 2026-02-18: 手機版搜尋欄移至 Sidebar
+
+**響應式搜尋欄重構**
+- `app-header.vue` `header-center`: 桌機版 (>768px) 可見，手機版隱藏
+- `app-sidebar.vue` `sidebar-search`: 手機版 (≤768px) 顯示搜尋欄於側邊欄頂部
+- 共用 `header-stock-search.vue` 元件，介面行為一致
+
 ### 2026-02-17: 股票搜尋 + 按需資料抓取
 
 **新功能：Header 股票搜尋**
-- `header-stock-search.vue`: 搜尋欄位 + debounced autocomplete + 鍵盤導航
-- 整合至 `app-header.vue`，支援股票代碼/名稱模糊搜尋
-- 過濾 6+ 位代碼（排除權證/結構化商品）
+- `header-stock-search.vue`: 搜尋欄位 + debounced autocomplete (300ms) + 鍵盤導航 (↑↓Enter)
+- 整合至 `app-header.vue`（桌機版）及 `app-sidebar.vue`（手機版）
+- 過濾 6+ 位代碼（排除權證/結構化商品），每次最多回傳 8 筆結果
 
 **新功能：按需資料抓取 (OnDemandDataFetcher)**
-- `on_demand_data_fetcher.py`: 檢查資料新鮮度 → 缺失時從 FinMind 即時抓取
-- 支援 5 種資料：prices / institutional / margin / revenue / financial
-- 整合至 `GET /screening/results/{stock_id}` endpoint
+- `on_demand_data_fetcher.py`: `check_data_freshness()` 檢查各資料類型是否新鮮 → `fetch_missing_data()` 缺失時從 FinMind 即時抓取
+- 新鮮度判斷：`FRESHNESS_DAYS=30`，prices 需 ≥10 筆，其他資料有任一記錄即視為新鮮
+- 支援 5 種資料：prices（180 天）/ institutional（45 天）/ margin（25 天）/ revenue（550 天）/ financial（730 天）
+- 整合至 `GET /screening/results/{stock_id}` endpoint，確保個股詳情頁資料完整
 
 **Bug 修正**
 - `stocks.py`: prices/institutional/margin 無資料時回傳空陣列（非 404）

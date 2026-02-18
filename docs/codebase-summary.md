@@ -97,9 +97,9 @@ stock-system/
 │   │   │   └── settings-view.vue     # 系統設定
 │   │   ├── components/               # 20 個可重用元件
 │   │   │   ├── layout/
-│   │   │   │   ├── app-header.vue    # 頂部導航欄 (含搜尋欄)
-│   │   │   │   ├── header-stock-search.vue # 股票搜尋 (autocomplete)
-│   │   │   │   └── app-sidebar.vue   # 側邊欄菜單
+│   │   │   │   ├── app-header.vue    # 頂部導航欄 (桌機版含搜尋欄，手機版隱藏搜尋)
+│   │   │   │   ├── header-stock-search.vue # 股票搜尋元件 (debounced autocomplete，支援鍵盤導航)
+│   │   │   │   └── app-sidebar.vue   # 側邊欄菜單 (手機版內含搜尋欄)
 │   │   │   ├── dashboard/
 │   │   │   │   ├── stock-ranking-table.vue # 排名表格
 │   │   │   │   ├── score-radar-chart.vue   # 評分雷達圖
@@ -564,15 +564,23 @@ API 路由器測試 (計畫)
 - `test_finmind_collector.py`: 22 個測試涵蓋 `_get` 方法、`fetch_stock_list` 過濾邏輯、各 fetch 方法
 - 測試涵蓋：API 成功/失敗、429 限速重試、逾時重試、已下市過濾、邊界日期、可選欄位
 
+### 2026-02-18: 手機版搜尋欄移至 Sidebar
+
+**響應式搜尋欄架構調整**
+- `app-header.vue`: 桌機版 (>768px) 顯示搜尋欄於 Header 中央；手機版 (`header-center` 隱藏)
+- `app-sidebar.vue`: 新增 `sidebar-search` 區塊，手機版 (≤768px) 時顯示搜尋欄於側邊欄頂部
+- 兩處均使用同一 `header-stock-search.vue` 元件，行為一致
+
 ### 2026-02-17: 股票搜尋 + 按需資料抓取
 
 **新功能：Header 股票搜尋**
-- `header-stock-search.vue`: debounced autocomplete 搜尋欄，支援鍵盤導航
-- 整合至 `app-header.vue`，過濾 6+ 位代碼（排除權證）
+- `header-stock-search.vue`: debounced autocomplete 搜尋欄，支援鍵盤導航，搜尋限制最多 8 筆結果
+- 整合至 `app-header.vue`（桌機版）及 `app-sidebar.vue`（手機版），過濾 6+ 位代碼（排除權證）
 
-**新功能：按需資料抓取**
+**新功能：按需資料抓取 (OnDemandDataFetcher)**
 - `on_demand_data_fetcher.py`: 查看非 Pipeline 股票時自動從 FinMind 抓取缺失資料
-- 支援 prices / institutional / margin / revenue / financial
+- 新鮮度判斷：`FRESHNESS_DAYS=30`，不足 10 筆價格記錄視為需補抓
+- 支援 5 種資料：prices（180 天）/ institutional（45 天）/ margin（25 天）/ revenue（550 天）/ financial（730 天）
 
 **Bug 修正**
 - stocks/reports router: 無資料回傳空值（非 404）
