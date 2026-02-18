@@ -84,6 +84,7 @@ def _save_twse_prices(db: Session, prices: List[Dict]) -> int:
                 stock_name=sid,
                 market="TWSE",
             ))
+            db.flush()
 
         existing = db.query(DailyPrice).filter_by(
             stock_id=sid, trade_date=p["trade_date"]
@@ -171,6 +172,7 @@ def _fetch_twse_history_batch(
                 stock = db.query(Stock).filter_by(stock_id=sid).first()
                 if not stock:
                     db.add(Stock(stock_id=sid, stock_name=sid, market="TWSE"))
+                    db.flush()
 
                 db.add(DailyPrice(
                     stock_id=sid,

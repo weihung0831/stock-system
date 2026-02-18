@@ -144,8 +144,8 @@ watch(() => route.params.id, () => {
       <div class="llm-panel">
         <div class="panel-header">
           <h3>
-            Gemini AI 分析報告
-            <span class="llm-badge">★ Gemini 2.0 Flash</span>
+            AI 分析報告
+            <span v-if="report?.model_used" class="llm-badge">★ {{ report.model_used }}</span>
           </h3>
           <div style="display: flex; align-items: center; gap: 12px">
             <button
