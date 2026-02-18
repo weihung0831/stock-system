@@ -53,17 +53,27 @@ class FinMindCollector:
         return None
 
     def fetch_stock_list(self) -> List[Dict[str, str]]:
-        """Fetch list of all Taiwan stocks."""
+        """Fetch list of active Taiwan stocks (exclude delisted)."""
         df = self._get("TaiwanStockInfo")
         if df is None or df.empty:
             return []
+
+        # Filter out delisted stocks using the 'date' field
+        # Active stocks have a recent date; delisted ones have stale dates
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'], errors='coerce')
+            cutoff = pd.Timestamp.now() - pd.Timedelta(days=30)
+            before = len(df)
+            df = df[df['date'] >= cutoff]
+            logger.info(f"Filtered {before - len(df)} delisted stocks (date < {cutoff.date()})")
+
         cols = ['stock_id', 'stock_name']
         if 'type' in df.columns:
             cols.append('type')
         if 'industry_category' in df.columns:
             cols.append('industry_category')
         stocks = df[cols].to_dict('records')
-        logger.info(f"Fetched {len(stocks)} stocks")
+        logger.info(f"Fetched {len(stocks)} active stocks")
         return stocks
 
     def fetch_all_daily_prices(self, start_date: str, end_date: str) -> Optional[pd.DataFrame]:

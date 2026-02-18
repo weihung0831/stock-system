@@ -98,7 +98,8 @@
 
 ```
 A. 股票清單 (FinMind)
-   └─ 全市場股票 → stock_id + stock_name + industry → Stock 表
+   ├─ 全市場股票 → stock_id + stock_name + industry → Stock 表
+   └─ 過濾已下市股票（date 欄位 < 30 天前的排除）
 
 B. 當日收盤 (TWSE bulk，1次 API)
    └─ 全市場 ~1300 檔 → DailyPrice 表
@@ -350,6 +351,11 @@ cd frontend && npm run dev
 
 ## 新增功能與改進
 
+### 2026-02-18: 已下市股票過濾
+
+- `finmind_collector.py` `fetch_stock_list()` 新增已下市股票過濾（`date` < 30 天 cutoff 排除）
+- 新增 `test_finmind_collector.py` 22 個測試
+
 ### 2026-02-17: 股票搜尋 + 按需資料抓取
 
 **新功能：Header 股票搜尋**
@@ -422,5 +428,5 @@ cd frontend && npm run dev
 - LLM 分析全面升級（所有評分股票）
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
-**最後更新**: 2026-02-17
-**版本**: 2.4
+**最後更新**: 2026-02-18
+**版本**: 2.5

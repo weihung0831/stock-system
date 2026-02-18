@@ -76,7 +76,8 @@ stock-system/
 │   │   ├── test_stock_service.py     # 股票服務測試 (386 行)
 │   │   ├── test_hard_filter.py       # 篩選測試 (315 行)
 │   │   ├── test_rate_limiter.py      # 速率限制測試 (237 行)
-│   │   └── test_analysis_steps.py    # 分析步驟測試 (115 行)
+│   │   ├── test_analysis_steps.py    # 分析步驟測試 (115 行)
+│   │   └── test_finmind_collector.py # FinMind 收集器測試 (22 個測試)
 │   ├── requirements.txt               # Python 依賴
 │   ├── .env.example                  # 環境變數範本
 │   └── pytest.ini                    # Pytest 設定
@@ -238,8 +239,8 @@ get_current_user(token: str) → User (依賴注入)
 ```
 每日流程 (預設 16:30 自動執行，可於設定頁面調整):
 
-FinmindCollector (FinMind SDK)
-├─ fetch_stock_list() → Stock 表
+FinmindCollector (FinMind HTTP API)
+├─ fetch_stock_list() → Stock 表（過濾已下市股票，30天 cutoff）
 ├─ fetch_daily_price() → DailyPrice 表
 ├─ fetch_institutional() → Institutional 表
 └─ fetch_margin_trading() → MarginTrading 表
@@ -496,15 +497,16 @@ tailwindcss (可選)
 ## 測試覆蓋
 
 ```
-總計: 140+ 個測試, 100% 通過率 (2004 行測試代碼)
+總計: 160+ 個測試, 100% 通過率
 
-認證服務      ✅ 156 行代碼，100% 覆蓋
-模型         ✅ 496 行代碼，93-100% 覆蓋
-配置         ✅ 299 行代碼，100% 覆蓋
-股票服務      ✅ 386 行代碼，97% 覆蓋
-硬篩選       ✅ 315 行代碼，100% 覆蓋
-速率限制      ✅ 237 行代碼，100% 覆蓋
-分析步驟      ✅ 115 行代碼，100% 覆蓋 (新增)
+認證服務        ✅ 156 行代碼，100% 覆蓋
+模型           ✅ 496 行代碼，93-100% 覆蓋
+配置           ✅ 299 行代碼，100% 覆蓋
+股票服務        ✅ 386 行代碼，97% 覆蓋
+硬篩選         ✅ 315 行代碼，100% 覆蓋
+速率限制        ✅ 237 行代碼，100% 覆蓋
+分析步驟        ✅ 115 行代碼，100% 覆蓋
+FinMind 收集器  ✅ 22 個測試，100% 覆蓋（新增）
 
 持續擴展:
 評分服務整合測試 (計畫)
@@ -551,6 +553,16 @@ API 路由器測試 (計畫)
 ---
 
 ## 近期更新摘要
+
+### 2026-02-18: 已下市股票過濾 + FinMind 收集器測試
+
+**FinMind 收集器改進**
+- `fetch_stock_list()` 新增已下市股票過濾：基於 `date` 欄位，排除 30 天以上未更新的股票
+- 減少資料庫中的無效股票資料，提升後續評分效率
+
+**新增測試**
+- `test_finmind_collector.py`: 22 個測試涵蓋 `_get` 方法、`fetch_stock_list` 過濾邏輯、各 fetch 方法
+- 測試涵蓋：API 成功/失敗、429 限速重試、逾時重試、已下市過濾、邊界日期、可選欄位
 
 ### 2026-02-17: 股票搜尋 + 按需資料抓取
 
@@ -625,5 +637,5 @@ API 路由器測試 (計畫)
 - LLM 分析擴展至所有評分股票
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
-**最後更新**: 2026-02-17
-**版本**: 1.5
+**最後更新**: 2026-02-18
+**版本**: 1.6
