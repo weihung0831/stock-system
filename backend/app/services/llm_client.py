@@ -134,3 +134,67 @@ class LLMClient:
 
         logger.error(f"Max retries ({self.max_retries}) exceeded for LLM API call")
         return None
+
+    def generate_chat(
+        self,
+        system_prompt: str,
+        messages: list[dict[str, str]],
+    ) -> Optional[str]:
+        """
+        Generate free-form text response for chat conversations.
+
+        Args:
+            system_prompt: System instruction for the model
+            messages: Conversation history [{"role": "user"|"assistant", "content": "..."}]
+
+        Returns:
+            Response text or None on failure
+        """
+        api_messages = [{"role": "system", "content": system_prompt}]
+        api_messages.extend(messages)
+
+        for attempt in range(self.max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=api_messages,
+                    temperature=0.5,
+                    max_tokens=2048,
+                )
+                finish_reason = response.choices[0].finish_reason
+                content = response.choices[0].message.content
+
+                # Detect truncated response and retry with shorter instruction
+                if finish_reason == 'length' and content:
+                    logger.warning(f"Chat response truncated (attempt {attempt + 1})")
+                    if attempt < self.max_retries - 1:
+                        api_messages.append({"role": "assistant", "content": content})
+                        api_messages.append({"role": "user", "content": "你的回覆被截斷了，請用更精簡的方式重新回答。"})
+                        time.sleep(self.base_delay)
+                        continue
+                    # Return what we have even if truncated
+                    return content.strip()
+
+                if content:
+                    return content.strip()
+
+                logger.warning(f"Chat returned empty content (attempt {attempt + 1})")
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.base_delay)
+                    continue
+                return None
+
+            except Exception as e:
+                error_msg = str(e)
+                logger.warning(f"Chat API error (attempt {attempt + 1}): {error_msg}")
+                is_retryable = any(
+                    kw in error_msg.lower()
+                    for kw in ["429", "500", "502", "503", "rate", "timeout"]
+                )
+                if is_retryable and attempt < self.max_retries - 1:
+                    time.sleep(self.base_delay * (2 ** attempt))
+                    continue
+                logger.error(f"Chat API call failed: {error_msg}")
+                return None
+
+        return None

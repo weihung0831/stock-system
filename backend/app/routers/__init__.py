@@ -9,6 +9,7 @@ from app.routers.custom_screening import router as custom_screening_router
 from app.routers.chip_stats import router as chip_stats_router
 from app.routers.backtest import router as backtest_router
 from app.routers.sector_tags import router as sector_tags_router
+from app.routers.chat import router as chat_router
 
 __all__ = [
     "auth_router",
@@ -21,4 +22,5 @@ __all__ = [
     "chip_stats_router",
     "backtest_router",
     "sector_tags_router",
+    "chat_router",
 ]

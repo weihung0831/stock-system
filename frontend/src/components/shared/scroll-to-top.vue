@@ -50,7 +50,7 @@ onUnmounted(() => {
 <style scoped>
 .scroll-to-top {
   position: fixed;
-  bottom: 24px;
+  bottom: 90px;
   right: 24px;
   width: 48px;
   height: 48px;
@@ -94,7 +94,7 @@ onUnmounted(() => {
 /* 手機版調整 */
 @media (max-width: 768px) {
   .scroll-to-top {
-    bottom: 16px;
+    bottom: 78px;
     right: 16px;
     width: 44px;
     height: 44px;

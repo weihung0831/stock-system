@@ -15,6 +15,10 @@
 │  ├─ settings-view         設定：評分權重調整                    │
 │  └─ login-view            登入                               │
 │                                                             │
+│  Global Components (全域元件)                                 │
+│  ├─ ai-assistant-widget   浮動 AI 聊天氣泡 + 彈出對話面板        │
+│  └─ scroll-to-top         回到頂部按鈕 (位置已調整)              │
+│                                                             │
 │  Stores (Pinia 狀態管理)                                      │
 │  ├─ screening-store       篩選結果 & 排名                      │
 │  ├─ stock-store           個股資料                             │
@@ -36,7 +40,8 @@
 │  ├─ scheduler.py    手動觸發 Pipeline                          │
 │  ├─ auth.py         JWT 登入/註冊                              │
 │  ├─ data.py         資料管理                                   │
-│  └─ sector_tags.py  產業標籤                                   │
+│  ├─ sector_tags.py  產業標籤                                   │
+│  └─ chat.py         POST /api/chat AI 聊天助手                 │
 │                                                             │
 │  Services (核心業務邏輯)                                       │
 │  ├─ scoring_engine.py      評分引擎 (協調三因子)                 │
@@ -50,6 +55,8 @@
 │  ├─ news_collector.py      新聞抓取                            │
 │  ├─ llm_analyzer.py        LLM 分析 (Gemini)                  │
 │  ├─ gemini_client.py       Gemini API 客戶端                   │
+│  ├─ llm_client.py          LLM 通用客戶端 (含 generate_chat)   │
+│  ├─ chat_service.py        AI 聊天服務 (系統提示詞 + LLM 對話)  │
 │  ├─ backtest_service.py    回測邏輯                            │
 │  ├─ stock_service.py       股票查詢服務 (含權證過濾)              │
 │  ├─ auth_service.py        JWT 認證服務                        │
@@ -351,6 +358,11 @@ cd frontend && npm run dev
 
 ## 新增功能與改進
 
+### 2026-02-19: AI 聊天助手
+
+- 後端：新增 `chat.py` router (`POST /api/chat`)、`chat_service.py`（系統提示詞含 Top 5 股票上下文）、`llm_client.generate_chat()` 自由文字對話方法
+- 前端：新增 `ai-assistant-widget.vue` 浮動氣泡面板、`ai-chat-message.vue` 訊息氣泡、`chat-api.ts` API 客戶端；整合至 `App.vue`
+
 ### 2026-02-18: 已下市股票過濾
 
 - `finmind_collector.py` `fetch_stock_list()` 新增已下市股票過濾（`date` < 30 天 cutoff 排除）
@@ -436,5 +448,5 @@ cd frontend && npm run dev
 - LLM 分析全面升級（所有評分股票）
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
-**最後更新**: 2026-02-18
-**版本**: 2.5
+**最後更新**: 2026-02-19
+**版本**: 2.6

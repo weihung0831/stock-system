@@ -11,6 +11,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AiAssistantWidget: typeof import('./src/components/ai-assistant/ai-assistant-widget.vue')['default']
+    AiChatMessage: typeof import('./src/components/ai-assistant/ai-chat-message.vue')['default']
     AppHeader: typeof import('./src/components/layout/app-header.vue')['default']
     AppSidebar: typeof import('./src/components/layout/app-sidebar.vue')['default']
     BacktestPerformanceChart: typeof import('./src/components/backtest/backtest-performance-chart.vue')['default']

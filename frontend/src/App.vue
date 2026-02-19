@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores/settings-store'
 import AppSidebar from '@/components/layout/app-sidebar.vue'
 import AppHeader from '@/components/layout/app-header.vue'
 import ScrollToTop from '@/components/shared/scroll-to-top.vue'
+import AiAssistantWidget from '@/components/ai-assistant/ai-assistant-widget.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -58,6 +59,7 @@ const closeSidebar = () => {
     </el-container>
 
     <ScrollToTop />
+    <AiAssistantWidget />
   </el-container>
 </template>
 

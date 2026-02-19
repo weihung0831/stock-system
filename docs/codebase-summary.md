@@ -32,7 +32,7 @@ stock-system/
 │   │   │   ├── screening.py          # 篩選 (ScreeningParams, Result)
 │   │   │   ├── report.py             # 報告 (Report, LLMReport)
 │   │   │   └── common.py             # 共通模式 (Pagination, Error)
-│   │   ├── routers/                  # 9 個 API 路由器
+│   │   ├── routers/                  # 10 個 API 路由器
 │   │   │   ├── auth.py               # /api/auth/* (登入/註冊/更新令牌)
 │   │   │   ├── stocks.py             # /api/stocks/* (股票查詢)
 │   │   │   ├── data.py               # /api/data/* (數據收集)
@@ -41,8 +41,9 @@ stock-system/
 │   │   │   ├── scheduler.py          # /api/scheduler/* (排程管理 + 設定持久化)
 │   │   │   ├── custom_screening.py   # /api/custom-screening/* (自訂篩選)
 │   │   │   ├── chip_stats.py         # /api/chip-stats/* (籌碼統計)
-│   │   │   └── backtest.py           # /api/backtest/* (回測+評分日期)
-│   │   ├── services/                 # 19 個業務邏輯服務
+│   │   │   ├── backtest.py           # /api/backtest/* (回測+評分日期)
+│   │   │   └── chat.py               # /api/chat (AI 聊天助手，含輸入驗證)
+│   │   ├── services/                 # 21 個業務邏輯服務
 │   │   │   ├── auth_service.py       # JWT & Bcrypt 認證
 │   │   │   ├── finmind_collector.py  # FinMind API 整合
 │   │   │   ├── news_collector.py     # Google News RSS 爬蟲
@@ -59,6 +60,8 @@ stock-system/
 │   │   │   ├── twse_collector.py    # TWSE 官方 API 資料收集
 │   │   │   ├── llm_analyzer.py       # AI 分析 (新聞摘要，0.5s 速率限制)
 │   │   │   ├── gemini_client.py      # Google Gemini API 包裝
+│   │   │   ├── llm_client.py         # LLM 通用客戶端 (含 generate_chat 自由文字對話)
+│   │   │   ├── chat_service.py       # AI 聊天服務 (建構系統提示詞 + 編排 LLM 對話)
 │   │   │   ├── news_preparator.py    # 新聞預處理
 │   │   │   ├── on_demand_data_fetcher.py # 按需資料抓取 (非 Pipeline 股票)
 │   │   │   └── prompt_templates.py   # LLM 提示詞範本
@@ -68,7 +71,7 @@ stock-system/
 │   │       ├── analysis_steps.py     # 分析與評分步驟（含按需新聞抓取）
 │   │       ├── pipeline_status.py    # 進度與日誌
 │   │       └── __init__.py
-│   ├── tests/                        # 單元測試 (140+ 個測試)
+│   ├── tests/                        # 單元測試 (204+ 個測試)
 │   │   ├── conftest.py               # Pytest 設定與固件
 │   │   ├── test_auth_service.py      # 認證測試 (156 行)
 │   │   ├── test_models.py            # 模型測試 (496 行)
@@ -77,7 +80,8 @@ stock-system/
 │   │   ├── test_hard_filter.py       # 篩選測試 (315 行)
 │   │   ├── test_rate_limiter.py      # 速率限制測試 (237 行)
 │   │   ├── test_analysis_steps.py    # 分析步驟測試 (115 行)
-│   │   └── test_finmind_collector.py # FinMind 收集器測試 (22 個測試)
+│   │   ├── test_finmind_collector.py # FinMind 收集器測試 (22 個測試)
+│   │   └── test_chat_service.py      # 聊天服務測試 (15 個測試：build_stock_context/chat_with_assistant/router)
 │   ├── requirements.txt               # Python 依賴
 │   ├── .env.example                  # 環境變數範本
 │   └── pytest.ini                    # Pytest 設定
@@ -95,7 +99,10 @@ stock-system/
 │   │   │   ├── reports-list-view.vue # 報告清單
 │   │   │   ├── history-backtest-view.vue # 回測歷史
 │   │   │   └── settings-view.vue     # 系統設定
-│   │   ├── components/               # 20 個可重用元件
+│   │   ├── components/               # 22 個可重用元件
+│   │   │   ├── ai-assistant/
+│   │   │   │   ├── ai-chat-message.vue     # 聊天氣泡訊息元件 (使用者/AI 雙向)
+│   │   │   │   └── ai-assistant-widget.vue # 浮動氣泡 + 彈出聊天面板 (整合真實 API + mock fallback)
 │   │   │   ├── layout/
 │   │   │   │   ├── app-header.vue    # 頂部導航欄 (桌機版含搜尋欄，手機版隱藏搜尋)
 │   │   │   │   ├── header-stock-search.vue # 股票搜尋元件 (debounced autocomplete，支援鍵盤導航)
@@ -123,14 +130,14 @@ stock-system/
 │   │   │   │   ├── scheduler-config-form.vue # 排程設定 (持久化)
 │   │   │   │   └── weight-slider-group.vue   # 權重滑桿
 │   │   │   └── shared/
-│   │   │       ├── sector-tag.vue   # 產業標籤
-│   │   │       └── scroll-to-top.vue # 回到頂部按鈕 (全域)
+│   │   │       ├── sector-tag.vue    # 產業標籤
+│   │   │       └── scroll-to-top.vue # 回到頂部按鈕 (全域，位置已調整避免與 AI 氣泡重疊)
 │   │   ├── stores/                   # 4 個 Pinia 狀態存儲
 │   │   │   ├── auth-store.ts         # 使用者與令牌管理
 │   │   │   ├── stock-store.ts        # 股票數據快取
 │   │   │   ├── screening-store.ts    # 篩選參數與結果
 │   │   │   └── settings-store.ts     # 使用者偏好
-│   │   ├── api/                      # 8 個 API 呼叫模組
+│   │   ├── api/                      # 9 個 API 呼叫模組
 │   │   │   ├── client.ts             # Axios 實例與攔截器
 │   │   │   ├── auth-api.ts           # 認證 API
 │   │   │   ├── stocks-api.ts         # 股票查詢 API
@@ -138,7 +145,8 @@ stock-system/
 │   │   │   ├── custom-screening-api.ts # 自訂篩選 API
 │   │   │   ├── chip-stats-api.ts     # 籌碼統計 API
 │   │   │   ├── backtest-api.ts       # 回測 API
-│   │   │   └── reports-api.ts        # 報告 API
+│   │   │   ├── reports-api.ts        # 報告 API
+│   │   │   └── chat-api.ts           # AI 聊天 API 客戶端
 │   │   ├── types/                    # 3 個 TypeScript 型別定義
 │   │   │   ├── auth.ts               # User, LoginRequest, Token
 │   │   │   ├── stock.ts              # Stock, DailyPrice, Institutional
@@ -369,7 +377,7 @@ api.interceptors.response.use(
 
 **相關檔案**:
 - `src/api/client.ts`
-- `src/api/*-api.ts` (8 個端點模組)
+- `src/api/*-api.ts` (9 個端點模組)
 
 ## 資料庫模型關係
 
@@ -497,7 +505,7 @@ tailwindcss (可選)
 ## 測試覆蓋
 
 ```
-總計: 160+ 個測試, 100% 通過率
+總計: 204+ 個測試, 100% 通過率
 
 認證服務        ✅ 156 行代碼，100% 覆蓋
 模型           ✅ 496 行代碼，93-100% 覆蓋
@@ -506,11 +514,11 @@ tailwindcss (可選)
 硬篩選         ✅ 315 行代碼，100% 覆蓋
 速率限制        ✅ 237 行代碼，100% 覆蓋
 分析步驟        ✅ 115 行代碼，100% 覆蓋
-FinMind 收集器  ✅ 22 個測試，100% 覆蓋（新增）
+FinMind 收集器  ✅ 22 個測試，100% 覆蓋
+聊天服務        ✅ 15 個測試，涵蓋 build_stock_context/chat_with_assistant/router（新增）
 
 持續擴展:
 評分服務整合測試 (計畫)
-API 路由器測試 (計畫)
 前端元件測試 (計畫)
 ```
 
@@ -553,6 +561,25 @@ API 路由器測試 (計畫)
 ---
 
 ## 近期更新摘要
+
+### 2026-02-19: AI 聊天助手功能
+
+**後端新增**
+- `app/services/llm_client.py`: 新增 `generate_chat()` 方法，支援自由文字對話（非 JSON 結構化輸出）
+- `app/services/chat_service.py`: 聊天服務，建構含平台股票上下文的系統提示詞（Top 5 股票、最新報告日期），協調 LLM 對話
+- `app/routers/chat.py`: `POST /api/chat` 端點，Pydantic 驗證（訊息最長 500 字元、歷史最多 20 筆、角色格式驗證）
+- `app/routers/__init__.py` / `app/main.py`: 註冊並掛載 chat_router
+
+**前端新增**
+- `src/components/ai-assistant/ai-chat-message.vue`: 聊天氣泡訊息元件（使用者/AI 雙向）
+- `src/components/ai-assistant/ai-assistant-widget.vue`: 浮動氣泡 + 彈出聊天面板，整合真實 API 並提供 mock fallback
+- `src/api/chat-api.ts`: AI 聊天 API 客戶端
+- `src/App.vue`: 整合 AiAssistantWidget 全域元件
+- `src/components/shared/scroll-to-top.vue`: 調整位置避免與 AI 氣泡重疊
+
+**新增測試**
+- `test_chat_service.py`: 15 個測試涵蓋 `build_stock_context`、`chat_with_assistant`、router 端點
+- 測試總數：140+ → 204+
 
 ### 2026-02-18: 已下市股票過濾 + FinMind 收集器測試
 
@@ -645,5 +672,5 @@ API 路由器測試 (計畫)
 - LLM 分析擴展至所有評分股票
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
-**最後更新**: 2026-02-18
-**版本**: 1.6
+**最後更新**: 2026-02-19
+**版本**: 1.7

@@ -18,7 +18,8 @@ from app.routers import (
     custom_screening_router,
     chip_stats_router,
     backtest_router,
-    sector_tags_router
+    sector_tags_router,
+    chat_router
 )
 from app.tasks.daily_pipeline import run_daily_pipeline
 
@@ -129,6 +130,7 @@ app.include_router(custom_screening_router)
 app.include_router(chip_stats_router)
 app.include_router(backtest_router)
 app.include_router(sector_tags_router)
+app.include_router(chat_router)
 
 
 @app.get("/api/health")

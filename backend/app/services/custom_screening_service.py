@@ -97,23 +97,44 @@ def custom_screen(
 
     logger.info(f"Found {len(results)} matching stocks")
 
-    # Batch fetch latest close prices for all result stocks
+    # Batch fetch latest 2 close prices per stock (for close_price & change_percent)
     stock_ids = [r[0].stock_id for r in results]
-    price_map = {}
+    price_map: Dict[str, float] = {}
+    change_map: Dict[str, float] = {}
     if stock_ids:
-        # Get max trade_date per stock
-        max_dates = (
-            db.query(DailyPrice.stock_id, func.max(DailyPrice.trade_date).label("max_date"))
+        from sqlalchemy import desc
+        from sqlalchemy.sql import func as sqlfunc
+        # Get the 2 most recent trade dates across all stocks
+        two_dates = (
+            db.query(DailyPrice.trade_date)
             .filter(DailyPrice.stock_id.in_(stock_ids))
-            .group_by(DailyPrice.stock_id)
-            .subquery()
-        )
-        prices = (
-            db.query(DailyPrice.stock_id, DailyPrice.close)
-            .join(max_dates, (DailyPrice.stock_id == max_dates.c.stock_id) & (DailyPrice.trade_date == max_dates.c.max_date))
+            .distinct()
+            .order_by(desc(DailyPrice.trade_date))
+            .limit(2)
             .all()
         )
-        price_map = {p.stock_id: float(p.close) for p in prices}
+        if two_dates:
+            date_list = [d[0] for d in two_dates]
+            prices = (
+                db.query(DailyPrice.stock_id, DailyPrice.trade_date, DailyPrice.close)
+                .filter(
+                    DailyPrice.stock_id.in_(stock_ids),
+                    DailyPrice.trade_date.in_(date_list),
+                )
+                .order_by(DailyPrice.stock_id, desc(DailyPrice.trade_date))
+                .all()
+            )
+            # Group by stock_id
+            from collections import defaultdict
+            grouped: Dict[str, list] = defaultdict(list)
+            for p in prices:
+                grouped[p.stock_id].append(float(p.close or 0))
+            for sid, closes in grouped.items():
+                price_map[sid] = closes[0]
+                if len(closes) >= 2 and closes[1] > 0:
+                    change_map[sid] = round(
+                        (closes[0] - closes[1]) / closes[1] * 100, 2
+                    )
 
     # Format results
     output = []
@@ -130,6 +151,7 @@ def custom_screen(
             "total_score": float(score_result.total_score),
             "rank": score_result.rank,
             "close_price": price_map.get(score_result.stock_id, 0),
+            "change_percent": change_map.get(score_result.stock_id, 0.0),
         })
 
     return output
