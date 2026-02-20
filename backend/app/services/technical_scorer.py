@@ -137,13 +137,41 @@ class TechnicalScorer:
             return 0.0
 
     def _calculate_kd_score(self, df: pd.DataFrame) -> float:
-        """Calculate KD stochastic score (golden cross / low zone)."""
+        """Calculate KD stochastic score (golden cross / low zone).
+
+        Uses industry-standard smoothed KD formula:
+        RSV = (close - 9日最低) / (9日最高 - 9日最低) * 100
+        K = 2/3 * 前日K + 1/3 * RSV
+        D = 2/3 * 前日D + 1/3 * K
+        """
         try:
-            # Calculate Stochastic %K and %D manually
+            # Calculate RSV (Raw Stochastic Value)
             low_min = df['low'].rolling(window=9).min()
             high_max = df['high'].rolling(window=9).max()
-            k_values = 100 * (df['close'] - low_min) / (high_max - low_min)
-            d_values = k_values.rolling(window=3).mean()
+            rsv = 100 * (df['close'] - low_min) / (high_max - low_min)
+
+            # Smoothed K and D (industry standard, matches frontend)
+            k_values = pd.Series(np.nan, index=df.index)
+            d_values = pd.Series(np.nan, index=df.index)
+
+            first_valid = rsv.first_valid_index()
+            if first_valid is None:
+                return 50.0
+
+            # Initialize K=50, D=50 as standard convention
+            k_values.loc[first_valid] = (2/3) * 50 + (1/3) * rsv.loc[first_valid]
+            d_values.loc[first_valid] = (2/3) * 50 + (1/3) * k_values.loc[first_valid]
+
+            # Iterate to compute smoothed values
+            indices = df.index.tolist()
+            start_idx = indices.index(first_valid)
+            for i in range(start_idx + 1, len(indices)):
+                curr = indices[i]
+                prev = indices[i - 1]
+                if pd.isna(rsv.loc[curr]):
+                    continue
+                k_values.loc[curr] = (2/3) * k_values.loc[prev] + (1/3) * rsv.loc[curr]
+                d_values.loc[curr] = (2/3) * d_values.loc[prev] + (1/3) * k_values.loc[curr]
 
             latest_k = k_values.iloc[-1]
             latest_d = d_values.iloc[-1]
