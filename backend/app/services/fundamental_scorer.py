@@ -68,7 +68,7 @@ class FundamentalScorer:
                 roe_score = self._calculate_roe_score(financial_data) * 0.15
                 debt_score = self._calculate_debt_score(financial_data) * 0.15
                 cashflow_score = self._calculate_cashflow_score(financial_data) * 0.15
-                pe_score = self._calculate_pe_score(financial_data) * 0.10
+                pe_score = self._calculate_pe_score(stock) * 0.10
             else:
                 # Revenue-only: revenue gets 60% weight, rest neutral at 50
                 revenue_score = self._calculate_revenue_score(revenue_data) * 0.60
@@ -248,11 +248,30 @@ class FundamentalScorer:
 
         return score
 
-    def _calculate_pe_score(self, data: list) -> float:
-        """Calculate P/E ratio score (reasonable range)."""
-        if not data or not data[0].eps:
+    def _calculate_pe_score(self, stock) -> float:
+        """Calculate P/E ratio score from Stock table PER.
+
+        PER (本益比) scoring:
+        10-15 = ideal range (100), <10 = undervalued (80),
+        15-20 = slightly high (70), 20-30 = expensive (50), >30 = overpriced (30)
+        """
+        if not stock or not stock.per:
             return 50.0
-        return 50.0
+
+        per = float(stock.per)
+
+        if per <= 0:
+            return 50.0  # 負值或零表示虧損，中性處理
+        elif per < 10:
+            return 80
+        elif per < 15:
+            return 100
+        elif per < 20:
+            return 70
+        elif per < 30:
+            return 50
+        else:
+            return 30
 
     def _score_from_valuation(self, stock) -> dict:
         """Score using PER/PBR/dividend_yield when no revenue/financial data."""
