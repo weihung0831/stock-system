@@ -282,22 +282,54 @@ class TechnicalScorer:
             return 50.0
 
     def _calculate_bb_score(self, df: pd.DataFrame) -> float:
-        """Calculate Bollinger Bands score (price above middle band)."""
+        """Calculate Bollinger Bands score using %B position.
+
+        Bollinger Bands (20-day, 2 standard deviations):
+        Middle = SMA(20)
+        Upper = Middle + 2 * std(20)
+        Lower = Middle - 2 * std(20)
+        %B = (close - Lower) / (Upper - Lower)
+
+        %B interpretation:
+        >1.0 = above upper band (極強或過熱)
+        0.5-1.0 = upper half (偏多)
+        0.0-0.5 = lower half (偏空)
+        <0.0 = below lower band (極弱或超跌)
+        """
         try:
-            # Calculate Bollinger Bands manually
             middle = df['close'].rolling(window=20).mean()
+            std = df['close'].rolling(window=20).std()
+            upper = middle + 2 * std
+            lower = middle - 2 * std
 
             latest_close = df.iloc[-1]['close']
+            latest_upper = upper.iloc[-1]
+            latest_lower = lower.iloc[-1]
             latest_middle = middle.iloc[-1]
 
-            if pd.isna(latest_middle):
+            if pd.isna(latest_middle) or pd.isna(latest_upper):
                 return 50.0
 
-            # Price above middle band
-            if latest_close > latest_middle:
-                return 100
+            band_width = latest_upper - latest_lower
+            if band_width == 0:
+                return 50.0
+
+            # %B = (close - lower) / (upper - lower)
+            percent_b = (latest_close - latest_lower) / band_width
+
+            # Score mapping based on %B position
+            if percent_b >= 1.0:
+                return 70   # 突破上軌，強勢但可能過熱
+            elif percent_b >= 0.8:
+                return 100  # 上軌附近，強勢趨勢
+            elif percent_b >= 0.5:
+                return 80   # 中軌以上，偏多
+            elif percent_b >= 0.2:
+                return 40   # 中軌以下，偏空
+            elif percent_b >= 0.0:
+                return 20   # 下軌附近，弱勢
             else:
-                return 30
+                return 30   # 跌破下軌，極弱但可能超跌反彈
 
         except Exception as e:
             logger.error(f"Error calculating BB score: {e}")
