@@ -15,47 +15,14 @@ const total = computed(() => chipWeight.value + fundamentalWeight.value + techni
 
 const handleChipChange = (val: number) => {
   chipWeight.value = val
-  const remaining = 100 - val
-  const sum = fundamentalWeight.value + technicalWeight.value
-  if (sum === 0) {
-    fundamentalWeight.value = Math.round(remaining / 2)
-    technicalWeight.value = remaining - fundamentalWeight.value
-  } else {
-    const ratio = remaining / sum
-    fundamentalWeight.value = Math.round(fundamentalWeight.value * ratio)
-    technicalWeight.value = 100 - val - fundamentalWeight.value
-  }
-  updateStore()
 }
 
 const handleFundamentalChange = (val: number) => {
   fundamentalWeight.value = val
-  const remaining = 100 - val
-  const sum = chipWeight.value + technicalWeight.value
-  if (sum === 0) {
-    chipWeight.value = Math.round(remaining / 2)
-    technicalWeight.value = remaining - chipWeight.value
-  } else {
-    const ratio = remaining / sum
-    chipWeight.value = Math.round(chipWeight.value * ratio)
-    technicalWeight.value = 100 - val - chipWeight.value
-  }
-  updateStore()
 }
 
 const handleTechnicalChange = (val: number) => {
   technicalWeight.value = val
-  const remaining = 100 - val
-  const sum = chipWeight.value + fundamentalWeight.value
-  if (sum === 0) {
-    chipWeight.value = Math.round(remaining / 2)
-    fundamentalWeight.value = remaining - chipWeight.value
-  } else {
-    const ratio = remaining / sum
-    chipWeight.value = Math.round(chipWeight.value * ratio)
-    fundamentalWeight.value = 100 - val - chipWeight.value
-  }
-  updateStore()
 }
 
 const updateStore = () => {
@@ -70,8 +37,7 @@ const handleReset = () => {
   chipWeight.value = 40
   fundamentalWeight.value = 30
   technicalWeight.value = 30
-  updateStore()
-  ElMessage.success('已重設為預設權重')
+  ElMessage.info('已重設為預設權重，請按儲存套用')
 }
 
 const handleAutoOptimize = async () => {
@@ -81,8 +47,7 @@ const handleAutoOptimize = async () => {
     chipWeight.value = weights.chip
     fundamentalWeight.value = weights.fundamental
     technicalWeight.value = weights.technical
-    updateStore()
-    ElMessage.success('已依資料覆蓋率自動配置最佳權重')
+    ElMessage.info('已自動配置最佳權重，請按儲存套用')
   } catch {
     ElMessage.error('自動配置失敗')
   } finally {
@@ -91,6 +56,10 @@ const handleAutoOptimize = async () => {
 }
 
 const handleSave = async () => {
+  if (total.value !== 100) {
+    ElMessage.error('權重總和必須等於 100%')
+    return
+  }
   updateStore()
   ElMessage.success('權重設定已儲存')
 }

@@ -10,21 +10,35 @@ interface Props {
 
 const props = defineProps<Props>()
 
+/** Calculate simple moving average for given period */
+function calcMA(closes: number[], period: number): (number | null)[] {
+  return closes.map((_, i) => {
+    if (i < period - 1) return null
+    const slice = closes.slice(i - period + 1, i + 1)
+    return slice.reduce((a, b) => a + b, 0) / period
+  })
+}
+
 const chartData = computed(() => {
   const sorted = [...props.prices].sort((a, b) =>
     new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
   )
+  const closes = sorted.map(p => Number(p.close))
   return {
     dates: sorted.map(p => p.trade_date),
     ohlc: sorted.map(p => [Number(p.open), Number(p.close), Number(p.low), Number(p.high)]),
-    volumes: sorted.map(p => p.volume)
+    volumes: sorted.map(p => p.volume),
+    ma5: calcMA(closes, 5),
+    ma10: calcMA(closes, 10),
+    ma20: calcMA(closes, 20),
+    ma60: calcMA(closes, 60),
   }
 })
 
 const option = computed<EChartsOption>(() => ({
   backgroundColor: 'transparent',
   grid: [
-    { left: 60, right: 20, top: 20, height: '62%' },
+    { left: 60, right: 20, top: 30, height: '60%' },
     { left: 60, right: 20, top: '78%', height: '16%' }
   ],
   xAxis: [
@@ -63,6 +77,13 @@ const option = computed<EChartsOption>(() => ({
   dataZoom: [
     { type: 'inside', xAxisIndex: [0, 1], start: 60, end: 100 }
   ],
+  legend: {
+    data: ['MA5', 'MA10', 'MA20', 'MA60'],
+    top: 0,
+    textStyle: { color: '#8c9ab5', fontSize: 11 },
+    itemWidth: 14,
+    itemHeight: 2,
+  },
   series: [
     {
       type: 'candlestick',
@@ -75,6 +96,46 @@ const option = computed<EChartsOption>(() => ({
         borderColor: '#22c55e',
         borderColor0: '#ef4444'
       }
+    },
+    {
+      name: 'MA5',
+      type: 'line',
+      data: chartData.value.ma5,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 1, color: '#f59e0b' },
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+    },
+    {
+      name: 'MA10',
+      type: 'line',
+      data: chartData.value.ma10,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 1, color: '#3b82f6' },
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+    },
+    {
+      name: 'MA20',
+      type: 'line',
+      data: chartData.value.ma20,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 1, color: '#a855f7' },
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+    },
+    {
+      name: 'MA60',
+      type: 'line',
+      data: chartData.value.ma60,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 1, color: '#06b6d4' },
+      xAxisIndex: 0,
+      yAxisIndex: 0,
     },
     {
       type: 'bar',
@@ -106,6 +167,12 @@ const option = computed<EChartsOption>(() => ({
       html += `<div>最低: <b>${low}</b></div>`
       html += `<div>最高: <b>${high}</b></div>`
       if (vol) html += `<div>成交量: <b>${Number(vol.value).toLocaleString()}</b></div>`
+      const maColors: Record<string, string> = { MA5: '#f59e0b', MA10: '#3b82f6', MA20: '#a855f7', MA60: '#06b6d4' }
+      params.filter((p: any) => p.seriesName?.startsWith('MA')).forEach((p: any) => {
+        if (p.value != null) {
+          html += `<div><span style="color:${maColors[p.seriesName]}">${p.seriesName}</span>: <b>${Number(p.value).toFixed(2)}</b></div>`
+        }
+      })
       return html
     }
   }
