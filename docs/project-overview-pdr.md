@@ -278,6 +278,9 @@
 #### R3: AI 輔助分析
 - 所有評分股票進行分析（完全無限制）
 - 使用 Gemini 2.5 Flash 模型
+- **24 小時快取機制**：檢查報告的 `created_at` 欄位，若在 24 小時內已生成則直接返回快取報告，避免重複呼叫 LLM API
+  - 後端邏輯：`POST /api/reports/{stock_id}/generate` 比對 `created_at >= now() - 24h`
+  - 前端按鈕狀態：「產生 AI 分析」→「更新分析」→「今日已分析」（禁用）
 - 新聞按需抓取：NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector
   - 新聞回溯期：14 天
   - URL 編碼修正 + HTML 標籤過濾
@@ -377,6 +380,11 @@
 - 新增 `test_analysis_steps.py` (7 個測試), 總計 140+ 測試
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
+### 2026-02-21: AI 報告 24 小時快取機制
+- **快取邏輯**：後端 `POST /api/reports/{stock_id}/generate` 檢查 `LLMReport.created_at >= now() - 24h`
+- **前端反饋**：按鈕文案動態更新「產生 AI 分析」→「更新分析」→「今日已分析」（禁用）
+- **效益**：避免短時間內重複呼叫 LLM API，降低成本並改善使用者體驗
+
 **最後更新**: 2026-02-21
-**版本**: 1.6
+**版本**: 1.7
 **狀態**: 全部實裝完成，持續優化中

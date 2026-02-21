@@ -53,10 +53,14 @@ const priceClass = computed(() => {
   return currentPrice.value.change_percent >= 0 ? 'up' : 'down'
 })
 
+// Track whether current stock already has today's report
+const generatedThisSession = ref(false)
+
 const loadStockData = async () => {
   loading.value = true
   scoreResult.value = null
   report.value = null
+  generatedThisSession.value = false
   const id = stockId.value
   try {
     // Score first — triggers on-demand data fetch for non-pipeline stocks
@@ -65,6 +69,12 @@ const loadStockData = async () => {
       getStockReport(id).then(data => { report.value = data }).catch(() => { report.value = null })
     ])
     scoreResult.value = scoreData
+    // If report was generated within 24 hours, mark as done
+    if (report.value?.created_at) {
+      const createdAt = new Date(report.value.created_at).getTime()
+      const hoursAgo = (Date.now() - createdAt) / (1000 * 60 * 60)
+      if (hoursAgo < 24) generatedThisSession.value = true
+    }
     // Fetch prices after on-demand data is populated
     await stockStore.fetchPrices(id, dateRange.value.start, dateRange.value.end)
   } catch (error) {
@@ -74,10 +84,19 @@ const loadStockData = async () => {
   }
 }
 
+const isReportRecent = computed(() => {
+  if (generatedThisSession.value) return true
+  if (!report.value?.created_at) return false
+  const createdAt = new Date(report.value.created_at).getTime()
+  const hoursAgo = (Date.now() - createdAt) / (1000 * 60 * 60)
+  return hoursAgo < 24
+})
+
 const handleGenerateReport = async () => {
   generating.value = true
   try {
     report.value = await generateStockReport(stockId.value)
+    generatedThisSession.value = true
   } catch (error) {
     console.error('產生 AI 分析失敗:', error)
   } finally {
@@ -157,10 +176,11 @@ watch(() => route.params.id, () => {
           <div style="display: flex; align-items: center; gap: 12px">
             <button
               class="btn-generate"
-              :disabled="generating"
+              :disabled="generating || isReportRecent"
               @click="handleGenerateReport"
+              :title="isReportRecent ? '今日已產生報告，每日限產生一次' : ''"
             >
-              {{ generating ? '分析中...' : report ? '重新產生' : '產生 AI 分析' }}
+              {{ generating ? '分析中...' : isReportRecent ? '今日已分析' : report ? '更新分析' : '產生 AI 分析' }}
             </button>
           </div>
         </div>

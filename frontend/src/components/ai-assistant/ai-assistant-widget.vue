@@ -37,6 +37,7 @@ function scrollToBottom() {
 }
 
 const ERROR_AUTH = '請先登入後再使用 AI 小幫手。'
+const ERROR_RATE_LIMIT_FALLBACK = '發送太頻繁，請稍後再試。'
 const ERROR_DEFAULT = '抱歉，AI 服務暫時無法回應，請稍後再試。'
 
 async function sendMessage() {
@@ -74,11 +75,18 @@ async function sendMessage() {
     followUpSuggestions.value = suggestions
     if (suggestions.length) suggestionsExpanded.value = true
   } catch (err: unknown) {
-    const status = (err as { response?: { status?: number } })?.response?.status
+    const resp = (err as { response?: { status?: number; data?: { detail?: string } } })?.response
+    const status = resp?.status
+    let errorMsg = ERROR_DEFAULT
+    if (status === 401 || status === 403) {
+      errorMsg = ERROR_AUTH
+    } else if (status === 429) {
+      errorMsg = resp?.data?.detail || ERROR_RATE_LIMIT_FALLBACK
+    }
     messages.value.push({
       id: nextId++,
       role: 'assistant',
-      content: status === 401 || status === 403 ? ERROR_AUTH : ERROR_DEFAULT,
+      content: errorMsg,
       timestamp: formatTime(),
     })
     followUpSuggestions.value = []

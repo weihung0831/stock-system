@@ -12,6 +12,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.services.llm_client import LLMClient
 from app.services.chat_service import chat_with_assistant
+from app.services.chat_rate_limiter import chat_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,11 @@ def send_chat_message(
     Returns:
         AI assistant reply
     """
+    # Rate limit check
+    allowed, reason = chat_rate_limiter.check(str(current_user.id))
+    if not allowed:
+        raise HTTPException(status_code=429, detail=reason)
+
     try:
         llm_client = LLMClient(
             api_key=settings.LLM_API_KEY,

@@ -3,6 +3,7 @@ export interface LLMReport {
   stock_id: string
   stock_name: string
   report_date: string
+  created_at: string
   chip_analysis: string
   fundamental_analysis: string
   technical_analysis: string

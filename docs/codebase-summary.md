@@ -567,6 +567,31 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 
 ## 近期更新摘要
 
+### 2026-02-21: AI 報告 24 小時快取機制
+
+**新功能說明**
+- 防止短時間內重複呼叫 LLM API，改善效能與降低成本
+- 後端檢查報告 `created_at` 欄位，若在 24 小時內已生成則直接返回快取
+- 前端按鈕狀態動態更新，提供清晰的視覺反饋
+
+**後端實現**
+- `app/routers/reports.py` `POST /api/reports/{stock_id}/generate` 端點（第 94-107 行）
+  - 計算臨界點：`cutoff = datetime.now() - timedelta(hours=24)`
+  - 查詢既存報告：`LLMReport.created_at >= cutoff`
+  - 命中快取時返回既存報告，日誌記錄 `created_at` 時間戳
+  - 未命中快取時呼叫 LLM 分析並生成新報告
+- `LLMReportResponse` 模式（`schemas/report.py` 第 14 行）已含 `created_at: datetime` 欄位
+
+**前端實現**
+- `src/views/stock-detail-view.vue` 按鈕邏輯（第 56-105 行）
+  - 載入時檢查報告 `created_at` 時間戳，計算距今小時數
+  - `isReportRecent` 計算屬性：判斷 `hoursAgo < 24`
+  - 按鈕文案三態：
+    - 無報告 → 「產生 AI 分析」
+    - 報告存在且 >24h → 「更新分析」
+    - 報告存在且 ≤24h → 「今日已分析」（禁用狀態）
+  - 禁用條件：`:disabled="generating || isReportRecent"`
+
 ### 2026-02-21: 右側買法 (Right-Side Trading Signals) 功能
 
 **後端新增**
@@ -698,4 +723,4 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
 **最後更新**: 2026-02-21
-**版本**: 1.8
+**版本**: 1.9

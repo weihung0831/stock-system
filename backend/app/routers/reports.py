@@ -1,7 +1,7 @@
 """LLM report endpoints."""
 import logging
 from typing import Annotated, List, Optional
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -79,14 +79,7 @@ def generate_stock_report(
 ):
     """
     Trigger LLM analysis for a single stock on-demand.
-
-    Args:
-        stock_id: Stock ticker (e.g., "2330")
-        db: Database session
-        current_user: Authenticated user
-
-    Returns:
-        Generated LLM report
+    Returns cached report if one already exists for today (24h cooldown).
     """
     from app.config import settings
     from app.services.llm_client import LLMClient
@@ -97,6 +90,21 @@ def generate_stock_report(
         stock = db.query(Stock).filter(Stock.stock_id == stock_id).first()
         if not stock:
             raise HTTPException(status_code=404, detail=f"Stock {stock_id} not found")
+
+        # Cache check: return existing report if generated within 24 hours
+        cutoff = datetime.now() - timedelta(hours=24)
+        cached = (
+            db.query(LLMReport, Stock.stock_name)
+            .outerjoin(Stock, LLMReport.stock_id == Stock.stock_id)
+            .filter(LLMReport.stock_id == stock_id, LLMReport.created_at >= cutoff)
+            .order_by(desc(LLMReport.created_at))
+            .first()
+        )
+        if cached:
+            report, stock_name = cached
+            report.stock_name = stock_name or stock_id
+            logger.info(f"Returning cached report for {stock_id} (created_at={report.created_at})")
+            return report
 
         # Get latest score for this stock (if any)
         score = (

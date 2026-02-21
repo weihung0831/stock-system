@@ -368,6 +368,35 @@ cd frontend && npm run dev
 
 ## 新增功能與改進
 
+### 2026-02-21: AI 報告 24 小時快取機制
+
+**功能說明**
+- AI 報告生成現已支援 24 小時快取機制，避免短時間內重複呼叫 LLM API
+- 後端檢查 `LLMReport` 表的 `created_at` 欄位，若報告在 24 小時內已生成則直接返回快取報告
+
+**後端實現**
+- `POST /api/reports/{stock_id}/generate` 端點（`reports.py` 第 74-157 行）
+  - 使用 `datetime.now() - timedelta(hours=24)` 計算 24 小時臨界點
+  - 查詢條件：`LLMReport.created_at >= cutoff`
+  - 命中快取時返回既存報告，日誌記錄 `created_at` 時間戳
+  - 未命中快取時方才呼叫 LLM 並生成新報告
+- `LLMReportResponse` 模式（`report.py`）包含 `created_at: datetime` 欄位
+
+**前端實現**
+- 按鈕狀態管理（`stock-detail-view.vue` 第 179-184 行）
+  - 初始載入時檢查報告的 `created_at` 時間戳，判斷距今是否在 24 小時內
+  - `isReportRecent` 計算屬性：檢查 `generatedThisSession` 或計算 `hoursAgo < 24`
+  - 按鈕文案動態更新：
+    - 無報告：「產生 AI 分析」
+    - 報告存在但 >24h：「更新分析」
+    - 報告存在且 ≤24h：「今日已分析」（禁用）
+- 按鈕禁用狀態綁定 `:disabled="generating || isReportRecent"`
+
+**使用者體驗**
+- 首次生成報告後，同日內點擊按鈕不會重複產生，避免等待時間
+- 隔日後按鈕重新啟用，允許更新報告以獲取最新分析
+- 前端即時反饋：生成中顯示「分析中...」，快取命中顯示「今日已分析」
+
 ### 2026-02-21: 右側買法 (Right-Side Trading Signals)
 
 **新功能說明**
@@ -488,4 +517,4 @@ cd frontend && npm run dev
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
 **最後更新**: 2026-02-21
-**版本**: 2.8
+**版本**: 2.9

@@ -299,3 +299,34 @@ class TestChatRouter:
 
         assert response.status_code == 200
         assert response.json()["reply"] == "第二輪回覆"
+
+    @patch("app.routers.chat.chat_rate_limiter")
+    def test_chat_rate_limit_returns_429(self, mock_limiter, test_client, jwt_token):
+        """Test 429 when rate limiter blocks request."""
+        mock_limiter.check.return_value = (False, "發送太頻繁，請等 30 秒後再試。")
+
+        response = test_client.post(
+            "/api/chat",
+            json={"messages": [{"role": "user", "content": "test"}]},
+            headers={"Authorization": f"Bearer {jwt_token}"},
+        )
+
+        assert response.status_code == 429
+        assert "發送太頻繁" in response.json()["detail"]
+
+    @patch("app.routers.chat.chat_rate_limiter")
+    @patch("app.routers.chat.LLMClient")
+    def test_chat_allowed_when_rate_ok(self, mock_llm_cls, mock_limiter, test_client, jwt_token):
+        """Test request proceeds when rate limiter allows."""
+        mock_limiter.check.return_value = (True, "")
+        mock_instance = MagicMock()
+        mock_instance.generate_chat.return_value = "ok"
+        mock_llm_cls.return_value = mock_instance
+
+        response = test_client.post(
+            "/api/chat",
+            json={"messages": [{"role": "user", "content": "test"}]},
+            headers={"Authorization": f"Bearer {jwt_token}"},
+        )
+
+        assert response.status_code == 200
