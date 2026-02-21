@@ -70,9 +70,9 @@ const loadStockData = async () => {
     ])
     scoreResult.value = scoreData
     // If report was generated within 24 hours, mark as done
-    if (report.value?.created_at) {
-      const createdAt = new Date(report.value.created_at).getTime()
-      const hoursAgo = (Date.now() - createdAt) / (1000 * 60 * 60)
+    const rpt = report.value as LLMReport | null
+    if (rpt?.created_at) {
+      const hoursAgo = (Date.now() - new Date(rpt.created_at).getTime()) / (1000 * 60 * 60)
       if (hoursAgo < 24) generatedThisSession.value = true
     }
     // Fetch prices after on-demand data is populated
