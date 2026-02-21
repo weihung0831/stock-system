@@ -2,6 +2,18 @@ import apiClient from './client'
 import type { LLMReport } from '@/types/report'
 import type { PaginatedResponse } from '@/types/stock'
 
+export interface ReportQuota {
+  tier: string
+  daily_limit: number
+  daily_used: number
+  daily_remaining: number
+}
+
+export async function getReportQuota(): Promise<ReportQuota> {
+  const { data } = await apiClient.get<ReportQuota>('/reports/quota')
+  return data
+}
+
 export async function getLatestReports(): Promise<LLMReport[]> {
   const { data } = await apiClient.get<LLMReport[]>('/reports/latest')
   return data

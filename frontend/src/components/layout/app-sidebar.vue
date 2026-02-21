@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth-store'
 import HeaderStockSearch from './header-stock-search.vue'
@@ -13,30 +13,33 @@ const emit = defineEmits<{
   (e: 'navigate'): void
 }>()
 
-const navSections = [
-  {
-    label: '總覽',
-    items: [
-      { path: '/', label: 'Dashboard', icon: 'grid' },
-    ],
-  },
-  {
-    label: '分析',
-    items: [
-      { path: '/screening', label: '自訂篩選', icon: 'filter' },
-      { path: '/chip-stats', label: '籌碼統計', icon: 'trend' },
-      { path: '/reports', label: 'AI 報告', icon: 'doc' },
-      { path: '/history', label: '歷史回測', icon: 'chart' },
-      { path: '/right-side', label: '右側買法', icon: 'signal' },
-    ],
-  },
-  {
-    label: '系統',
-    items: [
-      { path: '/settings', label: '設定', icon: 'gear' },
-    ],
-  },
-]
+const navSections = computed(() => {
+  const sections = [
+    {
+      label: '總覽',
+      items: [
+        { path: '/', label: 'Dashboard', icon: 'grid' },
+      ],
+    },
+    {
+      label: '分析',
+      items: [
+        { path: '/screening', label: '自訂篩選', icon: 'filter' },
+        { path: '/chip-stats', label: '籌碼統計', icon: 'trend' },
+        { path: '/reports', label: 'AI 報告', icon: 'doc' },
+        { path: '/history', label: '歷史回測', icon: 'chart' },
+        { path: '/right-side', label: '右側買法', icon: 'signal' },
+      ],
+    },
+    {
+      label: '系統',
+      items: [
+        { path: '/settings', label: '設定', icon: 'gear' },
+      ],
+    },
+  ]
+  return sections
+})
 
 function isActive(path: string) {
   if (path === '/') {
@@ -60,6 +63,15 @@ const userInitial = computed(() => {
   const name = authStore.user?.username
   return name ? name.charAt(0).toUpperCase() : 'U'
 })
+
+const showUserMenu = ref(false)
+
+function handleMenuAction(action: string) {
+  showUserMenu.value = false
+  if (action === 'profile') navigate('/profile')
+  else if (action === 'admin') navigate('/admin/users')
+  else if (action === 'logout') handleLogout()
+}
 </script>
 
 <template>
@@ -135,19 +147,44 @@ const userInitial = computed(() => {
 
     <!-- Footer -->
     <div class="sidebar-footer">
-      <div class="avatar">{{ userInitial }}</div>
+      <div class="avatar-wrapper">
+        <div class="avatar" @click="showUserMenu = !showUserMenu">{{ userInitial }}</div>
+        <!-- Popover menu -->
+        <Transition name="menu-fade">
+          <div v-if="showUserMenu" class="user-menu">
+            <div class="menu-item" @click="handleMenuAction('profile')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+              </svg>
+              個人資料
+            </div>
+            <div v-if="authStore.user?.is_admin" class="menu-item" @click="handleMenuAction('admin')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
+              </svg>
+              會員管理
+            </div>
+            <div class="menu-divider" />
+            <div class="menu-item menu-item-danger" @click="handleMenuAction('logout')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              登出
+            </div>
+          </div>
+        </Transition>
+      </div>
       <div class="user-info">
         <div class="user-name">{{ authStore.user?.username ?? '使用者' }}</div>
-        <div class="user-role">管理員</div>
+        <div class="user-role">
+          <span class="tier-badge" :class="authStore.user?.membership_tier ?? 'free'">
+            {{ authStore.user?.is_admin ? '管理員' : authStore.user?.membership_tier === 'premium' ? '進階會員' : '免費會員' }}
+          </span>
+        </div>
       </div>
-      <button class="btn-logout" title="登出" @click="handleLogout">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-          <polyline points="16 17 21 12 16 7" />
-          <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
-      </button>
     </div>
+    <!-- Click outside to close menu -->
+    <div v-if="showUserMenu" class="menu-overlay" @click="showUserMenu = false" />
   </aside>
 </template>
 
@@ -286,16 +323,80 @@ const userInitial = computed(() => {
   font-size: 0.72rem;
   color: var(--text-muted, #556178);
 }
-.btn-logout {
-  background: none;
-  border: none;
-  color: var(--text-muted, #556178);
-  cursor: pointer;
-  padding: 4px;
-  transition: color 0.2s;
-  flex-shrink: 0;
+/* Avatar & popover menu */
+.avatar-wrapper {
+  position: relative;
 }
-.btn-logout:hover {
+.avatar {
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.avatar:hover {
+  box-shadow: 0 0 0 2px rgba(229, 169, 26, 0.4);
+}
+.user-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 160px;
+  background: var(--bg-card, #151d2e);
+  border: 1px solid var(--border, #243049);
+  border-radius: 8px;
+  padding: 6px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #8c9ab5);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.menu-item:hover {
+  background: rgba(229, 169, 26, 0.06);
+  color: var(--text, #e8ecf4);
+}
+.menu-item-danger:hover {
+  background: rgba(239, 68, 68, 0.08);
   color: #ef4444;
+}
+.menu-divider {
+  height: 1px;
+  background: var(--border, #243049);
+  margin: 4px 0;
+}
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+.menu-fade-enter-active,
+.menu-fade-leave-active {
+  transition: opacity 0.15s, transform 0.15s;
+}
+.menu-fade-enter-from,
+.menu-fade-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.tier-badge {
+  font-size: 0.65rem;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tier-badge.premium {
+  background: rgba(229, 169, 26, 0.15);
+  color: #e5a91a;
+}
+.tier-badge.free {
+  background: rgba(140, 154, 181, 0.15);
+  color: #8c9ab5;
 }
 </style>

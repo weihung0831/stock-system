@@ -8,20 +8,41 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const username = ref('')
+const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const loading = ref(false)
 
-async function handleLogin() {
-  if (!username.value || !password.value) {
-    ElMessage.warning('請輸入帳號和密碼')
+async function handleRegister() {
+  if (!username.value || !email.value || !password.value || !confirmPassword.value) {
+    ElMessage.warning('請填寫所有欄位')
     return
   }
+  if (password.value !== confirmPassword.value) {
+    ElMessage.warning('密碼不一致')
+    return
+  }
+  if (password.value.length < 8) {
+    ElMessage.warning('密碼需至少 8 個字元')
+    return
+  }
+
   loading.value = true
   try {
-    await authStore.login(username.value, password.value)
-    router.push('/')
-  } catch {
-    ElMessage.error('帳號或密碼錯誤')
+    await authStore.register(username.value, email.value, password.value)
+    ElMessage.success('註冊成功，請登入')
+    router.push('/login')
+  } catch (err: any) {
+    const status = err?.response?.status
+    if (status === 409) {
+      ElMessage.error('帳號或 Email 已被使用')
+    } else if (status === 422) {
+      const detail = err?.response?.data?.detail
+      const msg = Array.isArray(detail) ? detail[0]?.msg : detail
+      ElMessage.error(msg || '輸入格式不正確')
+    } else {
+      ElMessage.error('註冊失敗，請稍後再試')
+    }
   } finally {
     loading.value = false
   }
@@ -29,11 +50,11 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="login-page">
-    <div class="login-card">
-      <h1 class="login-title">TW Stock Screener</h1>
-      <p class="login-subtitle">台灣股市多因子篩選平台</p>
-      <el-form @submit.prevent="handleLogin" class="login-form">
+  <div class="register-page">
+    <div class="register-card">
+      <h1 class="register-title">TW Stock Screener</h1>
+      <p class="register-subtitle">建立新帳號</p>
+      <el-form @submit.prevent="handleRegister" class="register-form">
         <el-form-item>
           <el-input
             v-model="username"
@@ -44,41 +65,60 @@ async function handleLogin() {
         </el-form-item>
         <el-form-item>
           <el-input
+            v-model="email"
+            placeholder="Email"
+            prefix-icon="Message"
+            size="large"
+            type="email"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-input
             v-model="password"
             type="password"
-            placeholder="密碼"
+            placeholder="密碼（至少 8 位）"
             prefix-icon="Lock"
             size="large"
             show-password
-            @keyup.enter="handleLogin"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="確認密碼"
+            prefix-icon="Lock"
+            size="large"
+            show-password
+            @keyup.enter="handleRegister"
           />
         </el-form-item>
         <el-button
           type="warning"
           size="large"
           :loading="loading"
-          class="login-btn"
-          @click="handleLogin"
+          class="register-btn"
+          @click="handleRegister"
         >
-          登入
+          註冊
         </el-button>
       </el-form>
       <p class="auth-link">
-        還沒有帳號？<a @click="router.push('/register')">註冊新帳號</a>
+        已有帳號？<a @click="router.push('/login')">登入</a>
       </p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.login-page {
+.register-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #080c14 0%, #151d2e 100%);
 }
-.login-card {
+.register-card {
   width: 400px;
   padding: 48px 40px;
   border-radius: 12px;
@@ -86,25 +126,25 @@ async function handleLogin() {
   border: 1px solid rgba(229, 169, 26, 0.2);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
-.login-title {
+.register-title {
   text-align: center;
   color: #e5a91a;
   font-family: 'JetBrains Mono', monospace;
   font-size: 24px;
   margin: 0 0 8px;
 }
-.login-subtitle {
+.register-subtitle {
   text-align: center;
   color: #8b95a5;
   font-family: 'Noto Sans TC', sans-serif;
   font-size: 14px;
   margin: 0 0 32px;
 }
-.login-form {
+.register-form {
   display: flex;
   flex-direction: column;
 }
-.login-btn {
+.register-btn {
   width: 100%;
   margin-top: 8px;
   background: #e5a91a;
@@ -112,7 +152,7 @@ async function handleLogin() {
   color: #080c14;
   font-weight: 600;
 }
-.login-btn:hover {
+.register-btn:hover {
   background: #f0b830;
   border-color: #f0b830;
 }

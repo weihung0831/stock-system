@@ -10,7 +10,7 @@ stock-system/
 │   │   ├── config.py                 # 配置管理 (環境變數)
 │   │   ├── database.py               # SQLAlchemy ORM 設定
 │   │   ├── dependencies.py           # 依賴注入
-│   │   ├── models/                   # 13個 ORM 模型
+│   │   ├── models/                   # 15個 ORM 模型
 │   │   │   ├── base.py               # 基類 (TimestampMixin)
 │   │   │   ├── stock.py              # 股票主檔
 │   │   │   ├── daily_price.py        # 每日價格
@@ -24,27 +24,30 @@ stock-system/
 │   │   │   ├── technical_score.py    # 技術面評分
 │   │   │   ├── score_result.py       # 最終評分結果
 │   │   │   ├── llm_report.py         # AI 分析報告
-│   │   │   ├── user.py               # 使用者帳戶
+│   │   │   ├── report_usage.py       # 報告使用追蹤 (每日限額記錄)
+│   │   │   ├── user.py               # 使用者帳戶 (含 membership_tier, email)
 │   │   │   └── pipeline_log.py       # 流程執行日誌
 │   │   ├── schemas/                  # Pydantic 驗證模式
-│   │   │   ├── auth.py               # 認證 (LoginRequest, Token)
+│   │   │   ├── auth.py               # 認證 (LoginRequest, RegisterRequest, Token, UserResponse)
+│   │   │   ├── admin.py              # 管理 (TierUpdateRequest)
 │   │   │   ├── stock.py              # 股票 (Stock, DailyPrice)
 │   │   │   ├── screening.py          # 篩選 (ScreeningParams, Result)
 │   │   │   ├── report.py             # 報告 (Report, LLMReport)
 │   │   │   └── common.py             # 共通模式 (Pagination, Error)
-│   │   ├── routers/                  # 11 個 API 路由器
-│   │   │   ├── auth.py               # /api/auth/* (登入/註冊/更新令牌)
+│   │   ├── routers/                  # 13 個 API 路由器
+│   │   │   ├── auth.py               # /api/auth/* (登入/註冊/更新令牌，含會員系統)
 │   │   │   ├── stocks.py             # /api/stocks/* (股票查詢)
 │   │   │   ├── data.py               # /api/data/* (數據收集)
+│   │   │   ├── admin.py              # /api/admin/* (會員管理，管理員專用)
 │   │   │   ├── screening.py          # /api/screening/* (標準篩選)
-│   │   │   ├── reports.py            # /api/reports/* (報告)
+│   │   │   ├── reports.py            # /api/reports/* (報告，含 24h 快取 + 會員限流)
 │   │   │   ├── scheduler.py          # /api/scheduler/* (排程管理 + 設定持久化)
 │   │   │   ├── custom_screening.py   # /api/custom-screening/* (自訂篩選)
 │   │   │   ├── chip_stats.py         # /api/chip-stats/* (籌碼統計)
 │   │   │   ├── backtest.py           # /api/backtest/* (回測+評分日期)
-│   │   │   ├── chat.py               # /api/chat (AI 聊天助手，含輸入驗證)
+│   │   │   ├── chat.py               # /api/chat (AI 聊天助手，含會員限流+配額查詢)
 │   │   │   └── right_side_signals.py # /api/right-side-signals/* (右側買法信號)
-│   │   ├── services/                 # 23 個業務邏輯服務
+│   │   ├── services/                 # 25 個業務邏輯服務
 │   │   │   ├── auth_service.py       # JWT & Bcrypt 認證
 │   │   │   ├── finmind_collector.py  # FinMind API 整合
 │   │   │   ├── news_collector.py     # Google News RSS 爬蟲
@@ -59,11 +62,12 @@ stock-system/
 │   │   │   ├── chip_stats_service.py # 籌碼統計
 │   │   │   ├── backtest_service.py   # 回測引擎 + 評分日期查詢
 │   │   │   ├── twse_collector.py    # TWSE 官方 API 資料收集
-│   │   │   ├── llm_analyzer.py       # AI 分析 (新聞摘要，0.5s 速率限制)
+│   │   │   ├── llm_analyzer.py       # AI 分析 (新聞摘要，24h 快取，0.5s 速率限制)
 │   │   │   ├── gemini_client.py      # Google Gemini API 包裝
 │   │   │   ├── llm_client.py         # LLM 通用客戶端 (含 generate_chat 自由文字對話)
 │   │   │   ├── chat_service.py       # AI 聊天服務 (建構系統提示詞 + 編排 LLM 對話)
-│   │   │   ├── chat_rate_limiter.py  # 聊天限流 (每分鐘 3 則、每日 20 則)
+│   │   │   ├── chat_rate_limiter.py  # 聊天限流 (會員等級差異: Free 3/min+10/day, Premium 5/min+100/day)
+│   │   │   ├── report_rate_limiter.py # 報告生成限流 (Free 5/day, Premium unlimited)
 │   │   │   ├── right_side_signal_detector.py # 右側買法信號檢測 (6個信號)
 │   │   │   ├── news_preparator.py    # 新聞預處理
 │   │   │   ├── on_demand_data_fetcher.py # 按需資料抓取 (非 Pipeline 股票)
@@ -74,7 +78,7 @@ stock-system/
 │   │       ├── analysis_steps.py     # 分析與評分步驟（含按需新聞抓取）
 │   │       ├── pipeline_status.py    # 進度與日誌
 │   │       └── __init__.py
-│   ├── tests/                        # 單元測試 (267+ 個測試)
+│   ├── tests/                        # 單元測試 (301 個測試)
 │   │   ├── conftest.py               # Pytest 設定與固件
 │   │   ├── test_auth_service.py      # 認證測試 (156 行)
 │   │   ├── test_models.py            # 模型測試 (496 行)
@@ -95,8 +99,12 @@ stock-system/
 │   ├── src/
 │   │   ├── main.ts                   # 應用入口
 │   │   ├── App.vue                   # 根元件
-│   │   ├── views/                    # 9 個頁面
+│   │   ├── views/                    # 13 個頁面
 │   │   │   ├── login-view.vue        # 登入頁面
+│   │   │   ├── register-view.vue      # 註冊頁面 (含電郵驗證、密碼強度檢查、會員等級選擇)
+│   │   │   ├── profile-view.vue       # 會員資料頁 (顯示會員等級、聊天配額、升級提示)
+│   │   │   ├── pricing-view.vue       # 定價頁面 (會員方案比較)
+│   │   │   ├── admin-users-view.vue   # 管理員後台 (使用者列表、編輯狀態)
 │   │   │   ├── dashboard-view.vue    # 主儀表板 (篩選結果表 + 顯示限制選單)
 │   │   │   ├── stock-detail-view.vue # 股票詳情 (K線+評分+AI報告)
 │   │   │   ├── custom-screening-view.vue # 自訂篩選介面
@@ -143,9 +151,10 @@ stock-system/
 │   │   │   ├── stock-store.ts        # 股票數據快取
 │   │   │   ├── screening-store.ts    # 篩選參數與結果
 │   │   │   └── settings-store.ts     # 使用者偏好
-│   │   ├── api/                      # 10 個 API 呼叫模組
+│   │   ├── api/                      # 11 個 API 呼叫模組
 │   │   │   ├── client.ts             # Axios 實例與攔截器
 │   │   │   ├── auth-api.ts           # 認證 API
+│   │   │   ├── admin-api.ts          # 管理員 API 客戶端
 │   │   │   ├── stocks-api.ts         # 股票查詢 API
 │   │   │   ├── screening-api.ts      # 標準篩選 API
 │   │   │   ├── custom-screening-api.ts # 自訂篩選 API
@@ -154,8 +163,8 @@ stock-system/
 │   │   │   ├── reports-api.ts        # 報告 API
 │   │   │   ├── chat-api.ts           # AI 聊天 API 客戶端
 │   │   │   └── right-side-signals-api.ts # 右側買法信號 API 客戶端
-│   │   ├── types/                    # 4 個 TypeScript 型別定義
-│   │   │   ├── auth.ts               # User, LoginRequest, Token
+│   │   ├── types/                    # 5 個 TypeScript 型別定義
+│   │   │   ├── auth.ts               # User, LoginRequest, RegisterRequest, Token
 │   │   │   ├── stock.ts              # Stock, DailyPrice, Institutional
 │   │   │   ├── screening.ts          # ScreeningParams, Result
 │   │   │   ├── report.ts             # Report, LLMReport
@@ -513,7 +522,7 @@ tailwindcss (可選)
 ## 測試覆蓋
 
 ```
-總計: 267+ 個測試, 100% 通過率
+總計: 301 個測試, 100% 通過率
 
 認證服務        ✅ 156 行代碼，100% 覆蓋
 模型           ✅ 496 行代碼，93-100% 覆蓋
@@ -524,37 +533,14 @@ tailwindcss (可選)
 分析步驟        ✅ 115 行代碼，100% 覆蓋
 FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 聊天服務        ✅ 17 個測試，涵蓋 build_stock_context/chat_with_assistant/router/限流整合
-聊天限流        ✅ 7 個測試，涵蓋每分鐘限制/每日限制/重置邏輯（新增）
-報告快取        ✅ 5 個測試，涵蓋 24h 快取命中/未命中/邊界（新增）
+聊天限流        ✅ 7 個測試，涵蓋每分鐘/日限制/重置邏輯/會員差異
+報告快取        ✅ 5 個測試，涵蓋 24h 快取命中/未命中/邊界
+會員系統        ✅ ~34 個測試，涵蓋註冊/驗證/等級管理/限流（新增）
 
 持續擴展:
 評分服務整合測試 (計畫)
 前端元件測試 (計畫)
 ```
-
-## 快速導航
-
-### 新增功能
-
-1. **添加新 API 端點**
-   - 建立 `app/schemas/*.py` (Pydantic 驗證)
-   - 建立 `app/routers/new_feature.py` (路由)
-   - 更新 `app/main.py` (掛載路由)
-   - 新增對應服務 (app/services/)
-   - 新增測試
-
-2. **添加新評分因子**
-   - 擴展 `app/services/scoring_engine.py`
-   - 新增對應評分器 (e.g., `sentiment_scorer.py`)
-   - 更新模型與資料庫
-   - 修改權重邏輯
-
-3. **添加前端頁面**
-   - 建立 `src/views/new-view.vue`
-   - 建立 `src/stores/new-store.ts`
-   - 建立 `src/api/new-api.ts`
-   - 更新路由器
-   - 製作相關元件
 
 ## 部署檢查清單
 
@@ -572,27 +558,87 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 
 ## 近期更新摘要
 
-### 2026-02-21: AI 聊天限流功能 (ChatRateLimiter)
+### 2026-02-21: 會員系統完全實裝 (Membership System)
 
 **新功能說明**
-- 防止單一用戶短時間內大量呼叫 AI 聊天 API，降低 Gemini API 成本
-- 每用戶每分鐘最多 3 則訊息，每日最多 20 則訊息
-- 超出限制時 API 返回 HTTP 429，前端顯示相應錯誤提示
+- 完整的會員系統，支援 Free/Premium 兩個等級
+- 聊天限流與報告生成限流隨會員等級動態調整
+- 用戶自助註冊與會員資料管理
+
+**後端新增**
+- `app/routers/admin.py` (96 行)
+  - `GET /api/admin/users` 取得所有使用者清單
+  - `PATCH /api/admin/users/{user_id}/tier` 更新會員等級
+  - `PATCH /api/admin/users/{user_id}/email` 更新電郵
+  - `PATCH /api/admin/users/{user_id}/active` 切換啟用狀態
+- `app/schemas/admin.py` (418 行)
+  - `TierUpdateRequest` 會員等級更新請求
+- `app/models/report_usage.py` (20 行)
+  - `ReportUsage` 模型追蹤每用戶每日報告使用
+- `app/services/report_rate_limiter.py` (1435 行)
+  - 報告生成限流追蹤（Free 5/day, Premium unlimited）
+- 更新 `app/models/user.py`
+  - 新增 `email` 欄位 (unique, indexed)
+  - 新增 `membership_tier` 欄位 (default: 'free')
+- 更新 `app/routers/auth.py`
+  - `POST /api/auth/register` 含電郵驗證、密碼強度檢查、會員等級初始化
+  - JWT token 內含 tier 欄位
+- 更新 `app/routers/chat.py`
+  - 會員等級差異限流 (Free 3/min+10/day vs Premium 5/min+100/day)
+  - `GET /api/chat/quota` 查詢配額端點
+- 新增 `app/dependencies.py` 中的 `require_premium` 依賴注入
+- 更新 `app/routers/reports.py`
+  - 報告生成 24h 快取 + 會員限流 (Free 5/day)
+
+**前端新增**
+- `src/views/register-view.vue`
+  - 電郵唯一性驗證
+  - 密碼長度檢查 (8+ 字元)
+  - 會員等級選擇 (Free/Premium)
+- `src/views/profile-view.vue`
+  - 顯示會員等級與聊天配額
+  - 超限時升級提示對話
+- `src/views/pricing-view.vue`
+  - 定價方案比較（Free vs Premium）
+- `src/views/admin-users-view.vue`
+  - 管理員使用者列表查詢
+  - 線上編輯會員等級、電郵、啟用狀態
+- `src/api/admin-api.ts`
+  - 管理員 API 客戶端封裝
+- 側邊欄會員徽章與配額顯示
+- AI 聊天組件超限時顯示升級對話
+
+**測試新增**
+- 會員註冊、電郵驗證、密碼強度檢查測試
+- 會員等級管理與更新測試
+- 會員等級限流測試 (聊天、報告)
+- 配額查詢測試
+- 總計新增 ~34 個測試，267+ → 301+
+
+### 2026-02-21: AI 聊天限流功能 (ChatRateLimiter，已納入會員系統)
+
+**新功能說明** (已整合會員等級差異)
+- Free: 每分鐘最多 3 則訊息，每日最多 10 則訊息
+- Premium: 每分鐘最多 5 則訊息，每日最多 100 則訊息
+- 超出限制時 API 返回 HTTP 429
 
 **後端實現**
-- `app/services/chat_rate_limiter.py`（新增）
-  - 基於 user_id 的記憶體限流（分鐘桶 + 日桶）
-  - `check_rate_limit(user_id)` → 返回是否允許、剩餘次數、重置時間
-  - 分鐘限制：每滑動窗口 60 秒最多 3 則
-  - 日限制：每 UTC 日最多 20 則
-- `app/routers/chat.py` 整合限流：呼叫前執行 `check_rate_limit()`，超限返回 429 與剩餘重置時間
+- `app/services/chat_rate_limiter.py`
+  - 基於 user_id 與會員等級的記憶體限流
+  - `check_rate_limit(user_id, tier)` 返回允許狀態與重置時間
+  - 分鐘限制：滑動窗口 60 秒
+  - 日限制：UTC 日重置
+- `app/routers/chat.py` 整合限流與配額查詢
+  - `POST /api/chat` 呼叫前執行限流檢查
+  - `GET /api/chat/quota` 查詢目前配額使用
 
 **前端實現**
-- `ai-assistant-widget.vue` 處理 HTTP 429 回應，顯示「已達到使用限制，請稍後再試」提示訊息
+- `ai-assistant-widget.vue` 處理 HTTP 429 回應
+- 顯示「配額已達，請升級至 Premium」提示
 
 **新增測試**
-- `tests/test_chat_rate_limiter.py`：7 個測試（每分鐘限制、每日限制、重置邏輯）
-- `tests/test_chat_service.py`：新增 2 個限流整合測試
+- `tests/test_chat_rate_limiter.py`：7 個測試
+- `tests/test_chat_service.py`：2 個限流整合測試
 
 ### 2026-02-21: AI 報告 24 小時快取機制
 
@@ -750,4 +796,5 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
 **最後更新**: 2026-02-21
-**版本**: 2.0
+**版本**: 3.0
+**狀態**: 會員系統完全實裝，301 個測試全部通過

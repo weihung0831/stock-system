@@ -10,6 +10,12 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/register-view.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/',
       name: 'dashboard',
       component: () => import('@/views/dashboard-view.vue'),
@@ -49,14 +55,40 @@ const router = createRouter({
       name: 'right-side-screening',
       component: () => import('@/views/right-side-screening-view.vue'),
     },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/views/profile-view.vue'),
+    },
+    {
+      path: '/pricing',
+      name: 'pricing',
+      component: () => import('@/views/pricing-view.vue'),
+    },
+    {
+      path: '/admin/users',
+      name: 'admin-users',
+      component: () => import('@/views/admin-users-view.vue'),
+    },
   ],
 })
 
-// Auth guard: redirect to /login if no token
-router.beforeEach((to) => {
+// Auth guard: redirect to /login if no token; re-verify account on navigation
+router.beforeEach(async (to) => {
   const token = localStorage.getItem('access_token')
   if (!to.meta.public && !token) {
     return { name: 'login' }
+  }
+  // Re-verify account status on every navigation (non-public pages)
+  if (!to.meta.public && token) {
+    try {
+      const { useAuthStore } = await import('@/stores/auth-store')
+      const auth = useAuthStore()
+      await auth.fetchUser()
+    } catch {
+      localStorage.removeItem('access_token')
+      return { name: 'login' }
+    }
   }
 })
 

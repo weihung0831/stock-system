@@ -11,9 +11,11 @@ class User(Base, TimestampMixin):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=True, index=True)
     hashed_password = Column(String(128), nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    membership_tier = Column(String(20), default='free', nullable=False, server_default='free')
 
     def __repr__(self) -> str:
-        return f"<User {self.username} admin={self.is_admin}>"
+        return f"<User {self.username} tier={self.membership_tier} admin={self.is_admin}>"

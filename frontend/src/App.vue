@@ -11,7 +11,10 @@ import AiAssistantWidget from '@/components/ai-assistant/ai-assistant-widget.vue
 const route = useRoute()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
-const isLoginPage = computed(() => route.path === '/login')
+const isPublicPage = computed(() => ['/login', '/register'].includes(route.path))
+const showUpgradeBanner = computed(() =>
+  authStore.user && !authStore.user.is_admin && authStore.user.membership_tier === 'free'
+)
 const sidebarVisible = ref(false)
 
 onMounted(async () => {
@@ -37,7 +40,7 @@ const closeSidebar = () => {
 
 <template>
   <!-- Login page: no layout -->
-  <router-view v-if="isLoginPage" />
+  <router-view v-if="isPublicPage" />
 
   <!-- App layout with sidebar + header -->
   <el-container v-else class="app-layout">
@@ -54,6 +57,12 @@ const closeSidebar = () => {
         <AppHeader :sidebar-visible="sidebarVisible" @toggle-sidebar="toggleSidebar" />
       </el-header>
       <el-main class="app-main">
+        <!-- Global upgrade banner for free users -->
+        <router-link v-if="showUpgradeBanner" to="/pricing" class="upgrade-bar">
+          <span class="upgrade-bar-star">&#9733;</span>
+          <span>升級 <b>Premium</b> — AI 聊天 100 則/天、AI 報告不限檔數</span>
+          <span class="upgrade-bar-cta">了解更多 &rarr;</span>
+        </router-link>
         <router-view />
       </el-main>
     </el-container>
@@ -128,6 +137,143 @@ input, select, button { font-family: inherit; font-size: inherit; }
 
 /* Element Plus dark overrides */
 .el-menu { border-right: none !important; }
+
+/* MessageBox / Dialog dark theme */
+.el-overlay {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+.el-message-box {
+  background: var(--bg-card, #151d2e) !important;
+  border: 1px solid var(--border, #243049) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+}
+.el-message-box__title {
+  color: var(--text, #e8ecf4) !important;
+  font-weight: 700 !important;
+}
+.el-message-box__content {
+  color: var(--text-secondary, #8c9ab5) !important;
+}
+.el-message-box__headerbtn .el-message-box__close {
+  color: var(--text-muted, #556178) !important;
+}
+.el-message-box__headerbtn:hover .el-message-box__close {
+  color: var(--text, #e8ecf4) !important;
+}
+.el-message-box__btns .el-button.el-button--primary,
+.el-message-box__btns .el-button.el-button--warning {
+  background: #e5a91a !important;
+  border-color: #e5a91a !important;
+  color: #080c14 !important;
+}
+.el-message-box__btns .el-button.el-button--primary:hover,
+.el-message-box__btns .el-button.el-button--warning:hover {
+  background: #f0b830 !important;
+  border-color: #f0b830 !important;
+  color: #080c14 !important;
+}
+.el-message-box__btns .el-button.el-button--primary:focus,
+.el-message-box__btns .el-button.el-button--warning:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+.el-message-box__btns .el-button {
+  background: var(--bg-surface, #1a2236) !important;
+  border-color: var(--border, #243049) !important;
+  color: var(--text-secondary, #8c9ab5) !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+}
+.el-message-box__btns .el-button:hover {
+  border-color: var(--text-muted) !important;
+  color: var(--text) !important;
+  background: var(--bg-card-hover, #1e2a3f) !important;
+}
+.el-message-box__btns .el-button:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* el-dialog dark theme */
+.el-dialog {
+  background: var(--bg-card, #151d2e) !important;
+  border: 1px solid var(--border, #243049) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+}
+.el-dialog__title {
+  color: var(--text, #e8ecf4) !important;
+  font-weight: 700 !important;
+}
+.el-dialog__headerbtn .el-dialog__close {
+  color: var(--text-muted, #556178) !important;
+}
+.el-dialog__headerbtn:hover .el-dialog__close {
+  color: var(--text, #e8ecf4) !important;
+}
+.el-dialog__body {
+  color: var(--text-secondary, #8c9ab5) !important;
+}
+.el-dialog__footer .el-button {
+  background: var(--bg-surface, #1a2236) !important;
+  border-color: var(--border, #243049) !important;
+  color: var(--text-secondary, #8c9ab5) !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+}
+.el-dialog__footer .el-button:hover {
+  border-color: var(--text-muted) !important;
+  color: var(--text) !important;
+  background: var(--bg-card-hover, #1e2a3f) !important;
+}
+.el-dialog__footer .el-button:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+.el-dialog__footer .el-button--warning {
+  background: #e5a91a !important;
+  border-color: #e5a91a !important;
+  color: #080c14 !important;
+}
+.el-dialog__footer .el-button--warning:hover {
+  background: #f0b830 !important;
+  border-color: #f0b830 !important;
+}
+
+/* el-message dark theme */
+.el-message {
+  background: var(--bg-card, #151d2e) !important;
+  border: 1px solid var(--border, #243049) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5) !important;
+  padding: 12px 20px !important;
+}
+.el-message__content {
+  color: var(--text, #e8ecf4) !important;
+  font-weight: 600 !important;
+}
+.el-message--info {
+  background: rgba(140, 154, 181, 0.1) !important;
+  border-color: rgba(140, 154, 181, 0.3) !important;
+}
+.el-message--success {
+  background: rgba(34, 197, 94, 0.1) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+}
+.el-message--warning {
+  background: rgba(229, 169, 26, 0.1) !important;
+  border-color: rgba(229, 169, 26, 0.4) !important;
+}
+.el-message--error {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+.el-message--info .el-message__icon { color: #8c9ab5 !important; }
+.el-message--success .el-message__icon { color: #22c55e !important; }
+.el-message--warning .el-message__icon { color: #e5a91a !important; }
+.el-message--error .el-message__icon { color: #ef4444 !important; }
+.el-message .el-message__closeBtn { color: var(--text-muted, #556178) !important; }
+.el-message .el-message__closeBtn:hover { color: var(--text, #e8ecf4) !important; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -329,6 +475,38 @@ input, select, button { font-family: inherit; font-size: inherit; }
 .sector-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 12px;
   font-size: 0.75rem; font-weight: 600; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary); }
 .sector-tag .cat-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ========== Upgrade banner ========== */
+.upgrade-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  background: linear-gradient(90deg, rgba(229, 169, 26, 0.15), rgba(229, 169, 26, 0.05));
+  border-bottom: 1px solid rgba(229, 169, 26, 0.25);
+  font-size: 0.85rem;
+  color: #e5a91a;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  animation: bannerPulse 3s ease-in-out infinite alternate;
+}
+.upgrade-bar:hover {
+  background: linear-gradient(90deg, rgba(229, 169, 26, 0.22), rgba(229, 169, 26, 0.08));
+}
+.upgrade-bar b { font-weight: 700; }
+.upgrade-bar-star { font-size: 1.1rem; }
+.upgrade-bar-cta {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+@keyframes bannerPulse {
+  from { border-bottom-color: rgba(229, 169, 26, 0.15); }
+  to   { border-bottom-color: rgba(229, 169, 26, 0.45); }
+}
 
 /* ========== Page animation ========== */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }

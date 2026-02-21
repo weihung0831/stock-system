@@ -36,12 +36,13 @@
 │  ├─ chip_stats.py   籌碼統計 API                              │
 │  ├─ custom_screening.py  自訂篩選條件                          │
 │  ├─ backtest.py     回測 API                                 │
-│  ├─ reports.py      LLM 報告 API                              │
+│  ├─ reports.py      LLM 報告 API (含 24h 快取 + 會員限流)       │
 │  ├─ scheduler.py    手動觸發 Pipeline                          │
-│  ├─ auth.py         JWT 登入/註冊                              │
+│  ├─ auth.py         POST/auth/register/login/refresh (含會員系統) │
+│  ├─ admin.py        GET/PATCH /api/admin/users/* (會員管理) │
 │  ├─ data.py         資料管理                                   │
 │  ├─ sector_tags.py  產業標籤                                   │
-│  ├─ chat.py         POST /api/chat AI 聊天助手                 │
+│  ├─ chat.py         POST /api/chat (含會員限流) + GET /api/chat/quota │
 │  └─ right_side_signals.py  右側買法信號檢測 & 篩選             │
 │                                                             │
 │  Services (核心業務邏輯)                                       │
@@ -71,7 +72,7 @@
 │  ├─ analysis_steps.py      分析步驟 (篩選+評分+LLM+按需新聞)    │
 │  └─ pipeline_status.py     Pipeline 狀態追蹤                    │
 │                                                             │
-│  Models (ORM 資料模型，共 13 張表)                               │
+│  Models (ORM 資料模型，共 14 張表)                               │
 │  ├─ stock          股票基本資料 + PER/PBR/殖利率                 │
 │  ├─ daily_price    每日收盤價/量                                │
 │  ├─ institutional  三大法人買賣超                                │
@@ -80,11 +81,12 @@
 │  ├─ financial      季財報 (EPS/毛利率/ROE/負債比/現金流)           │
 │  ├─ score_result   評分結果 + 排名                              │
 │  ├─ llm_report     AI 分析報告                                 │
+│  ├─ report_usage   報告使用追蹤 (每日配額記錄)                    │
 │  ├─ news           新聞資料                                    │
 │  ├─ pipeline_log   Pipeline 執行紀錄                            │
 │  ├─ sector_tag     產業分類                                    │
 │  ├─ system_setting 系統設定 (權重、排程時間等)                    │
-│  └─ user           使用者帳號                                   │
+│  └─ user           使用者帳號 (含會員等級、電郵、啟用狀態)          │
 └─────────────────────────────────────────────────────────────┘
                            │ SQLAlchemy ORM
                            ▼
@@ -369,42 +371,77 @@ cd frontend && npm run dev
 
 ## 新增功能與改進
 
-### 2026-02-21: AI 聊天限流 (ChatRateLimiter)
+### 2026-02-21: 會員系統完全實裝 + 管理後台 (Membership System v2)
 
-- 新增 `services/chat_rate_limiter.py`：基於 user_id 的記憶體限流
-  - 分鐘桶：滑動窗口 60 秒最多 3 則
-  - 日桶：UTC 日最多 20 則，`check_rate_limit(user_id)` 返回允許狀態與重置時間
-- `routers/chat.py` 整合：`POST /api/chat` 呼叫前執行限流檢查，超限返回 HTTP 429
-- `ai-assistant-widget.vue` 處理 429 回應，顯示使用限制友善提示
+**後端新增**
+- `routers/admin.py`：4 個管理員端點
+  - `GET /api/admin/users` 取得使用者清單
+  - `PATCH /api/admin/users/{user_id}/tier` 更新會員等級
+  - `PATCH /api/admin/users/{user_id}/email` 更新電郵
+  - `PATCH /api/admin/users/{user_id}/active` 切換啟用狀態
+- `schemas/admin.py`：`TierUpdateRequest` (membership_tier: free|premium)
+- `models/report_usage.py`：追蹤每用戶每日報告使用
+- `services/report_rate_limiter.py`：報告生成限流 (Free 5/day, Premium unlimited)
+  - 新增 `GET /api/reports/quota` 查詢報告配額
+- `models/user.py` 新增欄位：
+  - `membership_tier` (default: 'free')
+  - `email` (unique, indexed)
+  - `is_active` (default: True)
+- `routers/auth.py` 更新：
+  - `POST /api/auth/register` 含會員等級初始化
+  - JWT token 含 tier 欄位
+- `routers/chat.py` 更新：
+  - 會員等級差異限流 (Free 3/min+10/day, Premium 5/min+100/day)
+  - `GET /api/chat/quota` 查詢聊天配額
+- `dependencies.py`：新增 `require_premium`, `require_admin` 依賴注入
+- `routers/reports.py` 更新：報告生成 24h 快取 + 會員限流 (Free 5/day)
 
-### 2026-02-21: AI 報告 24 小時快取機制
+**前端新增**
+- `register-view.vue`：使用者自助註冊 (電郵驗證、密碼強度檢查、會員等級選擇)
+- `profile-view.vue`：會員資料頁 (顯示等級、聊天配額、升級提示)
+- `pricing-view.vue`：定價頁面 (Free vs Premium 方案比較)
+- `admin-users-view.vue`：管理員後台 (使用者列表、線上編輯)
+- `api/admin-api.ts`：管理員 API 客戶端
+- 側邊欄：會員徽章 (Free/Premium 顯示) + 聊天配額顯示
+- 聊天組件：配額超限時顯示升級對話
+
+**測試新增**
+- 會員註冊、驗證、等級管理測試
+- 管理員 API 測試 (列表、更新、切換狀態)
+- 會員等級限流測試 (聊天、報告)
+- 報告配額查詢測試
+- 總計新增 ~34 個測試，267+ → 301+
+
+### 2026-02-21: AI 聊天限流 (ChatRateLimiter，已納入會員系統)
+
+- `services/chat_rate_limiter.py`：會員等級差異限流
+  - Free: 每分鐘 3 則、每日 10 則
+  - Premium: 每分鐘 5 則、每日 100 則
+- `routers/chat.py` 整合：`GET /api/chat/quota` 查詢配額、POST 超限返回 429
+- `ai-assistant-widget.vue` 處理 429 回應，顯示升級提示
+
+### 2026-02-21: AI 報告 24 小時快取 + 會員限流 (已整合會員系統)
 
 **功能說明**
-- AI 報告生成現已支援 24 小時快取機制，避免短時間內重複呼叫 LLM API
-- 後端檢查 `LLMReport` 表的 `created_at` 欄位，若報告在 24 小時內已生成則直接返回快取報告
+- 報告生成支援 24 小時快取機制 + 會員等級限流
+- Free 會員每日限制 5 份報告；Premium 會員無限制
+- 同日內快取命中避免重複呼叫 LLM
 
 **後端實現**
-- `POST /api/reports/{stock_id}/generate` 端點（`reports.py` 第 74-157 行）
-  - 使用 `datetime.now() - timedelta(hours=24)` 計算 24 小時臨界點
-  - 查詢條件：`LLMReport.created_at >= cutoff`
-  - 命中快取時返回既存報告，日誌記錄 `created_at` 時間戳
-  - 未命中快取時方才呼叫 LLM 並生成新報告
-- `LLMReportResponse` 模式（`report.py`）包含 `created_at: datetime` 欄位
+- `POST /api/reports/{stock_id}/generate` 端點
+  - 24 小時快取：`LLMReport.created_at >= now() - 24h`
+  - 會員限流：Free 5/day vs Premium unlimited
+  - 超限返回 HTTP 429
+- `services/report_rate_limiter.py`：記憶體限流追蹤
+- `LLMReportResponse` 模式含 `created_at: datetime` 欄位
 
 **前端實現**
-- 按鈕狀態管理（`stock-detail-view.vue` 第 179-184 行）
-  - 初始載入時檢查報告的 `created_at` 時間戳，判斷距今是否在 24 小時內
-  - `isReportRecent` 計算屬性：檢查 `generatedThisSession` 或計算 `hoursAgo < 24`
-  - 按鈕文案動態更新：
-    - 無報告：「產生 AI 分析」
-    - 報告存在但 >24h：「更新分析」
-    - 報告存在且 ≤24h：「今日已分析」（禁用）
-- 按鈕禁用狀態綁定 `:disabled="generating || isReportRecent"`
-
-**使用者體驗**
-- 首次生成報告後，同日內點擊按鈕不會重複產生，避免等待時間
-- 隔日後按鈕重新啟用，允許更新報告以獲取最新分析
-- 前端即時反饋：生成中顯示「分析中...」，快取命中顯示「今日已分析」
+- 按鈕文案動態更新（stock-detail-view.vue）：
+  - 無報告：「產生 AI 分析」
+  - 報告存在但 >24h：「更新分析」
+  - 報告存在且 ≤24h：「今日已分析」（禁用）
+- 超限時顯示「配額已達」，提示升級至 Premium
+- 實時反饋生成進度
 
 ### 2026-02-21: 右側買法 (Right-Side Trading Signals)
 
@@ -526,4 +563,4 @@ cd frontend && npm run dev
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
 **最後更新**: 2026-02-21
-**版本**: 2.9
+**版本**: 2.10

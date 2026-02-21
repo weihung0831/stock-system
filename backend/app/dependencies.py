@@ -96,3 +96,15 @@ def require_admin(
         )
 
     return current_user
+
+
+def require_premium(
+    current_user: Annotated[User, Depends(get_current_user)]
+) -> User:
+    """Require premium membership or admin role."""
+    if current_user.membership_tier not in ('premium',) and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要 Premium 會員"
+        )
+    return current_user

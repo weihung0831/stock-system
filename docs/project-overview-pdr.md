@@ -33,10 +33,15 @@
 
 ## 核心功能模組
 
-### 1. 認證系統 (Authentication)
-- JWT令牌認證
+### 1. 認證與會員系統 (Authentication & Membership)
+- 用戶註冊 (POST /api/auth/register)
+  - 電郵唯一性驗證
+  - 密碼長度檢查 (最少 8 字元)
+  - 支援 Free/Premium 會員等級選擇
+- JWT令牌認證 (含 tier 欄位)
 - Bcrypt密碼雜湊
 - 令牌過期管理 (預設24小時)
+- 會員等級管理 (管理員可透過 PATCH /api/admin/users/{user_id}/tier 更新)
 
 ### 2. 數據收集 (Data Collection)
 - TWSE OpenAPI 整合 (全市場日價格、法人買賣、融資融券、估值、月營收)
@@ -63,11 +68,16 @@
 - 個股投資建議
 - 市場趨勢分析
 - 速率限制：0.5 秒/次
+- 24 小時快取機制：檢查 LLMReport.created_at，同日內不重複呼叫 LLM API
+- **Free 會員**: 每日限制 5 份報告生成
+- **Premium 會員**: 無限制生成報告
 
 ### 9. AI 聊天限流 (Chat Rate Limiter)
-- 每用戶每分鐘最多 3 則訊息，每日最多 20 則訊息
+- **Free 會員**: 每分鐘最多 3 則訊息，每日最多 10 則訊息
+- **Premium 會員**: 每分鐘最多 5 則訊息，每日最多 100 則訊息
 - 超出限制返回 HTTP 429，前端顯示使用限制提示
 - 基於 user_id 的記憶體限流（分鐘滑動窗口 + UTC 日桶）
+- GET /api/chat/quota 端點可查詢目前配額使用狀況
 
 ### 6. 回測系統 (Backtesting)
 - 歷史績效驗證
@@ -110,25 +120,32 @@
 
 | 類別 | 端點 | 功能 |
 |------|------|------|
-| **認證** | `/api/auth/register` | 帳號註冊 |
-| | `/api/auth/login` | 帳號登入 |
-| | `/api/auth/refresh` | 更新令牌 |
-| **股票** | `/api/stocks/list` | 股票列表 |
-| | `/api/stocks/{stock_id}` | 股票詳情 |
-| | `/api/stocks/search` | 股票搜尋 |
-| **數據** | `/api/data/collect` | 觸發數據收集 |
-| | `/api/data/status` | 數據狀態 |
-| **篩選** | `/api/screening/run` | 執行標準篩選 |
-| | `/api/screening/results` | 篩選結果 |
-| **自訂篩選** | `/api/custom-screening/run` | 自訂篩選 |
-| **籌碼統計** | `/api/chip-stats/trends` | 籌碼趨勢 |
-| **報表** | `/api/reports/list` | 報告清單 |
-| **回測** | `/api/backtest/run` | 執行回測 |
-| | `/api/backtest/score-dates` | 可用評分日期 |
-| **調度** | `/api/scheduler/jobs` | 排程管理 |
-| **右側買法** | `/api/right-side-signals/{stock_id}` | 單檔 6 信號查詢 |
-| | `/api/right-side-signals/screen/batch` | 批量篩選（min_signals 參數） |
-| **AI 聊天** | `/api/chat` | AI 聊天助手對話 |
+| **認證** | `POST /api/auth/register` | 帳號註冊 (含電郵驗證 + 密碼強度檢查) |
+| | `POST /api/auth/login` | 帳號登入 |
+| | `POST /api/auth/refresh` | 更新令牌 (JWT 含 tier 欄位) |
+| **管理** | `GET /api/admin/users` | 取得所有使用者清單 (管理員專用) |
+| | `PATCH /api/admin/users/{user_id}/tier` | 更新使用者會員等級 (管理員專用) |
+| | `PATCH /api/admin/users/{user_id}/email` | 更新使用者電郵 (管理員專用) |
+| | `PATCH /api/admin/users/{user_id}/active` | 切換使用者啟用狀態 (管理員專用) |
+| **股票** | `GET /api/stocks/list` | 股票列表 |
+| | `GET /api/stocks/{stock_id}` | 股票詳情 |
+| | `GET /api/stocks/search` | 股票搜尋 |
+| **聊天** | `GET /api/chat/quota` | 查詢聊天配額 (Free: 3/min+10/day, Premium: 5/min+100/day) |
+| | `POST /api/chat` | AI 聊天助手對話 (含限流檢查) |
+| **數據** | `POST /api/data/collect` | 觸發數據收集 |
+| | `GET /api/data/status` | 數據狀態 |
+| **篩選** | `POST /api/screening/run` | 執行標準篩選 |
+| | `GET /api/screening/results` | 篩選結果 |
+| **自訂篩選** | `POST /api/custom-screening/run` | 自訂篩選 |
+| **籌碼統計** | `GET /api/chip-stats/trends` | 籌碼趨勢 |
+| **報表** | `GET /api/reports/quota` | 查詢報告配額 (Free: 5/day, Premium: unlimited) |
+| | `POST /api/reports/{stock_id}/generate` | 生成 AI 報告 (含 24h 快取機制，限流: Free 5/day, Premium unlimited) |
+| | `GET /api/reports/list` | 報告清單 |
+| **回測** | `POST /api/backtest/run` | 執行回測 |
+| | `GET /api/backtest/score-dates` | 可用評分日期 |
+| **調度** | `GET /api/scheduler/jobs` | 排程管理 |
+| **右側買法** | `GET /api/right-side-signals/{stock_id}` | 單檔 6 信號查詢 |
+| | `GET /api/right-side-signals/screen/batch` | 批量篩選（min_signals 參數） |
 
 ## 核心服務架構
 
@@ -165,7 +182,7 @@
 
 ## 前端結構
 
-### 視圖（9 個頁面）
+### 視圖（13 個頁面）
 - **DashboardView**: 主儀表板（含顯示限制選單：Top 20 / Top 50 / All）
 - **StockDetailView**: 股票詳情
 - **CustomScreeningView**: 自訂篩選
@@ -175,6 +192,10 @@
 - **HistoryBactestView**: 回測歷史
 - **SettingsView**: 系統設定（權重調整 + 排程時間設定）
 - **LoginView**: 登入頁面
+- **RegisterView**: 註冊頁面（含會員等級選擇）
+- **ProfileView**: 會員資料頁（顯示等級、聊天配額、升級提示）
+- **AdminUsersView**: 管理員使用者列表（查看、編輯、啟用狀態）
+- **PricingView**: 定價頁面（會員方案比較）
 
 ### 元件庫 (20個主要元件)
 - 股票排名表、雷達圖、扇形圖
@@ -248,17 +269,21 @@
 
 ### 完成階段
 - ✅ 後端框架與數據模型
-- ✅ 認證系統
+- ✅ 認證系統 (含會員等級支援)
+- ✅ 用戶註冊 (電郵驗證 + 密碼強度檢查)
+- ✅ 會員等級管理 (Free/Premium，含管理員更新端點)
 - ✅ 數據收集整合
 - ✅ 評分引擎
 - ✅ API端點
-- ✅ 前端UI
-- ✅ 單元測試 (267+個測試, 100%通過率)
+- ✅ 前端UI (含註冊頁、會員資料頁、會員徽章、配額顯示)
+- ✅ 單元測試 (301 個測試, 100%通過率)
 - ✅ 自動化流程
 - ✅ TWSE假期自動化
 - ✅ 歷史評分支援 (as_of_date)
 - ✅ AI分析全面升級
 - ✅ 右側買法信號檢測
+- ✅ 會員等級差異限流 (聊天、報告生成)
+- ✅ 24 小時報告快取機制
 
 ### 下一步
 - 性能最佳化
@@ -281,27 +306,27 @@
 - 錯誤重試與日誌記錄
 
 #### R3.5: AI 聊天限流
-- 每用戶每分鐘限制 3 則訊息（滑動窗口 60 秒）
-- 每用戶每日限制 20 則訊息（UTC 日重置）
+- **Free 會員**: 每分鐘限制 3 則訊息，每日限制 10 則訊息
+- **Premium 會員**: 每分鐘限制 5 則訊息，每日限制 100 則訊息
+- 滑動窗口 60 秒限制 + UTC 日重置
 - 超限返回 HTTP 429 與剩餘重置時間資訊
+- GET /api/chat/quota 查詢配額
 - 前端顯示友善的使用限制提示訊息
 
-#### R3: AI 輔助分析
-- 所有評分股票進行分析（完全無限制）
+#### R3: AI 輔助分析 (含會員等級差異)
 - 使用 Gemini 2.5 Flash 模型
-- **24 小時快取機制**：檢查報告的 `created_at` 欄位，若在 24 小時內已生成則直接返回快取報告，避免重複呼叫 LLM API
+- **24 小時快取機制**：檢查報告的 `created_at` 欄位，若在 24 小時內已生成則直接返回快取報告
   - 後端邏輯：`POST /api/reports/{stock_id}/generate` 比對 `created_at >= now() - 24h`
   - 前端按鈕狀態：「產生 AI 分析」→「更新分析」→「今日已分析」（禁用）
+- **會員等級報告生成限制**
+  - Free: 每日限制 5 份報告，超出返回 HTTP 429
+  - Premium: 無限制生成報告
+  - 需求依賴: `require_premium` 可限制僅 Premium 會員存取特定功能
 - 新聞按需抓取：NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector
   - 新聞回溯期：14 天
   - URL 編碼修正 + HTML 標籤過濾
-- 新聞自動摘要
-- 投資建議生成
-- 情緒分析
-- 速率限制：0.5 秒/次（利用 Gemini 高速率額度）
-- max_tokens: 8192（支援更長報告）
-- 截斷檢測與自動重試機制
-- step_llm_analysis 以 top_n=0 方式呼叫
+- 新聞自動摘要、投資建議、情緒分析
+- 速率限制：0.5 秒/次、max_tokens: 8192、截斷檢測與自動重試
 
 #### R4: 回測與驗證
 - 歷史績效計算
@@ -340,17 +365,47 @@
 | 篩選執行時間 | < 10秒 | ✅ 達成 |
 | 數據準確率 | > 99% | ✅ FinMind驗證 |
 | API可用性 | > 99% | ✅ 運行中 |
-| 測試覆蓋率 | > 80% | ✅ 267+/267+ (100%) |
+| 測試覆蓋率 | > 80% | ✅ 301+/301+ (100%) |
 | 用戶響應時間 | < 2秒 | ✅ 達成 |
 
 ---
 
 ## 最新更新
 
-### 2026-02-21: AI 聊天限流 (ChatRateLimiter)
-- **後端**：新增 `chat_rate_limiter.py`，每用戶每分鐘 3 則、每日 20 則；`chat.py` 整合限流檢查，超限返回 429
-- **前端**：`ai-assistant-widget.vue` 處理 429 錯誤，顯示使用限制提示
-- **測試**：`test_chat_rate_limiter.py`（7 個）+ `test_chat_service.py` 新增 2 個限流整合測試；總測試數 204+ → 267+
+### 2026-02-21: 會員系統完全實裝 (Membership System)
+- **用戶註冊**：`POST /api/auth/register` 端點
+  - 電郵唯一性驗證
+  - 密碼長度檢查 (8+ 字元)
+  - Free/Premium 會員等級初始化
+- **會員等級管理**（管理後台）：
+  - `GET /api/admin/users` 取得使用者清單
+  - `PATCH /api/admin/users/{user_id}/tier` 更新會員等級
+  - `PATCH /api/admin/users/{user_id}/email` 更新電郵
+  - `PATCH /api/admin/users/{user_id}/active` 切換啟用狀態
+  - JWT token 含 tier 欄位
+- **會員等級差異限流**：
+  - **聊天限流**: Free (3/min, 10/day) vs Premium (5/min, 100/day)
+  - **報告生成限制**: Free (5/day) vs Premium (unlimited)
+  - `GET /api/chat/quota` 查詢聊天配額端點
+  - `GET /api/reports/quota` 查詢報告配額端點
+  - `require_premium` 依賴注入用於限制功能存取
+- **新增後端檔案**：
+  - `app/routers/admin.py` (4 個端點：列表、更新等級、更新電郵、切換狀態)
+  - `app/schemas/admin.py` (TierUpdateRequest)
+  - `app/models/report_usage.py` (ReportUsage 模型)
+  - `app/services/report_rate_limiter.py` (報告限流)
+- **新增前端頁面**：
+  - `register-view.vue` (使用者自助註冊)
+  - `profile-view.vue` (會員資料與配額查詢)
+  - `admin-users-view.vue` (管理員使用者列表)
+  - `pricing-view.vue` (會員方案比較)
+  - 側邊欄會員徽章、聊天配額顯示、超限升級對話
+- **測試**：新增 ~34 個測試，總計 267+ → 301+
+
+### 2026-02-21: AI 聊天限流 (ChatRateLimiter，已納入會員系統)
+- 後端：`chat_rate_limiter.py`，會員等級差異限流
+- 前端：429 錯誤處理 + 升級對話提示
+- 測試：`test_chat_rate_limiter.py` (7個) 涵蓋分鐘/日限制/重置邏輯
 
 ### 2026-02-21: 右側買法 (Right-Side Trading Signals)
 - **後端實現**：`RightSideSignalDetector` 檢測 6 個動能進場信號（需 ≥20 天資料）
@@ -402,5 +457,5 @@
 - **效益**：避免短時間內重複呼叫 LLM API，降低成本並改善使用者體驗
 
 **最後更新**: 2026-02-21
-**版本**: 1.9
-**狀態**: 全部實裝完成，持續優化中
+**版本**: 2.1
+**狀態**: 會員系統完全實裝（含管理後台），301 個測試全部通過，核心功能完成

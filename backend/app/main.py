@@ -21,6 +21,7 @@ from app.routers import (
     sector_tags_router,
     chat_router,
     right_side_signals_router,
+    admin_router,
 )
 from app.tasks.daily_pipeline import run_daily_pipeline
 
@@ -50,15 +51,32 @@ async def lifespan(app: FastAPI):
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
 
-    # Migrate: drop unused top_n column from system_settings
+    # Migrations
     from sqlalchemy import inspect, text
     insp = inspect(engine)
-    existing_cols = {c["name"] for c in insp.get_columns("system_settings")}
-    if "top_n" in existing_cols:
+
+    # Migrate: drop unused top_n column from system_settings
+    settings_cols = {c["name"] for c in insp.get_columns("system_settings")}
+    if "top_n" in settings_cols:
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE system_settings DROP COLUMN top_n"))
             conn.commit()
         logger.info("Dropped unused top_n column from system_settings")
+
+    # Migrate: add email and membership_tier columns to users
+    user_cols = {c["name"] for c in insp.get_columns("users")}
+    with engine.connect() as conn:
+        if "email" not in user_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL"))
+            conn.execute(text("CREATE UNIQUE INDEX ix_users_email ON users (email)"))
+            conn.commit()
+            logger.info("Added email column to users table")
+        if "membership_tier" not in user_cols:
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN membership_tier VARCHAR(20) NOT NULL DEFAULT 'free'"
+            ))
+            conn.commit()
+            logger.info("Added membership_tier column to users table")
 
     logger.info("Database tables created successfully")
 
@@ -133,6 +151,7 @@ app.include_router(backtest_router)
 app.include_router(sector_tags_router)
 app.include_router(chat_router)
 app.include_router(right_side_signals_router)
+app.include_router(admin_router)
 
 
 @app.get("/api/health")

@@ -14,10 +14,37 @@ from app.models.llm_report import LLMReport
 from app.models.stock import Stock
 from app.models.score_result import ScoreResult
 from app.schemas.report import LLMReportResponse, ReportsListResponse
+from app.services.report_rate_limiter import report_rate_limiter
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
+
+
+@router.get("/quota")
+def get_report_quota(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Get current user's report quota from DB (survives restart)."""
+    from sqlalchemy import func
+    from app.models.report_usage import ReportUsage
+    from app.services.report_rate_limiter import REPORT_TIER_LIMITS
+
+    tier = current_user.membership_tier if not current_user.is_admin else 'premium'
+    limits = REPORT_TIER_LIMITS.get(tier, REPORT_TIER_LIMITS['free'])
+
+    daily_used = db.query(func.count(ReportUsage.id)).filter(
+        ReportUsage.user_id == current_user.id,
+        ReportUsage.usage_date == date.today(),
+    ).scalar() or 0
+
+    return {
+        "tier": tier,
+        "daily_limit": limits['per_day'],
+        "daily_used": daily_used,
+        "daily_remaining": max(0, limits['per_day'] - daily_used),
+    }
 
 
 @router.get("/latest", response_model=List[LLMReportResponse])
@@ -85,6 +112,20 @@ def generate_stock_report(
     from app.services.llm_client import LLMClient
     from app.services.llm_analyzer import LLMAnalyzer
 
+    # Report rate limit check (DB-based, survives restart)
+    from sqlalchemy import func
+    from app.models.report_usage import ReportUsage
+    from app.services.report_rate_limiter import REPORT_TIER_LIMITS
+
+    tier = current_user.membership_tier if not current_user.is_admin else 'premium'
+    limits = REPORT_TIER_LIMITS.get(tier, REPORT_TIER_LIMITS['free'])
+    daily_used = db.query(func.count(ReportUsage.id)).filter(
+        ReportUsage.user_id == current_user.id,
+        ReportUsage.usage_date == date.today(),
+    ).scalar() or 0
+    if daily_used >= limits['per_day']:
+        raise HTTPException(status_code=429, detail=f"已達每日 AI 報告上限 {limits['per_day']} 檔")
+
     try:
         # Verify stock exists
         stock = db.query(Stock).filter(Stock.stock_id == stock_id).first()
@@ -103,6 +144,15 @@ def generate_stock_report(
         if cached:
             report, stock_name = cached
             report.stock_name = stock_name or stock_id
+            # Record usage so Free user can see it after refresh
+            existing = db.query(ReportUsage).filter(
+                ReportUsage.user_id == current_user.id,
+                ReportUsage.stock_id == stock_id,
+                ReportUsage.usage_date == date.today(),
+            ).first()
+            if not existing:
+                db.add(ReportUsage(user_id=current_user.id, stock_id=stock_id, usage_date=date.today()))
+                db.commit()
             logger.info(f"Returning cached report for {stock_id} (created_at={report.created_at})")
             return report
 
@@ -147,6 +197,17 @@ def generate_stock_report(
 
         report, stock_name = row
         report.stock_name = stock_name or stock_id
+
+        # Record usage in DB (skip if already recorded today for this stock)
+        existing = db.query(ReportUsage).filter(
+            ReportUsage.user_id == current_user.id,
+            ReportUsage.stock_id == stock_id,
+            ReportUsage.usage_date == date.today(),
+        ).first()
+        if not existing:
+            db.add(ReportUsage(user_id=current_user.id, stock_id=stock_id, usage_date=date.today()))
+            db.commit()
+
         return report
 
     except HTTPException:
@@ -187,6 +248,17 @@ def get_stock_report(
 
         if not row:
             return None
+
+        # Free users can only see reports they generated themselves
+        tier = current_user.membership_tier if not current_user.is_admin else 'premium'
+        if tier == 'free':
+            from app.models.report_usage import ReportUsage
+            has_usage = db.query(ReportUsage).filter(
+                ReportUsage.user_id == current_user.id,
+                ReportUsage.stock_id == stock_id,
+            ).first()
+            if not has_usage:
+                return None
 
         report, stock_name = row
         report.stock_name = stock_name or stock_id

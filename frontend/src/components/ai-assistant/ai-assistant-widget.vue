@@ -2,7 +2,7 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import AiChatMessage from './ai-chat-message.vue'
 import type { ChatMessage } from './ai-chat-message.vue'
-import { sendChatMessage } from '@/api/chat-api'
+import { sendChatMessage, getChatQuota, type ChatQuota } from '@/api/chat-api'
 
 const isOpen = ref(false)
 const inputText = ref('')
@@ -12,6 +12,8 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const MAX_INPUT_LENGTH = 500
 const followUpSuggestions = ref<string[]>([])
 const suggestionsExpanded = ref(true)
+const quota = ref<ChatQuota | null>(null)
+const showUpgradeDialog = ref(false)
 let nextId = 1
 
 const messages = ref<ChatMessage[]>([
@@ -82,6 +84,7 @@ async function sendMessage() {
       errorMsg = ERROR_AUTH
     } else if (status === 429) {
       errorMsg = resp?.data?.detail || ERROR_RATE_LIMIT_FALLBACK
+      showUpgradeDialog.value = true
     }
     messages.value.push({
       id: nextId++,
@@ -93,6 +96,7 @@ async function sendMessage() {
   } finally {
     isTyping.value = false
     scrollToBottom()
+    refreshQuota()
   }
 }
 
@@ -103,11 +107,18 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
+function refreshQuota() {
+  getChatQuota().then(q => {
+    quota.value = q
+    if (q.daily_remaining <= 0) showUpgradeDialog.value = true
+  }).catch(() => {})
+}
+
 function togglePanel() {
   isOpen.value = !isOpen.value
   if (isOpen.value) {
     scrollToBottom()
-    // Focus input when panel opens
+    refreshQuota()
     nextTick(() => inputRef.value?.focus())
   }
 }
@@ -141,6 +152,7 @@ watch(isOpen, (val) => {
         <div class="panel-title">
           <div class="title-dot" />
           <span>AI 小幫手</span>
+          <span v-if="quota" class="quota-text">{{ Math.max(0, quota.daily_remaining) }}/{{ quota.daily_limit }}</span>
         </div>
         <button class="btn-close" @click="isOpen = false" aria-label="關閉">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -223,6 +235,16 @@ watch(isOpen, (val) => {
       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   </button>
+
+  <!-- Upgrade dialog -->
+  <el-dialog v-model="showUpgradeDialog" title="功能限制" width="360px" append-to-body>
+    <p style="margin: 0 0 8px; color: var(--text-secondary, #8c9ab5);">您已達到 Free 會員每日使用上限。</p>
+    <p style="margin: 0; color: var(--text-secondary, #8c9ab5);">升級 Premium 解鎖更多配額。</p>
+    <template #footer>
+      <el-button @click="showUpgradeDialog = false">關閉</el-button>
+      <el-button type="warning" @click="showUpgradeDialog = false; $router.push('/pricing')">查看方案</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <style scoped>
@@ -289,6 +311,13 @@ watch(isOpen, (val) => {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--text);
+}
+.quota-text {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  margin-left: auto;
 }
 .title-dot {
   width: 8px;

@@ -22,11 +22,13 @@ from app.services.auth_service import hash_password
 
 
 # Create in-memory SQLite database for testing
+from sqlalchemy.pool import StaticPool
+
 TEST_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
     TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=None
+    poolclass=StaticPool,
 )
 
 # Create test session factory
@@ -90,9 +92,11 @@ def test_user(test_db):
     """Create test user in database."""
     user = User(
         username="testuser",
+        email="testuser@test.com",
         hashed_password=hash_password("password123"),
         is_admin=False,
-        is_active=True
+        is_active=True,
+        membership_tier="free",
     )
     test_db.add(user)
     test_db.commit()
@@ -105,9 +109,11 @@ def test_admin_user(test_db):
     """Create test admin user in database."""
     user = User(
         username="adminuser",
+        email="admin@test.com",
         hashed_password=hash_password("adminpass123"),
         is_admin=True,
-        is_active=True
+        is_active=True,
+        membership_tier="free",
     )
     test_db.add(user)
     test_db.commit()

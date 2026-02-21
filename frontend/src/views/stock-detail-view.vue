@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStockStore } from '@/stores/stock-store'
 import { getStockScore } from '@/api/screening-api'
-import { getStockReport, generateStockReport } from '@/api/reports-api'
+import { getStockReport, generateStockReport, getReportQuota, type ReportQuota } from '@/api/reports-api'
 import PriceCandlestickChart from '@/components/stock-detail/price-candlestick-chart.vue'
 import TechnicalIndicatorChart from '@/components/stock-detail/technical-indicator-chart.vue'
 import FactorScoreCard from '@/components/stock-detail/factor-score-card.vue'
@@ -13,6 +13,7 @@ import SectorTag from '@/components/shared/sector-tag.vue'
 import { useSectorTagsStore } from '@/stores/sector-tags-store'
 import type { ScoreResult } from '@/types/screening'
 import type { LLMReport } from '@/types/report'
+import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +62,8 @@ const loadStockData = async () => {
   scoreResult.value = null
   report.value = null
   generatedThisSession.value = false
+  reportLimitReached.value = false
+  refreshReportQuota()
   const id = stockId.value
   try {
     // Score first — triggers on-demand data fetch for non-pipeline stocks
@@ -84,23 +87,38 @@ const loadStockData = async () => {
   }
 }
 
-const isReportRecent = computed(() => {
-  if (generatedThisSession.value) return true
-  if (!report.value?.created_at) return false
-  const createdAt = new Date(report.value.created_at).getTime()
-  const hoursAgo = (Date.now() - createdAt) / (1000 * 60 * 60)
-  return hoursAgo < 24
-})
+const reportLimitReached = ref(false)
+const reportQuota = ref<ReportQuota | null>(null)
+
+function refreshReportQuota() {
+  getReportQuota().then(q => {
+    reportQuota.value = q
+    reportLimitReached.value = q.daily_remaining <= 0
+  }).catch(() => {})
+}
 
 const handleGenerateReport = async () => {
   generating.value = true
   try {
+    const oldId = report.value?.id
     report.value = await generateStockReport(stockId.value)
     generatedThisSession.value = true
-  } catch (error) {
-    console.error('產生 AI 分析失敗:', error)
+    if (report.value?.id === oldId) {
+      ElMessage.info('已是最新分析（24 小時內快取）')
+    } else {
+      ElMessage.success('AI 分析完成')
+    }
+  } catch (error: any) {
+    const status = error.response?.status
+    if (status === 429) {
+      reportLimitReached.value = true
+      ElMessage.warning('已達每日 AI 報告上限')
+    } else {
+      ElMessage.error('產生 AI 分析失敗')
+    }
   } finally {
     generating.value = false
+    refreshReportQuota()
   }
 }
 
@@ -174,13 +192,16 @@ watch(() => route.params.id, () => {
             <span v-if="report?.model_used" class="llm-badge">★ {{ report.model_used }}</span>
           </h3>
           <div style="display: flex; align-items: center; gap: 12px">
+            <router-link v-if="reportLimitReached" to="/pricing" class="report-limit-hint">
+              升級 Premium &rarr;
+            </router-link>
             <button
               class="btn-generate"
-              :disabled="generating || isReportRecent"
+              :disabled="generating || reportLimitReached"
               @click="handleGenerateReport"
-              :title="isReportRecent ? '今日已產生報告，每日限產生一次' : ''"
+              :title="reportLimitReached ? '已達每日 AI 報告上限' : ''"
             >
-              {{ generating ? '分析中...' : isReportRecent ? '今日已分析' : report ? '更新分析' : '產生 AI 分析' }}
+              {{ generating ? '分析中...' : reportLimitReached ? '已達上限' : report ? '更新分析' : '產生 AI 分析' }}
             </button>
           </div>
         </div>
@@ -240,6 +261,22 @@ watch(() => route.params.id, () => {
 .btn-generate:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.report-quota-text {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.report-limit-hint {
+  font-size: 0.78rem;
+  color: #e5a91a;
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.report-limit-hint:hover {
+  opacity: 0.8;
 }
 
 /* Mobile responsive */

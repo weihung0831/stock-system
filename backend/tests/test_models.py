@@ -86,6 +86,7 @@ class TestUserModel:
         """Test creating a user record."""
         user = User(
             username="newuser",
+            email="newuser@test.com",
             hashed_password="hashed_pass_value",
             is_admin=False,
             is_active=True
@@ -99,16 +100,17 @@ class TestUserModel:
 
     def test_user_repr(self, test_user):
         """Test user string representation."""
-        assert repr(test_user) == "<User testuser admin=False>"
+        assert repr(test_user) == "<User testuser tier=free admin=False>"
 
     def test_user_admin_repr(self, test_admin_user):
         """Test admin user string representation."""
-        assert repr(test_admin_user) == "<User adminuser admin=True>"
+        assert repr(test_admin_user) == "<User adminuser tier=free admin=True>"
 
     def test_user_unique_username(self, test_db, test_user):
         """Test username unique constraint."""
         duplicate_user = User(
             username="testuser",
+            email="dup@test.com",
             hashed_password="different_hash",
             is_admin=False,
             is_active=True
@@ -122,6 +124,7 @@ class TestUserModel:
         """Test default is_admin is False."""
         user = User(
             username="user1",
+            email="user1@test.com",
             hashed_password="pass",
         )
         test_db.add(user)
@@ -133,6 +136,7 @@ class TestUserModel:
         """Test default is_active is True."""
         user = User(
             username="user2",
+            email="user2@test.com",
             hashed_password="pass",
         )
         test_db.add(user)
@@ -297,6 +301,7 @@ class TestTimestampMixin:
         """Test created_at equals updated_at on initial insert."""
         user = User(
             username="freshuser",
+            email="fresh@test.com",
             hashed_password="pass",
             is_admin=False,
             is_active=True

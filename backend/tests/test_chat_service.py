@@ -263,7 +263,7 @@ class TestChatRouter:
 
     def test_chat_message_too_long_rejected(self, test_client, jwt_token):
         """Test message exceeding max length is rejected."""
-        long_content = "x" * 501
+        long_content = "x" * 5001
         response = test_client.post(
             "/api/chat",
             json={"messages": [{"role": "user", "content": long_content}]},
@@ -303,7 +303,7 @@ class TestChatRouter:
     @patch("app.routers.chat.chat_rate_limiter")
     def test_chat_rate_limit_returns_429(self, mock_limiter, test_client, jwt_token):
         """Test 429 when rate limiter blocks request."""
-        mock_limiter.check.return_value = (False, "發送太頻繁，請等 30 秒後再試。")
+        mock_limiter.check.return_value = (False, "發送太頻繁，請等 30 秒後再試。", {"daily_remaining": 0, "minute_remaining": 0})
 
         response = test_client.post(
             "/api/chat",
@@ -318,7 +318,7 @@ class TestChatRouter:
     @patch("app.routers.chat.LLMClient")
     def test_chat_allowed_when_rate_ok(self, mock_llm_cls, mock_limiter, test_client, jwt_token):
         """Test request proceeds when rate limiter allows."""
-        mock_limiter.check.return_value = (True, "")
+        mock_limiter.check.return_value = (True, "", {"daily_remaining": 9, "minute_remaining": 2})
         mock_instance = MagicMock()
         mock_instance.generate_chat.return_value = "ok"
         mock_llm_cls.return_value = mock_instance

@@ -11,6 +11,7 @@ from app.routers.backtest import router as backtest_router
 from app.routers.sector_tags import router as sector_tags_router
 from app.routers.chat import router as chat_router
 from app.routers.right_side_signals import router as right_side_signals_router
+from app.routers.admin import router as admin_router
 
 __all__ = [
     "auth_router",
@@ -25,4 +26,5 @@ __all__ = [
     "sector_tags_router",
     "chat_router",
     "right_side_signals_router",
+    "admin_router",
 ]

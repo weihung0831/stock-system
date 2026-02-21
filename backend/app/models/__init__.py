@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.pipeline_log import PipelineLog
 from app.models.system_setting import SystemSetting
 from app.models.sector_tag import SectorTag
+from app.models.report_usage import ReportUsage
 
 __all__ = [
     "TimestampMixin",
@@ -29,4 +30,5 @@ __all__ = [
     "PipelineLog",
     "SystemSetting",
     "SectorTag",
+    "ReportUsage",
 ]

@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 class ChatMessage(BaseModel):
     """Single chat message."""
     role: str = Field(..., pattern="^(user|assistant)$")
-    content: str = Field(..., min_length=1, max_length=500)
+    content: str = Field(..., min_length=1, max_length=5000)
 
 
 class ChatRequest(BaseModel):
@@ -36,25 +36,26 @@ class ChatResponse(BaseModel):
     suggestions: List[str] = []
 
 
+@router.get("/quota")
+def get_chat_quota(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Get current user's chat quota info (read-only, no counter increment)."""
+    tier = current_user.membership_tier if not current_user.is_admin else 'premium'
+    quota = chat_rate_limiter.check_quota(str(current_user.id), tier)
+    return {"tier": tier, **quota}
+
+
 @router.post("", response_model=ChatResponse)
 def send_chat_message(
     request: ChatRequest,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    """
-    Send a message to the AI assistant and get a response.
-
-    Args:
-        request: Chat messages (conversation history)
-        db: Database session
-        current_user: Authenticated user
-
-    Returns:
-        AI assistant reply
-    """
-    # Rate limit check
-    allowed, reason = chat_rate_limiter.check(str(current_user.id))
+    """Send a message to the AI assistant and get a response."""
+    # Rate limit check with tier awareness
+    tier = current_user.membership_tier if not current_user.is_admin else 'premium'
+    allowed, reason, quota = chat_rate_limiter.check(str(current_user.id), tier)
     if not allowed:
         raise HTTPException(status_code=429, detail=reason)
 
