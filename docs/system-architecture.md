@@ -58,6 +58,7 @@
 │  ├─ gemini_client.py       Gemini API 客戶端                   │
 │  ├─ llm_client.py          LLM 通用客戶端 (含 generate_chat)   │
 │  ├─ chat_service.py        AI 聊天服務 (系統提示詞 + LLM 對話)  │
+│  ├─ chat_rate_limiter.py   聊天限流 (每分鐘 3 則、每日 20 則)   │
 │  ├─ right_side_signal_detector.py 右側買法信號檢測 (6個信號)    │
 │  ├─ backtest_service.py    回測邏輯                            │
 │  ├─ stock_service.py       股票查詢服務 (含權證過濾)              │
@@ -367,6 +368,14 @@ cd frontend && npm run dev
 ---
 
 ## 新增功能與改進
+
+### 2026-02-21: AI 聊天限流 (ChatRateLimiter)
+
+- 新增 `services/chat_rate_limiter.py`：基於 user_id 的記憶體限流
+  - 分鐘桶：滑動窗口 60 秒最多 3 則
+  - 日桶：UTC 日最多 20 則，`check_rate_limit(user_id)` 返回允許狀態與重置時間
+- `routers/chat.py` 整合：`POST /api/chat` 呼叫前執行限流檢查，超限返回 HTTP 429
+- `ai-assistant-widget.vue` 處理 429 回應，顯示使用限制友善提示
 
 ### 2026-02-21: AI 報告 24 小時快取機制
 

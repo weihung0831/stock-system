@@ -44,7 +44,7 @@ stock-system/
 │   │   │   ├── backtest.py           # /api/backtest/* (回測+評分日期)
 │   │   │   ├── chat.py               # /api/chat (AI 聊天助手，含輸入驗證)
 │   │   │   └── right_side_signals.py # /api/right-side-signals/* (右側買法信號)
-│   │   ├── services/                 # 22 個業務邏輯服務
+│   │   ├── services/                 # 23 個業務邏輯服務
 │   │   │   ├── auth_service.py       # JWT & Bcrypt 認證
 │   │   │   ├── finmind_collector.py  # FinMind API 整合
 │   │   │   ├── news_collector.py     # Google News RSS 爬蟲
@@ -63,6 +63,7 @@ stock-system/
 │   │   │   ├── gemini_client.py      # Google Gemini API 包裝
 │   │   │   ├── llm_client.py         # LLM 通用客戶端 (含 generate_chat 自由文字對話)
 │   │   │   ├── chat_service.py       # AI 聊天服務 (建構系統提示詞 + 編排 LLM 對話)
+│   │   │   ├── chat_rate_limiter.py  # 聊天限流 (每分鐘 3 則、每日 20 則)
 │   │   │   ├── right_side_signal_detector.py # 右側買法信號檢測 (6個信號)
 │   │   │   ├── news_preparator.py    # 新聞預處理
 │   │   │   ├── on_demand_data_fetcher.py # 按需資料抓取 (非 Pipeline 股票)
@@ -73,7 +74,7 @@ stock-system/
 │   │       ├── analysis_steps.py     # 分析與評分步驟（含按需新聞抓取）
 │   │       ├── pipeline_status.py    # 進度與日誌
 │   │       └── __init__.py
-│   ├── tests/                        # 單元測試 (204+ 個測試)
+│   ├── tests/                        # 單元測試 (267+ 個測試)
 │   │   ├── conftest.py               # Pytest 設定與固件
 │   │   ├── test_auth_service.py      # 認證測試 (156 行)
 │   │   ├── test_models.py            # 模型測試 (496 行)
@@ -83,7 +84,9 @@ stock-system/
 │   │   ├── test_rate_limiter.py      # 速率限制測試 (237 行)
 │   │   ├── test_analysis_steps.py    # 分析步驟測試 (115 行)
 │   │   ├── test_finmind_collector.py # FinMind 收集器測試 (22 個測試)
-│   │   └── test_chat_service.py      # 聊天服務測試 (15 個測試：build_stock_context/chat_with_assistant/router)
+│   │   ├── test_chat_service.py      # 聊天服務測試 (17 個測試：build_stock_context/chat_with_assistant/router/限流整合)
+│   │   ├── test_chat_rate_limiter.py # 聊天限流測試 (7 個測試：每分鐘限制/每日限制/重置邏輯)
+│   │   └── test_report_cache.py      # 報告快取測試 (5 個測試：24h 快取命中/未命中/邊界)
 │   ├── requirements.txt               # Python 依賴
 │   ├── .env.example                  # 環境變數範本
 │   └── pytest.ini                    # Pytest 設定
@@ -510,7 +513,7 @@ tailwindcss (可選)
 ## 測試覆蓋
 
 ```
-總計: 204+ 個測試, 100% 通過率
+總計: 267+ 個測試, 100% 通過率
 
 認證服務        ✅ 156 行代碼，100% 覆蓋
 模型           ✅ 496 行代碼，93-100% 覆蓋
@@ -520,7 +523,9 @@ tailwindcss (可選)
 速率限制        ✅ 237 行代碼，100% 覆蓋
 分析步驟        ✅ 115 行代碼，100% 覆蓋
 FinMind 收集器  ✅ 22 個測試，100% 覆蓋
-聊天服務        ✅ 15 個測試，涵蓋 build_stock_context/chat_with_assistant/router（新增）
+聊天服務        ✅ 17 個測試，涵蓋 build_stock_context/chat_with_assistant/router/限流整合
+聊天限流        ✅ 7 個測試，涵蓋每分鐘限制/每日限制/重置邏輯（新增）
+報告快取        ✅ 5 個測試，涵蓋 24h 快取命中/未命中/邊界（新增）
 
 持續擴展:
 評分服務整合測試 (計畫)
@@ -566,6 +571,28 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 ---
 
 ## 近期更新摘要
+
+### 2026-02-21: AI 聊天限流功能 (ChatRateLimiter)
+
+**新功能說明**
+- 防止單一用戶短時間內大量呼叫 AI 聊天 API，降低 Gemini API 成本
+- 每用戶每分鐘最多 3 則訊息，每日最多 20 則訊息
+- 超出限制時 API 返回 HTTP 429，前端顯示相應錯誤提示
+
+**後端實現**
+- `app/services/chat_rate_limiter.py`（新增）
+  - 基於 user_id 的記憶體限流（分鐘桶 + 日桶）
+  - `check_rate_limit(user_id)` → 返回是否允許、剩餘次數、重置時間
+  - 分鐘限制：每滑動窗口 60 秒最多 3 則
+  - 日限制：每 UTC 日最多 20 則
+- `app/routers/chat.py` 整合限流：呼叫前執行 `check_rate_limit()`，超限返回 429 與剩餘重置時間
+
+**前端實現**
+- `ai-assistant-widget.vue` 處理 HTTP 429 回應，顯示「已達到使用限制，請稍後再試」提示訊息
+
+**新增測試**
+- `tests/test_chat_rate_limiter.py`：7 個測試（每分鐘限制、每日限制、重置邏輯）
+- `tests/test_chat_service.py`：新增 2 個限流整合測試
 
 ### 2026-02-21: AI 報告 24 小時快取機制
 
@@ -723,4 +750,4 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
 **最後更新**: 2026-02-21
-**版本**: 1.9
+**版本**: 2.0
