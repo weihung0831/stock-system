@@ -123,9 +123,7 @@ stock-system/
 │   │   │   │   └── app-sidebar.vue   # 側邊欄菜單 (手機版內含搜尋欄)
 │   │   │   ├── dashboard/
 │   │   │   │   ├── stock-ranking-table.vue # 排名表格
-│   │   │   │   ├── score-radar-chart.vue   # 評分雷達圖
-│   │   │   │   ├── sector-filter-tabs.vue  # 產業篩選
-│   │   │   │   └── chip-alert-list.vue     # 籌碼警報
+│   │   │   │   └── sector-filter-tabs.vue  # 產業篩選
 │   │   │   ├── stock-detail/
 │   │   │   │   ├── price-candlestick-chart.vue # K 線圖
 │   │   │   │   ├── technical-indicator-chart.vue # 技術指標

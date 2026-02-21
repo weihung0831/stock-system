@@ -221,7 +221,7 @@ C. 融資融券變化 (30%)
 
 ```
 total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
-預設權重：chip=40 / fundamental=25 / technical=35 (可由使用者調整)
+預設權重：chip=40 / fundamental=35 / technical=25 (可由使用者調整)
 ```
 
 → 排序 → 寫入 ScoreResult 表（含 rank）
@@ -294,7 +294,7 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
   ├─ **循序資料載入模式**（避免競態條件）
   │  ├─ 步驟 1: getStockScore() → 觸發按需資料抓取（非 Pipeline 股票）
   │  └─ 步驟 2: fetchPrices() → 確保抓取完整 6 個月價格資料
-  ├─ 三因子雷達圖 + 子指標明細 + AI 摘要
+  ├─ 三因子評分卡 + 子指標明細 + AI 摘要
   └─ 支援搜尋欄直接輸入股票代碼/名稱導航
 
 搜尋功能 → GET /stocks?search=xxx → 股票清單搜尋

@@ -37,3 +37,4 @@ test_output.log
 # Plans & reports (local only)
 plans/reports/
 frontend/plans/
+*.pptx
