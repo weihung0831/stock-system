@@ -8,6 +8,7 @@ import PriceCandlestickChart from '@/components/stock-detail/price-candlestick-c
 import TechnicalIndicatorChart from '@/components/stock-detail/technical-indicator-chart.vue'
 import FactorScoreCard from '@/components/stock-detail/factor-score-card.vue'
 import LlmReportPanel from '@/components/stock-detail/llm-report-panel.vue'
+import RightSideSignalCard from '@/components/stock-detail/right-side-signal-card.vue'
 import SectorTag from '@/components/shared/sector-tag.vue'
 import { useSectorTagsStore } from '@/stores/sector-tags-store'
 import type { ScoreResult } from '@/types/screening'
@@ -123,6 +124,9 @@ watch(() => route.params.id, () => {
 
       <!-- Factor score cards -->
       <FactorScoreCard v-if="scoreResult" :score-result="scoreResult" />
+
+      <!-- Right-side signals -->
+      <RightSideSignalCard :stock-id="stockId" />
 
       <!-- Charts grid -->
       <div class="detail-grid">

@@ -72,6 +72,12 @@
 - 機構投資人趨勢
 - 融資融券追蹤
 
+### 8. 右側買法 (Right-Side Trading Signals)
+- 6 個右側進場信號加權評分（滿分 100）：量價齊揚(25)、突破20日高點(20)、MACD黃金交叉(20)、站回MA20(15)、KD低檔黃金交叉(12)、突破布林上軌(8)
+- 買賣點預測：進場價（收盤）、停損（max(MA20, 20日低)）、目標（1.5x 風報比）、動作建議（buy/hold/avoid）
+- 批量篩選掃描範圍：Top 50 評分股 + 近7日成交量 > 200 萬股（約 2,000 張）之股票聯集
+- 獨立篩選頁面（排序、分頁、最少信號數篩選）+ 個股詳情信號卡片
+
 ## 數據模型架構
 
 ### 核心表 (13個主要模型)
@@ -115,10 +121,13 @@
 | **回測** | `/api/backtest/run` | 執行回測 |
 | | `/api/backtest/score-dates` | 可用評分日期 |
 | **調度** | `/api/scheduler/jobs` | 排程管理 |
+| **右側買法** | `/api/right-side-signals/{stock_id}` | 單檔 6 信號查詢 |
+| | `/api/right-side-signals/screen/batch` | 批量篩選（min_signals 參數） |
+| **AI 聊天** | `/api/chat` | AI 聊天助手對話 |
 
 ## 核心服務架構
 
-### 後端服務 (18個主要服務)
+### 後端服務 (22個主要服務)
 
 **數據收集層**
 - `TWSECollector`: TWSE 全市場批次資料收集
@@ -141,6 +150,7 @@
 - `CustomScreeningService`: 自訂篩選
 - `ChipStatsService`: 籌碼統計
 - `BacktestService`: 回測引擎 + 評分日期查詢
+- `RightSideSignalDetector`: 右側買法信號檢測
 - `LLMAnalyzer`: AI分析
 - `GeminiClient`: Google API封裝
 
@@ -150,12 +160,13 @@
 
 ## 前端結構
 
-### 視圖（8 個頁面）
+### 視圖（9 個頁面）
 - **DashboardView**: 主儀表板（含顯示限制選單：Top 20 / Top 50 / All）
 - **StockDetailView**: 股票詳情
 - **CustomScreeningView**: 自訂篩選
 - **ChipStatsView**: 籌碼統計
 - **ReportsListView**: 報告清單
+- **RightSideScreeningView**: 右側買法篩選
 - **HistoryBactestView**: 回測歷史
 - **SettingsView**: 系統設定（權重調整 + 排程時間設定）
 - **LoginView**: 登入頁面
@@ -242,6 +253,7 @@
 - ✅ TWSE假期自動化
 - ✅ 歷史評分支援 (as_of_date)
 - ✅ AI分析全面升級
+- ✅ 右側買法信號檢測
 
 ### 下一步
 - 性能最佳化
@@ -321,6 +333,17 @@
 
 ## 最新更新
 
+### 2026-02-21: 右側買法 (Right-Side Trading Signals)
+- **後端實現**：`RightSideSignalDetector` 檢測 6 個動能進場信號（需 ≥20 天資料）
+  - 加權評分（滿分 100）：量價齊揚(25)、突破20日高點(20)、MACD黃金交叉(20)、站回MA20(15)、KD低檔黃金交叉(12)、突破布林上軌(8)
+  - 買賣點預測：進場(收盤)、停損(max(MA20, 20日低))、目標(1.5x 風報比)、動作(buy≥60/hold≥35/avoid)
+  - API 端點：`GET /api/right-side-signals/{stock_id}` 單檔、`GET /api/right-side-signals/screen/batch?min_signals=2` 批量
+  - 批量掃描範圍：Top 50 評分股 + 近7日量 > 200 萬股聯集
+- **前端實現**：
+  - 獨立篩選頁面（`/right-side`）：分頁、依加權評分排序、最少信號數過濾（1-6）
+  - 個股詳情頁：`right-side-signal-card.vue` 展示信號狀態與買賣點預測
+  - Sidebar 「分析」分區新增「右側買法」導航項
+
 ### 2026-02-17: Pipeline 簡化與新聞架構優化
 - **Pipeline 架構**：5 步驟簡化為 3 步驟
   - Step 1: 資料抓取
@@ -354,6 +377,6 @@
 - 新增 `test_analysis_steps.py` (7 個測試), 總計 140+ 測試
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
-**最後更新**: 2026-02-17
-**版本**: 1.4
+**最後更新**: 2026-02-21
+**版本**: 1.6
 **狀態**: 全部實裝完成，持續優化中

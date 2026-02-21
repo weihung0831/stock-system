@@ -32,6 +32,7 @@ declare module 'vue' {
     LlmReportPanel: typeof import('./src/components/stock-detail/llm-report-panel.vue')['default']
     MarginTrendChart: typeof import('./src/components/chip-stats/margin-trend-chart.vue')['default']
     PriceCandlestickChart: typeof import('./src/components/stock-detail/price-candlestick-chart.vue')['default']
+    RightSideSignalCard: typeof import('./src/components/stock-detail/right-side-signal-card.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SchedulerConfigForm: typeof import('./src/components/settings/scheduler-config-form.vue')['default']

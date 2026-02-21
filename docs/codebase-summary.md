@@ -32,7 +32,7 @@ stock-system/
 │   │   │   ├── screening.py          # 篩選 (ScreeningParams, Result)
 │   │   │   ├── report.py             # 報告 (Report, LLMReport)
 │   │   │   └── common.py             # 共通模式 (Pagination, Error)
-│   │   ├── routers/                  # 10 個 API 路由器
+│   │   ├── routers/                  # 11 個 API 路由器
 │   │   │   ├── auth.py               # /api/auth/* (登入/註冊/更新令牌)
 │   │   │   ├── stocks.py             # /api/stocks/* (股票查詢)
 │   │   │   ├── data.py               # /api/data/* (數據收集)
@@ -42,8 +42,9 @@ stock-system/
 │   │   │   ├── custom_screening.py   # /api/custom-screening/* (自訂篩選)
 │   │   │   ├── chip_stats.py         # /api/chip-stats/* (籌碼統計)
 │   │   │   ├── backtest.py           # /api/backtest/* (回測+評分日期)
-│   │   │   └── chat.py               # /api/chat (AI 聊天助手，含輸入驗證)
-│   │   ├── services/                 # 21 個業務邏輯服務
+│   │   │   ├── chat.py               # /api/chat (AI 聊天助手，含輸入驗證)
+│   │   │   └── right_side_signals.py # /api/right-side-signals/* (右側買法信號)
+│   │   ├── services/                 # 22 個業務邏輯服務
 │   │   │   ├── auth_service.py       # JWT & Bcrypt 認證
 │   │   │   ├── finmind_collector.py  # FinMind API 整合
 │   │   │   ├── news_collector.py     # Google News RSS 爬蟲
@@ -62,6 +63,7 @@ stock-system/
 │   │   │   ├── gemini_client.py      # Google Gemini API 包裝
 │   │   │   ├── llm_client.py         # LLM 通用客戶端 (含 generate_chat 自由文字對話)
 │   │   │   ├── chat_service.py       # AI 聊天服務 (建構系統提示詞 + 編排 LLM 對話)
+│   │   │   ├── right_side_signal_detector.py # 右側買法信號檢測 (6個信號)
 │   │   │   ├── news_preparator.py    # 新聞預處理
 │   │   │   ├── on_demand_data_fetcher.py # 按需資料抓取 (非 Pipeline 股票)
 │   │   │   └── prompt_templates.py   # LLM 提示詞範本
@@ -90,7 +92,7 @@ stock-system/
 │   ├── src/
 │   │   ├── main.ts                   # 應用入口
 │   │   ├── App.vue                   # 根元件
-│   │   ├── views/                    # 8 個頁面
+│   │   ├── views/                    # 9 個頁面
 │   │   │   ├── login-view.vue        # 登入頁面
 │   │   │   ├── dashboard-view.vue    # 主儀表板 (篩選結果表 + 顯示限制選單)
 │   │   │   ├── stock-detail-view.vue # 股票詳情 (K線+評分+AI報告)
@@ -98,6 +100,7 @@ stock-system/
 │   │   │   ├── chip-stats-view.vue   # 籌碼統計
 │   │   │   ├── reports-list-view.vue # 報告清單
 │   │   │   ├── history-backtest-view.vue # 回測歷史
+│   │   │   ├── right-side-screening-view.vue # 右側買法篩選
 │   │   │   └── settings-view.vue     # 系統設定
 │   │   ├── components/               # 22 個可重用元件
 │   │   │   ├── ai-assistant/
@@ -137,7 +140,7 @@ stock-system/
 │   │   │   ├── stock-store.ts        # 股票數據快取
 │   │   │   ├── screening-store.ts    # 篩選參數與結果
 │   │   │   └── settings-store.ts     # 使用者偏好
-│   │   ├── api/                      # 9 個 API 呼叫模組
+│   │   ├── api/                      # 10 個 API 呼叫模組
 │   │   │   ├── client.ts             # Axios 實例與攔截器
 │   │   │   ├── auth-api.ts           # 認證 API
 │   │   │   ├── stocks-api.ts         # 股票查詢 API
@@ -146,12 +149,14 @@ stock-system/
 │   │   │   ├── chip-stats-api.ts     # 籌碼統計 API
 │   │   │   ├── backtest-api.ts       # 回測 API
 │   │   │   ├── reports-api.ts        # 報告 API
-│   │   │   └── chat-api.ts           # AI 聊天 API 客戶端
-│   │   ├── types/                    # 3 個 TypeScript 型別定義
+│   │   │   ├── chat-api.ts           # AI 聊天 API 客戶端
+│   │   │   └── right-side-signals-api.ts # 右側買法信號 API 客戶端
+│   │   ├── types/                    # 4 個 TypeScript 型別定義
 │   │   │   ├── auth.ts               # User, LoginRequest, Token
 │   │   │   ├── stock.ts              # Stock, DailyPrice, Institutional
 │   │   │   ├── screening.ts          # ScreeningParams, Result
-│   │   │   └── report.ts             # Report, LLMReport
+│   │   │   ├── report.ts             # Report, LLMReport
+│   │   │   └── right-side-signals.ts # RightSideSignal, RightSideSignalResult
 │   │   ├── router/                   # Vue Router 設定
 │   │   └── assets/                   # 靜態資源 (圖片, 字體)
 │   ├── index.html                    # HTML 入口
@@ -562,6 +567,26 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 
 ## 近期更新摘要
 
+### 2026-02-21: 右側買法 (Right-Side Trading Signals) 功能
+
+**後端新增**
+- `app/services/right_side_signal_detector.py`: 右側動能信號檢測器，提供 6 個加權信號
+  - 量價齊揚(25)、突破20日高點(20)、MACD黃金交叉(20)、站回MA20(15)、KD低檔黃金交叉(12)、突破布林上軌(8)
+  - 需 ≥20 天價格資料，缺數據時返回「資料不足」
+  - 含 `_calc_prediction()`: 買賣點預測（進場=收盤、停損=max(MA20,20日低)、目標=1.5x 風報比、動作=buy/hold/avoid）
+- `app/routers/right_side_signals.py`: 2 個 API 端點
+  - `GET /api/right-side-signals/{stock_id}` — 單檔股票 6 個信號 + 買賣點預測
+  - `GET /api/right-side-signals/screen/batch?min_signals=2` — 批量篩選（Top 50 評分股 + 近7日量 > 200 萬股聯集，依加權評分降序）
+- 註冊路由至 `app/main.py`
+
+**前端新增**
+- `src/types/right-side-signals.ts`: TypeScript 型別定義（RightSideSignal, RightSideSignalResult, RightSideScreenItem 等）
+- `src/api/right-side-signals-api.ts`: API 客戶端封裝
+- `src/components/stock-detail/right-side-signal-card.vue`: 股票詳情頁信號卡片展示
+- `src/views/right-side-screening-view.vue`: 獨立篩選頁面，支援分頁、排序、最少信號數篩選
+- 路由新增：`/right-side` 導向篩選頁面
+- Sidebar「分析」分區：新增「右側買法」導航項目
+
 ### 2026-02-19: AI 聊天助手功能
 
 **後端新增**
@@ -672,5 +697,5 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - LLM 分析擴展至所有評分股票
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
-**最後更新**: 2026-02-19
-**版本**: 1.7
+**最後更新**: 2026-02-21
+**版本**: 1.8

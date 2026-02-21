@@ -41,7 +41,8 @@
 │  ├─ auth.py         JWT 登入/註冊                              │
 │  ├─ data.py         資料管理                                   │
 │  ├─ sector_tags.py  產業標籤                                   │
-│  └─ chat.py         POST /api/chat AI 聊天助手                 │
+│  ├─ chat.py         POST /api/chat AI 聊天助手                 │
+│  └─ right_side_signals.py  右側買法信號檢測 & 篩選             │
 │                                                             │
 │  Services (核心業務邏輯)                                       │
 │  ├─ scoring_engine.py      評分引擎 (協調三因子)                 │
@@ -57,6 +58,7 @@
 │  ├─ gemini_client.py       Gemini API 客戶端                   │
 │  ├─ llm_client.py          LLM 通用客戶端 (含 generate_chat)   │
 │  ├─ chat_service.py        AI 聊天服務 (系統提示詞 + LLM 對話)  │
+│  ├─ right_side_signal_detector.py 右側買法信號檢測 (6個信號)    │
 │  ├─ backtest_service.py    回測邏輯                            │
 │  ├─ stock_service.py       股票查詢服務 (含權證過濾)              │
 │  ├─ auth_service.py        JWT 認證服務                        │
@@ -276,6 +278,14 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
   ├─ 顯示計數：「共 X 檔，顯示 Y 檔」
   └─ 每張卡片：排名 + 股票名 + 總分 + 三因子分數 + 收盤價 + 漲跌幅
 
+右側買法篩選 → GET /api/right-side-signals/screen/batch?min_signals=2 → 批量篩選結果
+  ├─ 表格顯示：股號 + 股名 + 6 個信號觸發狀態 + 觸發數量
+  ├─ 分頁排序：按觸發數量排序，支援分頁（每頁 10 筆）
+  └─ 篩選條件：最少信號數（1-6 可選）
+
+個股詳情 (右側信號卡片) → GET /api/right-side-signals/{stock_id}
+  └─ 信號卡片：展示 6 個信號名稱、狀態、描述
+
 個股詳情 → GET /screening/results/{stock_id} → score_single_stock() 即時算分
   ├─ 自動按需抓取缺失資料 (OnDemandDataFetcher)
   ├─ **循序資料載入模式**（避免競態條件）
@@ -357,6 +367,35 @@ cd frontend && npm run dev
 ---
 
 ## 新增功能與改進
+
+### 2026-02-21: 右側買法 (Right-Side Trading Signals)
+
+**新功能說明**
+- 基於技術面的動能進場信號，檢測 6 個右側進場機會點（需 ≥20 天價格資料）
+- 加權評分制（滿分 100），各信號權重：
+
+  | 信號 | 說明 | 權重 |
+  |------|------|------|
+  | 量價齊揚 | 成交量 ≥ 20日均量 1.5 倍且當日收漲 | 25 |
+  | 突破20日高點 | 收盤突破前20日最高點 | 20 |
+  | MACD黃金交叉 | DIF 由下往上穿越 Signal 線 | 20 |
+  | 站回MA20 | 前一日收盤低於 MA20，今日收盤站上 MA20 | 15 |
+  | KD低檔黃金交叉 | K 值在 30 以下由下往上穿越 D 值 | 12 |
+  | 突破布林上軌 | 前一日收盤 ≤ 布林上軌，今日突破上軌 | 8 |
+
+- 買賣點預測（`prediction`）：進場價（最新收盤）、停損（max(MA20, 20日低)）、目標（1.5x 風報比）、動作建議（score≥60→buy / score≥35→hold / 其餘→avoid）
+
+**後端實現**
+- `RightSideSignalDetector` 類別（`right_side_signal_detector.py`）
+- 單檔查詢：`GET /api/right-side-signals/{stock_id}`
+- 批量篩選：`GET /api/right-side-signals/screen/batch?min_signals=2`
+  - 掃描範圍：Top 50 評分股（最新 ScoreResult）+ 近 7 日成交量 > 200 萬股（約 2,000 張）之股票聯集
+  - 回傳依加權評分（score）降序排列
+
+**前端實現**
+- 獨立篩選頁面（`/right-side`）：分頁、依評分排序、最少信號數過濾（1-6 可選）
+- 股票詳情頁：新增信號卡片（`right-side-signal-card.vue`），展示 6 個信號觸發狀態、描述及買賣點預測
+- Sidebar 導航：「分析」分區新增「右側買法」項目
 
 ### 2026-02-19: AI 聊天助手
 
@@ -448,5 +487,5 @@ cd frontend && npm run dev
 - LLM 分析全面升級（所有評分股票）
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
-**最後更新**: 2026-02-19
-**版本**: 2.6
+**最後更新**: 2026-02-21
+**版本**: 2.8

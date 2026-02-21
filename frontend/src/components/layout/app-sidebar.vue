@@ -27,6 +27,7 @@ const navSections = [
       { path: '/chip-stats', label: '籌碼統計', icon: 'trend' },
       { path: '/reports', label: 'AI 報告', icon: 'doc' },
       { path: '/history', label: '歷史回測', icon: 'chart' },
+      { path: '/right-side', label: '右側買法', icon: 'signal' },
     ],
   },
   {
@@ -117,6 +118,10 @@ const userInitial = computed(() => {
             <rect x="4" y="13" width="4" height="7" rx="1" />
             <rect x="10" y="8" width="4" height="12" rx="1" />
             <rect x="16" y="3" width="4" height="17" rx="1" />
+          </svg>
+          <!-- Right-side signal icon -->
+          <svg v-else-if="item.icon === 'signal'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 20h.01" /><path d="M7 20v-4" /><path d="M12 20v-8" /><path d="M17 20v-12" /><path d="M22 4v16" />
           </svg>
           <!-- Settings icon -->
           <svg v-else-if="item.icon === 'gear'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
