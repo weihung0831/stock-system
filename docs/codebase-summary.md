@@ -1,6 +1,6 @@
-# 代碼庫摘要
+# 📋 代碼庫摘要
 
-## 目錄結構
+## 🗂️ 目錄結構
 
 ```
 stock-system/
@@ -10,7 +10,7 @@ stock-system/
 │   │   ├── config.py                 # 配置管理 (環境變數)
 │   │   ├── database.py               # SQLAlchemy ORM 設定
 │   │   ├── dependencies.py           # 依賴注入
-│   │   ├── models/                   # 15個 ORM 模型
+│   │   ├── models/                   # 14個 ORM 模型
 │   │   │   ├── base.py               # 基類 (TimestampMixin)
 │   │   │   ├── stock.py              # 股票主檔
 │   │   │   ├── daily_price.py        # 每日價格
@@ -19,10 +19,7 @@ stock-system/
 │   │   │   ├── revenue.py            # 月營收
 │   │   │   ├── financial.py          # 財務報表
 │   │   │   ├── news.py               # 新聞記錄
-│   │   │   ├── chip_score.py         # 籌碼評分
-│   │   │   ├── fundamental_score.py  # 基本面評分
-│   │   │   ├── technical_score.py    # 技術面評分
-│   │   │   ├── score_result.py       # 最終評分結果
+│   │   │   ├── score_result.py       # 最終評分結果 (含籌碼/基本面/技術面子分數)
 │   │   │   ├── llm_report.py         # AI 分析報告
 │   │   │   ├── report_usage.py       # 報告使用追蹤 (每日限額記錄)
 │   │   │   ├── user.py               # 使用者帳戶 (含 membership_tier, email)
@@ -46,6 +43,7 @@ stock-system/
 │   │   │   ├── chip_stats.py         # /api/chip-stats/* (籌碼統計)
 │   │   │   ├── backtest.py           # /api/backtest/* (回測+評分日期)
 │   │   │   ├── chat.py               # /api/chat (AI 聊天助手，含會員限流+配額查詢)
+│   │   │   ├── sector_tags.py        # /api/sector-tags/* (產業分類標籤)
 │   │   │   └── right_side_signals.py # /api/right-side-signals/* (右側買法信號)
 │   │   ├── services/                 # 25 個業務邏輯服務
 │   │   │   ├── auth_service.py       # JWT & Bcrypt 認證
@@ -88,7 +86,7 @@ stock-system/
 │   │   ├── test_rate_limiter.py      # 速率限制測試 (237 行)
 │   │   ├── test_analysis_steps.py    # 分析步驟測試 (115 行)
 │   │   ├── test_finmind_collector.py # FinMind 收集器測試 (22 個測試)
-│   │   ├── test_chat_service.py      # 聊天服務測試 (17 個測試：build_stock_context/chat_with_assistant/router/限流整合)
+│   │   ├── test_chat_service.py      # 聊天服務測試 (22 個測試：build_stock_context/chat_with_assistant/router/限流整合)
 │   │   ├── test_chat_rate_limiter.py # 聊天限流測試 (7 個測試：每分鐘限制/每日限制/重置邏輯)
 │   │   └── test_report_cache.py      # 報告快取測試 (5 個測試：24h 快取命中/未命中/邊界)
 │   ├── requirements.txt               # Python 依賴
@@ -201,9 +199,9 @@ stock-system/
 總計: ~150 個檔案, ~15,000 行代碼
 ```
 
-## 核心模組說明
+## ⚙️ 核心模組說明
 
-### 認證模組 (AuthService)
+### 🔐 認證模組 (AuthService)
 
 ```python
 # 密碼管理
@@ -219,12 +217,12 @@ get_current_user(token: str) → User (依賴注入)
 ```
 
 **相關檔案**:
-- `app/services/auth_service.py` (150+ 行)
-- `app/routers/auth.py` (API 端點)
-- `app/models/user.py` (ORM 模型)
-- `tests/test_auth_service.py` (18 個測試)
+- 🗂️ `app/services/auth_service.py` (150+ 行)
+- 🔌 `app/routers/auth.py` (API 端點)
+- 🗄️ `app/models/user.py` (ORM 模型)
+- 🧪 `tests/test_auth_service.py` (18 個測試)
 
-### 評分引擎 (ScoringEngine)
+### 📊 評分引擎 (ScoringEngine)
 
 ```
 流程:
@@ -247,19 +245,16 @@ get_current_user(token: str) → User (依賴注入)
    total_score = (chip * 40 + fundamental * 35 + technical * 25) / 100
 
 4. 結果儲存:
-   ├─ ScoreResult (最終排名)
-   ├─ ChipScore (個別評分記錄)
-   ├─ FundamentalScore
-   └─ TechnicalScore
+   └─ ScoreResult (最終排名 + chip_score/fundamental_score/technical_score 子分數)
 ```
 
 **相關檔案**:
-- `app/services/scoring_engine.py` (200+ 行)
-- `app/services/chip_scorer.py`, `fundamental_scorer.py`, `technical_scorer.py`
-- `app/services/hard_filter.py`
-- `app/routers/screening.py`
+- 🗂️ `app/services/scoring_engine.py` (200+ 行)
+- ⚙️ `app/services/chip_scorer.py`, `fundamental_scorer.py`, `technical_scorer.py`
+- 🔍 `app/services/hard_filter.py`
+- 🔌 `app/routers/screening.py`
 
-### 數據收集模組
+### 📡 數據收集模組
 
 ```
 每日流程 (預設 16:30 自動執行，可於設定頁面調整):
@@ -287,12 +282,12 @@ RateLimiter (自訂)
 ```
 
 **相關檔案**:
-- `app/services/finmind_collector.py` (150+ 行)
-- `app/services/news_collector.py`
-- `app/services/rate_limiter.py`
-- `app/routers/data.py`
+- 🗂️ `app/services/finmind_collector.py` (150+ 行)
+- 📰 `app/services/news_collector.py`
+- 🚦 `app/services/rate_limiter.py`
+- 🔌 `app/routers/data.py`
 
-### LLM 分析模組
+### 🤖 LLM 分析模組
 
 ```
 流程:
@@ -306,7 +301,7 @@ NewsPreparator（新架構：按需新聞）
 └─ 準備提示詞
 
 GeminiClient（改進版）
-├─ 調用 Google Generative AI (Gemini 2.5 Flash)
+├─ 調用 Google Generative AI (Gemini 2.5 Pro)
 ├─ max_tokens: 8192（支援更長報告）
 ├─ 截斷檢測：finish_reason='length' 時自動重試
 ├─ 欄位長度限制（每欄 150 字元，最多 3 個風險提示）
@@ -326,12 +321,12 @@ PromptTemplates
 ```
 
 **相關檔案**:
-- `app/services/llm_analyzer.py`
-- `app/services/gemini_client.py`
-- `app/services/news_preparator.py`
-- `app/services/prompt_templates.py`
+- 🗂️ `app/services/llm_analyzer.py`
+- 🤖 `app/services/gemini_client.py`
+- 📰 `app/services/news_preparator.py`
+- 📝 `app/services/prompt_templates.py`
 
-### 前端狀態管理
+### 🏪 前端狀態管理
 
 ```
 authStore
@@ -359,11 +354,11 @@ stockStore
 ```
 
 **相關檔案**:
-- `src/stores/auth-store.ts`
-- `src/stores/screening-store.ts`
-- `src/stores/stock-store.ts`
+- 🗂️ `src/stores/auth-store.ts`
+- 📦 `src/stores/screening-store.ts`
+- 📦 `src/stores/stock-store.ts`
 
-### API 客戶端
+### 🔌 API 客戶端
 
 ```typescript
 // 基礎設定 (client.ts)
@@ -393,10 +388,10 @@ api.interceptors.response.use(
 ```
 
 **相關檔案**:
-- `src/api/client.ts`
-- `src/api/*-api.ts` (9 個端點模組)
+- 🗂️ `src/api/client.ts`
+- 🔌 `src/api/*-api.ts` (11 個端點模組)
 
-## 資料庫模型關係
+## 🗄️ 資料庫模型關係
 
 ```
 Stock (股票主檔)
@@ -408,10 +403,7 @@ Stock (股票主檔)
 ├── News (一對多)
 └── ScoreResult (一對多)
 
-ScoreResult (篩選結果)
-├── ChipScore (一對多)
-├── FundamentalScore (一對多)
-└── TechnicalScore (一對多)
+ScoreResult (篩選結果，內含 chip_score/fundamental_score/technical_score 子分數)
 
 User (使用者)
 └── (未建立關係，用於認證)
@@ -423,9 +415,9 @@ PipelineLog (流程日誌)
 └── (獨立表，記錄執行狀態)
 ```
 
-## 關鍵設定
+## 🔧 關鍵設定
 
-### 環境變數 (.env)
+### 🌐 環境變數 (.env)
 
 ```bash
 # 資料庫
@@ -444,7 +436,7 @@ JWT_EXPIRE_MINUTES=1440
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
-### 依賴清單
+### 📦 依賴清單
 
 **後端** (Python)
 ```
@@ -480,23 +472,23 @@ axios@1.6.2
 tailwindcss (可選)
 ```
 
-## 編碼約定
+## 📐 編碼約定
 
-### 命名規則
+### 🏷️ 命名規則
 
 **Python**
-- 檔案: `snake_case` (e.g., `auth_service.py`)
-- 類別: `PascalCase` (e.g., `AuthService`)
-- 函數: `snake_case` (e.g., `get_current_user`)
-- 常數: `UPPER_SNAKE_CASE` (e.g., `MAX_RETRIES`)
+- 📄 檔案: `snake_case` (e.g., `auth_service.py`)
+- 🏛️ 類別: `PascalCase` (e.g., `AuthService`)
+- 🔧 函數: `snake_case` (e.g., `get_current_user`)
+- 📌 常數: `UPPER_SNAKE_CASE` (e.g., `MAX_RETRIES`)
 
 **TypeScript/Vue**
-- 檔案: `kebab-case` (e.g., `auth-store.ts`, `login-view.vue`)
-- 類別: `PascalCase` (e.g., `AuthStore`)
-- 函數: `camelCase` (e.g., `getCurrentUser`)
-- 常數: `UPPER_SNAKE_CASE` (e.g., `MAX_RETRIES`)
+- 📄 檔案: `kebab-case` (e.g., `auth-store.ts`, `login-view.vue`)
+- 🏛️ 類別: `PascalCase` (e.g., `AuthStore`)
+- 🔧 函數: `camelCase` (e.g., `getCurrentUser`)
+- 📌 常數: `UPPER_SNAKE_CASE` (e.g., `MAX_RETRIES`)
 
-### 代碼樣式
+### 🎨 代碼樣式
 
 **Python**
 - 縮排: 4 空格
@@ -509,7 +501,7 @@ tailwindcss (可選)
 - 嚴格模式: 啟用
 - 分號: 必須
 
-## 性能指標
+## 📈 性能指標
 
 | 指標 | 目標 | 達成 |
 |------|------|------|
@@ -519,7 +511,7 @@ tailwindcss (可選)
 | 前端首屏載入 | < 3秒 | ✅ |
 | 測試覆蓋率 | > 80% | ✅ 100% (核心服務) |
 
-## 測試覆蓋
+## 🧪 測試覆蓋
 
 ```
 總計: 301 個測試, 100% 通過率
@@ -532,7 +524,7 @@ tailwindcss (可選)
 速率限制        ✅ 237 行代碼，100% 覆蓋
 分析步驟        ✅ 115 行代碼，100% 覆蓋
 FinMind 收集器  ✅ 22 個測試，100% 覆蓋
-聊天服務        ✅ 17 個測試，涵蓋 build_stock_context/chat_with_assistant/router/限流整合
+聊天服務        ✅ 22 個測試，涵蓋 build_stock_context/chat_with_assistant/router/限流整合
 聊天限流        ✅ 7 個測試，涵蓋每分鐘/日限制/重置邏輯/會員差異
 報告快取        ✅ 5 個測試，涵蓋 24h 快取命中/未命中/邊界
 會員系統        ✅ ~34 個測試，涵蓋註冊/驗證/等級管理/限流（新增）
@@ -542,7 +534,7 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 前端元件測試 (計畫)
 ```
 
-## 部署檢查清單
+## 🚀 部署檢查清單
 
 - [ ] 環境變數設定正確
 - [ ] 資料庫初始化與遷移
@@ -556,7 +548,7 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 
 ---
 
-## 近期更新摘要
+## 📅 近期更新摘要
 
 ### 2026-02-22: 右側買法新增四項篩選條件與候選池擴增至100檔
 
@@ -638,7 +630,7 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 **後端實現**
 - `app/services/chat_rate_limiter.py`
   - 基於 user_id 與會員等級的記憶體限流
-  - `check_rate_limit(user_id, tier)` 返回允許狀態與重置時間
+  - `check(user_id, tier)` 返回 (allowed, reason, quota) 元組
   - 分鐘限制：滑動窗口 60 秒
   - 日限制：UTC 日重置
 - `app/routers/chat.py` 整合限流與配額查詢
@@ -714,7 +706,7 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - `src/components/shared/scroll-to-top.vue`: 調整位置避免與 AI 氣泡重疊
 
 **新增測試**
-- `test_chat_service.py`: 15 個測試涵蓋 `build_stock_context`、`chat_with_assistant`、router 端點
+- `test_chat_service.py`: 22 個測試涵蓋 `build_stock_context`、`chat_with_assistant`、router 端點
 - 測試總數：140+ → 204+
 
 ### 2026-02-18: 已下市股票過濾 + FinMind 收集器測試
@@ -757,7 +749,7 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 
 **Pipeline 架構變更（5步驟 → 3步驟）**
 - Step 1: 資料抓取（價格、法人、融資、營收、財報）
-- Step 2: 硬篩選（量能異常 > 2.5x 或 Top 50）
+- Step 2: 硬篩選（量能異常 > 2.5x 或 Top 100）
 - Step 3: 綜合評分 + LLM 分析
 - 新聞不再是獨立步驟，改為 LLM 分析時按需抓取
 

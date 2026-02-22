@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     FINMIND_TOKEN: str
     LLM_API_KEY: str
     LLM_BASE_URL: str = "https://api.apertis.ai/v1"
-    LLM_MODEL: str = "claude-opus-4-6"
+    LLM_MODEL: str = "gemini-2.5-pro"
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440

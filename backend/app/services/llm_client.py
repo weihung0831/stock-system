@@ -19,7 +19,7 @@ class LLMClient:
         Args:
             api_key: API key for the service
             base_url: Base URL (e.g., https://api.apertis.ai/v1)
-            model: Model identifier (e.g., claude-opus-4-6)
+            model: Model identifier (e.g., gemini-2.5-pro)
         """
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.model = model

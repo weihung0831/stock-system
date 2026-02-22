@@ -38,7 +38,7 @@ class TestSettingsLoading:
             assert s.LLM_BASE_URL == "https://api.apertis.ai/v1"
 
     def test_settings_llm_model_default(self):
-        """Test LLM_MODEL defaults to claude-opus-4-6 when no env override."""
+        """Test LLM_MODEL defaults to gemini-2.5-pro when no env override."""
         with patch.dict(os.environ, {}, clear=True):
             s = Settings(
                 _env_file=None,
@@ -47,7 +47,7 @@ class TestSettingsLoading:
                 LLM_API_KEY="test",
                 JWT_SECRET_KEY="secret",
             )
-            assert s.LLM_MODEL == "claude-opus-4-6"
+            assert s.LLM_MODEL == "gemini-2.5-pro"
 
     def test_settings_custom_llm_fields(self):
         """Test custom LLM_BASE_URL and LLM_MODEL."""

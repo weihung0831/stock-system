@@ -1,29 +1,29 @@
-# 台灣股市多因子篩選平台 (TW Stock Screener)
+# 📈 台灣股市多因子篩選平台 (TW Stock Screener)
 
-## 專案概述
+## 📋 專案概述
 
 **台灣股市多因子篩選平台** 是一個企業級的股票篩選系統，結合基本面、技術面與籌碼面分析，為台灣股票投資者提供科學的決策支持工具。
 
-### 核心價值
+### 💡 核心價值
 
-- **多因子綜合評估**: 結合籌碼(40%)、基本面(35%)、技術面(25%)三個維度
-- **AI輔助分析**: 使用 Google Gemini 2.0 Flash 進行新聞分析與投資建議
-- **自動化流程**: 每日16:30自動收集數據、計算分數、生成報告
-- **深度研究工具**: 支援自訂篩選、回測、籌碼統計等進階功能
-- **暗色優雅UI**: 深色主題配搭琥珀金色(#e5a91a)設計
+- 📊 **多因子綜合評估**: 結合籌碼(40%)、基本面(35%)、技術面(25%)三個維度
+- 🤖 **AI輔助分析**: 使用 Google Gemini 2.5 Pro 進行新聞分析與投資建議
+- ⚙️ **自動化流程**: 每日16:30自動收集數據、計算分數、生成報告
+- 🔬 **深度研究工具**: 支援自訂篩選、回測、籌碼統計等進階功能
+- 🎨 **暗色優雅UI**: 深色主題配搭琥珀金色(#e5a91a)設計
 
-## 技術棧
+## 🛠️ 技術棧
 
-### 後端
+### 🖥️ 後端
 - **框架**: FastAPI (現代Python API框架)
 - **ORM**: SQLAlchemy (同步模式)
 - **資料庫**: MySQL 8.0
 - **調度**: APScheduler (日期排程)
 - **驗證**: JWT (python-jose) + bcrypt
-- **LLM**: Google Generative AI (Gemini 2.0 Flash)
+- **LLM**: Google Generative AI (Gemini 2.5 Pro)
 - **數據源**: FinMind SDK (個股資料) + TWSE OpenAPI (全市場批次), Google News RSS
 
-### 前端
+### 🌐 前端
 - **框架**: Vue 3 (組合式API)
 - **語言**: TypeScript
 - **構建工具**: Vite
@@ -31,9 +31,9 @@
 - **圖表**: ECharts
 - **狀態管理**: Pinia
 
-## 核心功能模組
+## 🧩 核心功能模組
 
-### 1. 認證與會員系統 (Authentication & Membership)
+### 1. 🔐 認證與會員系統 (Authentication & Membership)
 - 用戶註冊 (POST /api/auth/register)
   - 電郵唯一性驗證
   - 密碼長度檢查 (最少 8 字元)
@@ -43,27 +43,27 @@
 - 令牌過期管理 (預設24小時)
 - 會員等級管理 (管理員可透過 PATCH /api/admin/users/{user_id}/tier 更新)
 
-### 2. 數據收集 (Data Collection)
+### 2. 📥 數據收集 (Data Collection)
 - TWSE OpenAPI 整合 (全市場日價格、法人買賣、融資融券、估值、月營收)
 - FinMind API 整合 (個股歷史資料、季度財報、詳細基本面)
 - Google News RSS 收集
 - 混合架構：TWSE 批次 + FinMind 個股補充
 - 每日自動排程更新（時間可設定，預設 16:30）
 
-### 3. 評分引擎 (Scoring Engine)
+### 3. 🏆 評分引擎 (Scoring Engine)
 - **硬篩選**: 量能異常比 > 2.5x 或 Top 100 成交量
 - **籌碼面**: 機構投資人動向、融資融券比率
 - **基本面**: 淨利潤、營收成長、財務指標
 - **技術面**: 移動平均、相對強弱指數、布林通道
 - **綜合分數**: 加權組合 (客製化權重)
 
-### 4. 篩選系統 (Screening)
+### 4. 🔍 篩選系統 (Screening)
 - **硬篩選**: 基於成交量的初步篩選（FALLBACK_TOP_N=100）
 - **標準篩選**: 預設權重的快速篩選
 - **自訂篩選**: 彈性的篩選條件組合
 
-### 5. AI 分析 (LLM Analysis)
-- 所有評分股票進行 AI 分析（使用 Gemini 2.5 Flash）
+### 5. 🤖 AI 分析 (LLM Analysis)
+- 所有評分股票進行 AI 分析（使用 Gemini 2.5 Pro）
 - 新聞摘要與情緒分析
 - 個股投資建議
 - 市場趨勢分析
@@ -72,31 +72,31 @@
 - **Free 會員**: 每日限制 5 份報告生成
 - **Premium 會員**: 無限制生成報告
 
-### 9. AI 聊天限流 (Chat Rate Limiter)
+### 9. 🚦 AI 聊天限流 (Chat Rate Limiter)
 - **Free 會員**: 每分鐘最多 3 則訊息，每日最多 10 則訊息
 - **Premium 會員**: 每分鐘最多 5 則訊息，每日最多 100 則訊息
 - 超出限制返回 HTTP 429，前端顯示使用限制提示
 - 基於 user_id 的記憶體限流（分鐘滑動窗口 + UTC 日桶）
 - GET /api/chat/quota 端點可查詢目前配額使用狀況
 
-### 6. 回測系統 (Backtesting)
+### 6. 📉 回測系統 (Backtesting)
 - 歷史績效驗證
 - 策略有效性評估
 
-### 7. 籌碼統計 (Chip Stats)
+### 7. 📊 籌碼統計 (Chip Stats)
 - 機構投資人趨勢
 - 融資融券追蹤
 
-### 8. 右側買法 (Right-Side Trading Signals)
+### 8. 📈 右側買法 (Right-Side Trading Signals)
 - 6 個右側進場信號加權評分（滿分 100）：量價齊揚(25)、突破20日高點(20)、MACD黃金交叉(20)、站回MA20(15)、KD低檔黃金交叉(12)、突破布林上軌(8)
 - 買賣點預測：進場價（收盤）、停損（max(MA20, 20日低)）、目標（1.5x 風報比）、動作建議（buy/hold/avoid）
 - 批量篩選掃描範圍：Top 100 評分股 + 近7日成交量 > 200 萬股（約 2,000 張）之股票聯集
 - 4 個客戶端篩選條件：今日突破（today_breakout）、週趨勢向上（weekly_trend_up）、強力推薦（strong_recommend）、風險等級（risk_level）
 - 獨立篩選頁面（排序、分頁、最少信號數篩選、4個篩選 toggle）+ 個股詳情信號卡片
 
-## 數據模型架構
+## 🗄️ 數據模型架構
 
-### 核心表 (14個主要模型)
+### 🗂️ 核心表 (7個)
 - **Stock**: 股票主檔 (股號、名稱、市場、產業)
 - **DailyPrice**: 每日價格 (開盤、最高、最低、收盤、成交量)
 - **Institutional**: 機構投資人持股 (外資、投信、自營商)
@@ -105,19 +105,18 @@
 - **Financial**: 財務報表 (淨利、EPS、淨值)
 - **News**: 新聞記錄 (標題、內容、來源)
 
-### 評分表 (5個)
-- **ChipScore**: 籌碼評分結果
-- **FundamentalScore**: 基本面評分結果
-- **TechnicalScore**: 技術面評分結果
-- **CompositeScore**: 計算過程記錄
-- **ScoreResult**: 最終篩選結果 (含排名)
+### 🏅 評分表 (1個)
+- **ScoreResult**: 最終篩選結果 (含排名 + chip_score/fundamental_score/technical_score 子分數)
 
-### 其他表
+### 📝 其他表 (6個)
 - **LLMReport**: AI分析報告
-- **User**: 使用者帳戶
+- **ReportUsage**: 報告使用追蹤 (每日限額記錄)
+- **User**: 使用者帳戶 (含 membership_tier, email)
 - **PipelineLog**: 流程執行日誌
+- **SystemSetting**: 系統設定 (排程器持久化)
+- **SectorTag**: 產業分類標籤
 
-## API端點總覽
+## 🔗 API端點總覽
 
 | 類別 | 端點 | 功能 |
 |------|------|------|
@@ -148,28 +147,28 @@
 | **右側買法** | `GET /api/right-side-signals/{stock_id}` | 單檔 6 信號查詢 |
 | | `GET /api/right-side-signals/screen/batch` | 批量篩選（min_signals 參數） |
 
-## 核心服務架構
+## 🏗️ 核心服務架構
 
-### 後端服務 (25個主要服務)
+### 🖥️ 後端服務 (25個主要服務)
 
-**數據收集層**
+**📡 數據收集層**
 - `TWSECollector`: TWSE 全市場批次資料收集
 - `FinmindCollector`: 個股詳細資料收集
 - `NewsCollector`: 新聞爬蟲
 - `RateLimiter`: API速率限制
 
-**業務邏輯層**
+**⚙️ 業務邏輯層**
 - `AuthService`: 認證邏輯
 - `StockService`: 股票查詢
 - `HardFilter`: 初步篩選
 
-**評分層**
+**🏆 評分層**
 - `ChipScorer`: 籌碼評分
 - `FundamentalScorer`: 基本面評分
 - `TechnicalScorer`: 技術面評分
 - `ScoringEngine`: 評分協調
 
-**高級功能層**
+**🚀 高級功能層**
 - `CustomScreeningService`: 自訂篩選
 - `ChipStatsService`: 籌碼統計
 - `BacktestService`: 回測引擎 + 評分日期查詢
@@ -177,14 +176,14 @@
 - `LLMAnalyzer`: AI分析
 - `GeminiClient`: Google API封裝
 
-**輔助服務**
+**🔧 輔助服務**
 - `NewsPreparator`: 新聞預處理
 - `PromptTemplates`: LLM提示詞
 
-## 前端結構
+## 🌐 前端結構
 
-### 視圖（13 個頁面）
-- **DashboardView**: 主儀表板（含顯示限制選單：Top 20 / Top 50 / All）
+### 📄 視圖（13 個頁面）
+- **DashboardView**: 主儀表板（Top 30 排名 + 產業分類篩選）
 - **StockDetailView**: 股票詳情
 - **CustomScreeningView**: 自訂篩選
 - **ChipStatsView**: 籌碼統計
@@ -198,7 +197,7 @@
 - **AdminUsersView**: 管理員使用者列表（查看、編輯、啟用狀態）
 - **PricingView**: 定價頁面（會員方案比較）
 
-### 元件庫 (22個主要元件)
+### 🧱 元件庫 (22個主要元件)
 - 股票排名表、扇形圖
 - 篩選表單、結果表（含分頁+排序）
 - K線圖、技術指標圖
@@ -206,50 +205,50 @@
 - 籌碼趨勢圖、融資融券圖
 - 回到頂部按鈕（全域）
 
-### 狀態管理 (5個Store)
+### 🗃️ 狀態管理 (5個Store)
 - `authStore`: 使用者與令牌
 - `stockStore`: 股票快取
 - `screeningStore`: 篩選參數與結果
 - `settingsStore`: 使用者偏好
 - `sectorTagsStore`: 產業分類標籤
 
-## 核心流程
+## 🔄 核心流程
 
-### 日常篩選流程（自動化，預設 16:30，可調整）
+### ⏰ 日常篩選流程（自動化，預設 16:30，可調整）
 1. 數據收集（TWSE 批次 + FinMind 個股補充）
 2. 硬篩選（量能異常比 > 2.5x 或 Top 100 成交量）
 3. 逐股評分 + LLM 分析
    - 籌碼+基本面+技術面評分
    - 加權計算（Chip 40% + Fund 35% + Tech 25%）
    - 排名與儲存
-   - LLM 分析所有評分股票（Gemini 2.5 Flash，0.5s/次）
+   - LLM 分析所有評分股票（Gemini 2.5 Pro，0.5s/次）
    - 新聞按需抓取：NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector
 4. 報告生成
 
-### 使用者互動流程
+### 👤 使用者互動流程
 1. 登入系統
-2. 查看儀表板（最新篩選結果，可選 Top 20 / Top 50 / All）
+2. 查看儀表板（最新篩選結果，Top 30 + 產業分類篩選）
 3. 鑽研個股（詳情、圖表、AI 報告）
 4. 自訂篩選（靈活組合條件）
 5. 調整系統設定（權重、排程時間）
 6. 回測驗證（策略有效性）
 7. 下載報告
 
-## 設計風格
+## 🎨 設計風格
 
-### UI主題
+### 🖌️ UI主題
 - **色彩**: 深色背景 + 琥珀金accent (#e5a91a)
 - **風格**: 現代、清爽、專業
 - **元件庫**: Element Plus (一致的設計語言)
 
-### 資訊架構
+### 🗺️ 資訊架構
 - 清晰的側邊欄導航
 - 分層深度搜尋結構
 - 即時數據更新
 
-## 部署與環境
+## 🚀 部署與環境
 
-### 後端需求
+### ⚙️ 後端需求
 - Python 3.9+
 - MySQL 8.0
 - 環境變數配置 (.env):
@@ -259,17 +258,17 @@
   - `JWT_SECRET_KEY`: JWT簽署密鑰
   - `CORS_ORIGINS`: 允許的跨域來源
 
-### 前端需求
+### 💻 前端需求
 - Node.js 16+
 - npm/yarn
 
-### 開發模式
+### 🔧 開發模式
 - **後端**: `uvicorn app.main:app --reload`
 - **前端**: `npm run dev`
 
-## 項目狀態
+## 📊 項目狀態
 
-### 完成階段
+### ✅ 完成階段
 - ✅ 後端框架與數據模型
 - ✅ 認證系統 (含會員等級支援)
 - ✅ 用戶註冊 (電郵驗證 + 密碼強度檢查)
@@ -287,27 +286,27 @@
 - ✅ 會員等級差異限流 (聊天、報告生成)
 - ✅ 24 小時報告快取機制
 
-### 下一步
+### 🔭 下一步
 - 性能最佳化
 - 使用者反饋與迭代
 - 新功能擴展 (更多指標、警報系統)
 
-## 核心PDR (Product Development Requirements)
+## 📋 核心PDR (Product Development Requirements)
 
-### 功能需求
+### 📌 功能需求
 
-#### R1: 多因子評分
+#### R1: 📊 多因子評分
 - 實現籌碼、基本面、技術面評分
 - 支援自訂權重組合
 - 實時計算與緩存
 
-#### R2: 自動化收集
+#### R2: ⏰ 自動化收集
 - 每日定時自動更新（預設 16:30，可於設定頁面調整）
 - 排程設定持久化至資料庫
 - FinMind 與新聞源集成
 - 錯誤重試與日誌記錄
 
-#### R3.5: AI 聊天限流
+#### R3.5: 🚦 AI 聊天限流
 - **Free 會員**: 每分鐘限制 3 則訊息，每日限制 10 則訊息
 - **Premium 會員**: 每分鐘限制 5 則訊息，每日限制 100 則訊息
 - 滑動窗口 60 秒限制 + UTC 日重置
@@ -315,8 +314,8 @@
 - GET /api/chat/quota 查詢配額
 - 前端顯示友善的使用限制提示訊息
 
-#### R3: AI 輔助分析 (含會員等級差異)
-- 使用 Gemini 2.5 Flash 模型
+#### R3: 🤖 AI 輔助分析 (含會員等級差異)
+- 使用 Gemini 2.5 Pro 模型
 - **24 小時快取機制**：檢查報告的 `created_at` 欄位，若在 24 小時內已生成則直接返回快取報告
   - 後端邏輯：`POST /api/reports/{stock_id}/generate` 比對 `created_at >= now() - 24h`
   - 前端按鈕狀態：「產生 AI 分析」→「更新分析」→「今日已分析」（禁用）
@@ -330,37 +329,37 @@
 - 新聞自動摘要、投資建議、情緒分析
 - 速率限制：0.5 秒/次、max_tokens: 8192、截斷檢測與自動重試
 
-#### R4: 回測與驗證
+#### R4: 📉 回測與驗證
 - 歷史績效計算
 - 策略有效性評估
 - 特定股票篩選支援 (stock_ids 參數)
 - as_of_date 參數支援過去日期評分
 
-### 非功能需求
+### 🔒 非功能需求
 
-#### NR1: 性能
+#### NR1: ⚡ 性能
 - API端點 < 2秒響應
 - 篩選結果 < 10秒
 - 數據庫查詢 < 500ms
 
-#### NR2: 可靠性
+#### NR2: 🛡️ 可靠性
 - 99% 可用性目標
 - 自動故障恢復
 - 完整日誌與監控
 
-#### NR3: 安全性
+#### NR3: 🔐 安全性
 - JWT驗證所有端點
 - Bcrypt密碼雜湊
 - SQL注入防護 (SQLAlchemy ORM)
 - 資料加密傳輸 (HTTPS)
 
-#### NR4: 可維護性
+#### NR4: 🔧 可維護性
 - 清晰的代碼結構
 - 完整的文檔
 - 單元測試覆蓋
 - 配置化設定
 
-## 成功度量
+## 🎯 成功度量
 
 | 指標 | 目標 | 當前狀態 |
 |------|------|--------|
@@ -372,9 +371,9 @@
 
 ---
 
-## 最新更新
+## 🕐 最新更新
 
-### 2026-02-21: 會員系統完全實裝 (Membership System)
+### 2026-02-21: 🔐 會員系統完全實裝 (Membership System)
 - **用戶註冊**：`POST /api/auth/register` 端點
   - 電郵唯一性驗證
   - 密碼長度檢查 (8+ 字元)
@@ -404,12 +403,12 @@
   - 側邊欄會員徽章、聊天配額顯示、超限升級對話
 - **測試**：新增 ~34 個測試，總計 267+ → 301+
 
-### 2026-02-21: AI 聊天限流 (ChatRateLimiter，已納入會員系統)
+### 2026-02-21: 🚦 AI 聊天限流 (ChatRateLimiter，已納入會員系統)
 - 後端：`chat_rate_limiter.py`，會員等級差異限流
 - 前端：429 錯誤處理 + 升級對話提示
 - 測試：`test_chat_rate_limiter.py` (7個) 涵蓋分鐘/日限制/重置邏輯
 
-### 2026-02-22: 右側買法新增四項篩選條件與候選池擴增至100檔
+### 2026-02-22: 📈 右側買法新增四項篩選條件與候選池擴增至100檔
 - **後端新增**：`RightSideSignalDetector` 新增 4 個方法
   - `_check_today_breakout()`: 今日突破（量價齊揚+突破20日高）
   - `_check_weekly_trend_up()`: 週趨勢向上（MA5>MA20 且 MA5 近3日上升）
@@ -418,7 +417,7 @@
 - **後端更新**：批量 endpoint 回傳 4 個新欄位；FALLBACK_TOP_N 從 50 改為 100
 - **前端新增**：4 個篩選 toggle（今日突破、週趨勢向上、強力推薦、風險等級）；表格新增評級、條件標籤、訊號明細欄位
 
-### 2026-02-21: 右側買法 (Right-Side Trading Signals)
+### 2026-02-21: 📈 右側買法 (Right-Side Trading Signals)
 - **後端實現**：`RightSideSignalDetector` 檢測 6 個動能進場信號（需 ≥20 天資料）
   - 加權評分（滿分 100）：量價齊揚(25)、突破20日高點(20)、MACD黃金交叉(20)、站回MA20(15)、KD低檔黃金交叉(12)、突破布林上軌(8)
   - 買賣點預測：進場(收盤)、停損(max(MA20, 20日低))、目標(1.5x 風報比)、動作(buy≥60/hold≥35/avoid)
@@ -429,7 +428,7 @@
   - 個股詳情頁：`right-side-signal-card.vue` 展示信號狀態、條件標籤與買賣點預測
   - Sidebar 「分析」分區新增「右側買法」導航項
 
-### 2026-02-17: Pipeline 簡化與新聞架構優化
+### 2026-02-17: 🔧 Pipeline 簡化與新聞架構優化
 - **Pipeline 架構**：5 步驟簡化為 3 步驟
   - Step 1: 資料抓取
   - Step 2: 硬篩選
@@ -456,13 +455,13 @@
   - 環境變數：前端支援 `VITE_API_BASE_URL` 設定 API 端點
   - UI 細節：圖表 tooltip 優化、報告卡片佈局改進
 
-### 2026-02-16: 後端功能增強
+### 2026-02-16: ⚙️ 後端功能增強
 - TWSE 假期自動化、as_of_date 歷史評分、AI 分析全面升級
 - Backtest 股票篩選、Pipeline 非交易日略過
 - 新增 `test_analysis_steps.py` (7 個測試), 總計 140+ 測試
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
-### 2026-02-21: AI 報告 24 小時快取機制
+### 2026-02-21: 🤖 AI 報告 24 小時快取機制
 - **快取邏輯**：後端 `POST /api/reports/{stock_id}/generate` 檢查 `LLMReport.created_at >= now() - 24h`
 - **前端反饋**：按鈕文案動態更新「產生 AI 分析」→「更新分析」→「今日已分析」（禁用）
 - **效益**：避免短時間內重複呼叫 LLM API，降低成本並改善使用者體驗

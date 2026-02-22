@@ -1,8 +1,8 @@
-# 編碼規範與標準
+# 📋 編碼規範與標準
 
-## Python 後端編碼規範
+## 🐍 Python 後端編碼規範
 
-### 檔案與目錄結構
+### 📁 檔案與目錄結構
 
 **目錄命名**
 ```python
@@ -24,7 +24,7 @@ finmind_collector.py     # ✅ FinMind 收集器
 daily_pipeline.py        # ✅ 日常流程
 ```
 
-### 類別與函數命名
+### 🏷️ 類別與函數命名
 
 **類別**
 ```python
@@ -69,7 +69,7 @@ WEIGHT_FUNDAMENTAL = 35
 WEIGHT_TECHNICAL = 25
 ```
 
-### 型別提示 (Type Hints)
+### 🔒 型別提示 (Type Hints)
 
 **必須使用型別提示**
 ```python
@@ -110,7 +110,7 @@ def process_data(data: Union[str, int]) -> bool:
     pass
 ```
 
-### 導入與組織
+### 📦 導入與組織
 
 **導入順序**
 ```python
@@ -136,7 +136,7 @@ from app.models import User, Stock
 # ✅ 好: 在函數內部導入或重構結構
 ```
 
-### 類別設計
+### 🏗️ 類別設計
 
 **ORM 模型**
 ```python
@@ -173,7 +173,7 @@ class AuthService:
         return CryptContext(schemes=["bcrypt"]).verify(password, hashed)
 ```
 
-### 文檔字符串 (Docstrings)
+### 📝 文檔字符串 (Docstrings)
 
 **Google 格式**
 ```python
@@ -217,7 +217,7 @@ def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 ```
 
-### 錯誤處理
+### ⚠️ 錯誤處理
 
 **異常處理**
 ```python
@@ -251,7 +251,7 @@ def collect_data() -> bool:
     return False
 ```
 
-### 日誌記錄
+### 🪵 日誌記錄
 
 **日誌層級**
 ```python
@@ -260,7 +260,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # 日常操作
-logger.info("篩選開始: 候選股票 50 筆")
+logger.info("篩選開始: 候選股票 100 筆")
 
 # 警告情況
 logger.warning(f"股票 {stock_id} 無數據: 跳過")
@@ -272,7 +272,7 @@ logger.error(f"資料庫連接失敗: {error}")
 logger.debug(f"評分計算: chip={chip}, fund={fund}, tech={tech}")
 ```
 
-### 測試規範
+### 🧪 測試規範
 
 **測試命名**
 ```python
@@ -315,9 +315,9 @@ class TestAuthService:
         pass
 ```
 
-## TypeScript/Vue 前端編碼規範
+## 🟦 TypeScript/Vue 前端編碼規範
 
-### 檔案與目錄結構
+### 📁 檔案與目錄結構
 
 **目錄命名**
 ```typescript
@@ -346,7 +346,7 @@ stock.ts (types)         // ✅
 AuthForm.vue             // ❌
 ```
 
-### 類別與函數命名
+### 🏷️ 類別與函數命名
 
 **類別與介面**
 ```typescript
@@ -395,7 +395,7 @@ const API_BASE_URL = 'http://localhost:8000/api'
 const DEFAULT_WEIGHT_CHIP = 40
 ```
 
-### 型別註解
+### 🔒 型別註解
 
 **必須使用型別**
 ```typescript
@@ -439,7 +439,7 @@ interface ApiResponse<T> {
 const coordinates: [number, number] = [25.0, 121.5]
 ```
 
-### Vue 3 元件規範
+### 🖼️ Vue 3 元件規範
 
 **元件結構**
 ```vue
@@ -563,7 +563,7 @@ button:hover {
 </style>
 ```
 
-### Pinia Store 規範
+### 🗄️ Pinia Store 規範
 
 ```typescript
 // src/stores/screening-store.ts
@@ -649,7 +649,7 @@ export const useScreeningStore = defineStore('screening', () => {
 })
 ```
 
-### API 呼叫規範
+### 🌐 API 呼叫規範
 
 ```typescript
 // src/api/screening-api.ts
@@ -689,9 +689,9 @@ export const updateWeights = async (
 }
 ```
 
-## 通用編碼原則
+## 💡 通用編碼原則
 
-### DRY (Don't Repeat Yourself)
+### 🔁 DRY (Don't Repeat Yourself)
 
 **❌ 不好: 重複的代碼**
 ```python
@@ -713,7 +713,7 @@ stock = get_by_id(db, Stock, stock_id)
 news = get_by_id(db, News, news_id)
 ```
 
-### KISS (Keep It Simple, Stupid)
+### 💎 KISS (Keep It Simple, Stupid)
 
 **❌ 複雜的邏輯**
 ```python
@@ -734,7 +734,7 @@ def calculate_composite_score(
     return chip * 0.4 + fundamental * 0.35 + technical * 0.25
 ```
 
-### YAGNI (You Aren't Gonna Need It)
+### 🚫 YAGNI (You Aren't Gonna Need It)
 
 不要預先實現可能需要但現在不確定的功能。
 
@@ -749,31 +749,31 @@ def filter_stocks(db: Session) -> list:
 #     ...
 ```
 
-## 代碼審查清單
+## 🔍 代碼審查清單
 
-- [ ] 所有函數都有型別提示
-- [ ] 所有公共類別/函數都有文檔
-- [ ] 變數命名清晰易懂
-- [ ] 無硬編碼的魔術數字 (用常數替代)
-- [ ] 適當的錯誤處理與日誌
-- [ ] 測試覆蓋核心邏輯
-- [ ] 沒有重複代碼
-- [ ] 函數長度合理 (< 50 行)
-- [ ] 複雜度適中 (圈複雜度 < 10)
-- [ ] 依賴注入而非全局狀態
+- [ ] ✅ 所有函數都有型別提示
+- [ ] ✅ 所有公共類別/函數都有文檔
+- [ ] ✅ 變數命名清晰易懂
+- [ ] ⚠️ 無硬編碼的魔術數字 (用常數替代)
+- [ ] ⚠️ 適當的錯誤處理與日誌
+- [ ] 🧪 測試覆蓋核心邏輯
+- [ ] 🔁 沒有重複代碼
+- [ ] 📏 函數長度合理 (< 50 行)
+- [ ] 📊 複雜度適中 (圈複雜度 < 10)
+- [ ] 🔒 依賴注入而非全局狀態
 
-## 性能考慮
+## ⚡ 性能考慮
 
-### Python 後端
-- 使用 SQLAlchemy 的延遲載入避免 N+1 查詢
-- 在評分計算中使用快取結果
-- 非同步任務用 APScheduler 而非同步阻塞
+### 🐍 Python 後端
+- 📌 使用 SQLAlchemy 的延遲載入避免 N+1 查詢
+- 📌 在評分計算中使用快取結果
+- 📌 非同步任務用 APScheduler 而非同步阻塞
 
-### Vue 前端
-- 使用 v-if 而非 v-show (大批量)
-- 列表項都有唯一的 :key
-- 複雜計算使用 computed 而非 watch
-- 使用 lazy-load 大型清單
+### 🟦 Vue 前端
+- 📌 使用 v-if 而非 v-show (大批量)
+- 📌 列表項都有唯一的 :key
+- 📌 複雜計算使用 computed 而非 watch
+- 📌 使用 lazy-load 大型清單
 
 ---
 

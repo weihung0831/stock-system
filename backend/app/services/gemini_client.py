@@ -22,7 +22,7 @@ class GeminiClient:
             api_key: Google AI API key
         """
         self.client = genai.Client(api_key=api_key)
-        self.model = "gemini-2.0-flash"
+        self.model = "gemini-2.5-pro"
         self.max_retries = 3
         self.base_delay = 10  # seconds (Gemini free tier resets per-minute)
 

@@ -1,6 +1,6 @@
-# TW Stock Screener 系統架構
+# 🏗️ TW Stock Screener 系統架構
 
-## 系統總覽
+## 🗺️ 系統總覽
 
 ```
 ┌── Frontend (Vue 3 + TypeScript + Vite) ─────────────────────┐
@@ -64,8 +64,8 @@
 │  ├─ gemini_client.py       Gemini API 客戶端                   │
 │  ├─ llm_client.py          LLM 通用客戶端 (含 generate_chat)   │
 │  ├─ chat_service.py        AI 聊天服務 (系統提示詞 + LLM 對話)  │
-│  ├─ chat_rate_limiter.py   聊天限流 (每分鐘 3 則、每日 20 則)   │
-│  ├─ right_side_signal_detector.py 右側買法信號檢測 (6個信號)    │
+│  ├─ chat_rate_limiter.py   聊天限流 (每分鐘 3 則、每日 10 則)   │
+│  ├─ right_side_signal_detector.py 右側買法信號檢測 (6個信號+4篩選) │
 │  ├─ backtest_service.py    回測邏輯                            │
 │  ├─ stock_service.py       股票查詢服務 (含權證過濾)              │
 │  ├─ auth_service.py        JWT 認證服務                        │
@@ -77,7 +77,7 @@
 │  ├─ analysis_steps.py      分析步驟 (篩選+評分+LLM+按需新聞)    │
 │  └─ pipeline_status.py     Pipeline 狀態追蹤                    │
 │                                                             │
-│  Models (ORM 資料模型，共 15 張表)                               │
+│  Models (ORM 資料模型，共 14 張表)                               │
 │  ├─ stock          股票基本資料 + PER/PBR/殖利率                 │
 │  ├─ daily_price    每日收盤價/量                                │
 │  ├─ institutional  三大法人買賣超                                │
@@ -109,9 +109,9 @@
 
 ---
 
-## 每日 Pipeline（3 步驟）
+## 🔄 每日 Pipeline（3 步驟）
 
-### Step 1：資料抓取 `data_fetch_steps.py`
+### ⬇️ Step 1：資料抓取 `data_fetch_steps.py`
 
 ```
 A. 股票清單 (FinMind)
@@ -149,7 +149,7 @@ G. 季財報 (FinMind，逐檔，3 個 dataset)
    └─ → Financial 表
 ```
 
-### Step 2：硬篩選 `hard_filter.py`
+### 🔍 Step 2：硬篩選 `hard_filter.py`
 
 ```
 兩路合併：
@@ -165,11 +165,11 @@ G. 季財報 (FinMind，逐檔，3 個 dataset)
   └─ 去重後輸出 ~100 檔候選股
 ```
 
-### Step 3：三因子評分與 LLM 分析 `scoring_engine.py` + `llm_analyzer.py`
+### 📊 Step 3：三因子評分與 LLM 分析 `scoring_engine.py` + `llm_analyzer.py`
 
 對每檔候選股計算三因子分數（各 0-100 分）：
 
-#### 籌碼面 chip_score
+#### 🪙 籌碼面 chip_score
 
 ```
 A. 連續買超天數 (30%)
@@ -189,7 +189,7 @@ C. 融資融券變化 (30%)
    └─ 融券增加 → 加分（軋空潛力）
 ```
 
-#### 基本面 fundamental_score
+#### 📈 基本面 fundamental_score
 
 ```
 有季財報時（7 指標加權）：
@@ -210,7 +210,7 @@ C. 融資融券變化 (30%)
   └─ 殖利率 (40%)：>=6% →100, >=4% →80
 ```
 
-#### 技術面 technical_score
+#### 📉 技術面 technical_score
 
 ```
 需要 120 天以上日K資料，6 指標：
@@ -222,7 +222,7 @@ C. 融資融券變化 (30%)
   └─ 量能 (15%)：>1.5 倍 MA20 量 →100
 ```
 
-#### 加權合計
+#### ⚖️ 加權合計
 
 ```
 total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
@@ -231,17 +231,17 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
 
 → 排序 → 寫入 ScoreResult 表（含 rank）
 
-#### LLM 分析 `step_llm_analysis`
+#### 🤖 LLM 分析 `step_llm_analysis`
 
 ```
-取所有評分股票 (不限數量) → NewsPreparator → Gemini 2.5 Flash → LLMReport 表
+取所有評分股票 (不限數量) → NewsPreparator → Gemini 2.5 Pro → LLMReport 表
   ├─ NewsPreparator 檢查 News 表
   │  ├─ 若該股票無新聞 → 呼叫 NewsCollector.fetch_news() 即時抓取
   │  └─ 格式化新聞為 LLM 輸入
   ├─ 分析所有評分股票（無上限限制）
   ├─ max_tokens: 8192（支援更長報告）
   ├─ 截斷檢測：finish_reason='length' 時自動重試
-  ├─ 速率限制：0.5 秒/次（Gemini 2.5 Flash 高速率額度）
+  ├─ 速率限制：0.5 秒/次（Gemini 2.5 Pro 高速率額度）
   └─ 產出每檔股票的 AI 分析摘要 → LLMReport 表
 
 **新聞架構變更**
@@ -254,7 +254,7 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
 
 ---
 
-## 日常運作流程
+## ⏰ 日常運作流程
 
 ```
 交易日自訂時間 (APScheduler，預設 PM 4:30，可由使用者調整)
@@ -272,19 +272,19 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
     │
     ▼
 使用者開 Dashboard → 看到最新排名 + AI 建議
-  └─ 可選擇顯示 Top 20 / Top 50 / All
+  └─ Top 30 排名 + 產業分類篩選
 ```
 
 ---
 
-## 前端頁面與 API 對應
+## 🖥️ 前端頁面與 API 對應
 
 ```
 Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
   ├─ 統計卡片：總股票數、平均分數等摘要資訊
   ├─ 分頁顯示：Top 30，每頁 10 筆，支援分頁切換
   ├─ 顯示計數：「共 X 檔，顯示 Y 檔」
-  └─ 每張卡片：排名 + 股票名 + 總分 + 三因子分數 + 收盤價 + 漲跌幅
+  └─ 每列欄位：排名 + 代號 + 名稱 + 總分 + 收盤價 + 漲跌 + 籌碼 + 基本面 + 技術面
 
 右側買法篩選 → GET /api/right-side-signals/screen/batch?min_signals=2 → 批量篩選結果
   ├─ 表格顯示：股號 + 股名 + 6 個信號觸發狀態 + 觸發數量 + 評級 + 條件標籤 + 訊號明細
@@ -323,7 +323,7 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
 
 ---
 
-## 外部資料源
+## 🌐 外部資料源
 
 | 來源 | 資料 | 費用 | 限制 |
 |------|------|------|------|
@@ -336,7 +336,7 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
 
 ---
 
-## 環境設定
+## ⚙️ 環境設定
 
 | 變數 | 用途 |
 |------|------|
@@ -351,7 +351,7 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
 
 ---
 
-## 啟動方式
+## 🚀 啟動方式
 
 ```bash
 # 後端
@@ -363,7 +363,7 @@ cd frontend && npm run dev
 
 ---
 
-## 已知限制
+## ⚠️ 已知限制
 
 | 問題 | 位置 | 影響 |
 |------|------|------|
@@ -375,9 +375,9 @@ cd frontend && npm run dev
 
 ---
 
-## 新增功能與改進
+## 📝 新增功能與改進
 
-### 2026-02-21: 會員系統完全實裝 + 管理後台 (Membership System v2)
+### 🆕 2026-02-21: 會員系統完全實裝 + 管理後台 (Membership System v2)
 
 **後端新增**
 - `routers/admin.py`：4 個管理員端點
@@ -418,7 +418,7 @@ cd frontend && npm run dev
 - 報告配額查詢測試
 - 總計新增 ~34 個測試，267+ → 301+
 
-### 2026-02-21: AI 聊天限流 (ChatRateLimiter，已納入會員系統)
+### 🆕 2026-02-21: AI 聊天限流 (ChatRateLimiter，已納入會員系統)
 
 - `services/chat_rate_limiter.py`：會員等級差異限流
   - Free: 每分鐘 3 則、每日 10 則
@@ -426,7 +426,7 @@ cd frontend && npm run dev
 - `routers/chat.py` 整合：`GET /api/chat/quota` 查詢配額、POST 超限返回 429
 - `ai-assistant-widget.vue` 處理 429 回應，顯示升級提示
 
-### 2026-02-21: AI 報告 24 小時快取 + 會員限流 (已整合會員系統)
+### 🆕 2026-02-21: AI 報告 24 小時快取 + 會員限流 (已整合會員系統)
 
 **功能說明**
 - 報告生成支援 24 小時快取機制 + 會員等級限流
@@ -449,7 +449,7 @@ cd frontend && npm run dev
 - 超限時顯示「配額已達」，提示升級至 Premium
 - 實時反饋生成進度
 
-### 2026-02-21: 右側買法 (Right-Side Trading Signals)
+### 🆕 2026-02-21: 右側買法 (Right-Side Trading Signals)
 
 **新功能說明**
 - 基於技術面的動能進場信號，檢測 6 個右側進場機會點（需 ≥20 天價格資料）
@@ -478,24 +478,24 @@ cd frontend && npm run dev
 - 股票詳情頁：新增信號卡片（`right-side-signal-card.vue`），展示 6 個信號觸發狀態、描述及買賣點預測
 - Sidebar 導航：「分析」分區新增「右側買法」項目
 
-### 2026-02-19: AI 聊天助手
+### 🆕 2026-02-19: AI 聊天助手
 
 - 後端：新增 `chat.py` router (`POST /api/chat`)、`chat_service.py`（系統提示詞含 Top 5 股票上下文）、`llm_client.generate_chat()` 自由文字對話方法
 - 前端：新增 `ai-assistant-widget.vue` 浮動氣泡面板、`ai-chat-message.vue` 訊息氣泡、`chat-api.ts` API 客戶端；整合至 `App.vue`
 
-### 2026-02-18: 已下市股票過濾
+### 🆕 2026-02-18: 已下市股票過濾
 
 - `finmind_collector.py` `fetch_stock_list()` 新增已下市股票過濾（`date` < 30 天 cutoff 排除）
 - 新增 `test_finmind_collector.py` 22 個測試
 
-### 2026-02-18: 手機版搜尋欄移至 Sidebar
+### 🆕 2026-02-18: 手機版搜尋欄移至 Sidebar
 
 **響應式搜尋欄重構**
 - `app-header.vue` `header-center`: 桌機版 (>768px) 可見，手機版隱藏
 - `app-sidebar.vue` `sidebar-search`: 手機版 (≤768px) 顯示搜尋欄於側邊欄頂部
 - 共用 `header-stock-search.vue` 元件，介面行為一致
 
-### 2026-02-17: 股票搜尋 + 按需資料抓取
+### 🆕 2026-02-17: 股票搜尋 + 按需資料抓取
 
 **新功能：Header 股票搜尋**
 - `header-stock-search.vue`: 搜尋欄位 + debounced autocomplete (300ms) + 鍵盤導航 (↑↓Enter)
@@ -519,11 +519,11 @@ cd frontend && npm run dev
   - 解決：改為循序執行 → 先呼叫 `getStockScore()`（觸發 `OnDemandDataFetcher`），待資料填充後再執行 `fetchPrices()`
   - 影響：確保所有透過搜尋欄查詢的個股都能取得完整歷史價格資料進行圖表繪製
 
-### 2026-02-17: Pipeline 簡化與新聞架構優化
+### 🆕 2026-02-17: Pipeline 簡化與新聞架構優化
 
 **Pipeline 架構變更（5步驟 → 3步驟）**
 - Step 1: 資料抓取（價格、法人、融資、營收、財報）
-- Step 2: 硬篩選（量能異常 > 2.5x 或 Top 50）
+- Step 2: 硬篩選（量能異常 > 2.5x 或 Top 100）
 - Step 3: 綜合評分 + LLM 分析
   - 新聞不再是獨立步驟，改為 LLM 分析時按需抓取
 
@@ -560,7 +560,7 @@ cd frontend && npm run dev
 **環境變數**
 - 前端新增 `VITE_API_BASE_URL` 支援部署時設定 API 端點
 
-### 2026-02-16: 後端功能增強
+### 🆕 2026-02-16: 後端功能增強
 
 - `as_of_date` 參數支援歷史回溯評分
 - TWSE 假期自動偵測（動態 API + 快取 + 降級）

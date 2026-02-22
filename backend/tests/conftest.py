@@ -79,7 +79,7 @@ def test_settings():
         FINMIND_TOKEN="test_token_12345",
         LLM_API_KEY="test_llm_key",
         LLM_BASE_URL="https://api.apertis.ai/v1",
-        LLM_MODEL="claude-opus-4-6",
+        LLM_MODEL="gemini-2.5-pro",
         JWT_SECRET_KEY="test_secret_key_for_jwt_operations",
         JWT_ALGORITHM="HS256",
         JWT_EXPIRE_MINUTES=1440,
@@ -245,7 +245,7 @@ def patch_settings():
         mock_settings.FINMIND_TOKEN = "test_token"
         mock_settings.LLM_API_KEY = "test_key"
         mock_settings.LLM_BASE_URL = "https://api.apertis.ai/v1"
-        mock_settings.LLM_MODEL = "claude-opus-4-6"
+        mock_settings.LLM_MODEL = "gemini-2.5-pro"
         mock_settings.JWT_SECRET_KEY = "test_secret_key_for_jwt_operations"
         mock_settings.JWT_ALGORITHM = "HS256"
         mock_settings.JWT_EXPIRE_MINUTES = 1440
