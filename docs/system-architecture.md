@@ -12,8 +12,13 @@
 │  ├─ custom-screening-view 自訂篩選：多條件組合篩選              │
 │  ├─ history-backtest-view 歷史回測：策略模擬                    │
 │  ├─ reports-list-view     報告列表：LLM 分析報告                │
+│  ├─ right-side-screening-view 右側買法：動能篩選              │
 │  ├─ settings-view         設定：評分權重調整                    │
-│  └─ login-view            登入                               │
+│  ├─ login-view            登入                               │
+│  ├─ register-view         會員註冊                            │
+│  ├─ profile-view          會員資料                            │
+│  ├─ pricing-view          定價方案                            │
+│  └─ admin-users-view      管理後台                            │
 │                                                             │
 │  Global Components (全域元件)                                 │
 │  ├─ ai-assistant-widget   浮動 AI 聊天氣泡 + 彈出對話面板        │
@@ -72,7 +77,7 @@
 │  ├─ analysis_steps.py      分析步驟 (篩選+評分+LLM+按需新聞)    │
 │  └─ pipeline_status.py     Pipeline 狀態追蹤                    │
 │                                                             │
-│  Models (ORM 資料模型，共 14 張表)                               │
+│  Models (ORM 資料模型，共 15 張表)                               │
 │  ├─ stock          股票基本資料 + PER/PBR/殖利率                 │
 │  ├─ daily_price    每日收盤價/量                                │
 │  ├─ institutional  三大法人買賣超                                │
@@ -153,11 +158,11 @@ G. 季財報 (FinMind，逐檔，3 個 dataset)
     ├─ 比值 > 2.5x 的股票 = 量能突增
     └─ 結果：ratio_filtered（可能 0~數十檔）
 
-  路線 B：Top 50 成交量 (FALLBACK_TOP_N = 50)
-    └─ 最新交易日成交量前 50 名
+  路線 B：Top 100 成交量 (FALLBACK_TOP_N = 100)
+    └─ 最新交易日成交量前 100 名
 
-  合併策略：ratio_filtered 在前 + top_50 填充
-  └─ 去重後輸出 ~50 檔候選股
+  合併策略：ratio_filtered 在前 + top_100 填充
+  └─ 去重後輸出 ~100 檔候選股
 ```
 
 ### Step 3：三因子評分與 LLM 分析 `scoring_engine.py` + `llm_analyzer.py`
@@ -259,7 +264,7 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
     │  └─ 非交易日：略過 (不產生 pipeline_log，減少 DB 寫入)
     │
     ├─ 1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR、營收、財報
-    ├─ 2. hard_filter → 篩出 ~50 檔候選股 (FALLBACK_TOP_N=50)
+    ├─ 2. hard_filter → 篩出 ~100 檔候選股 (FALLBACK_TOP_N=100)
     └─ 3. scoring + llm_analysis
        ├─ 三因子加權評分 → 排名寫入 DB
        └─ Gemini 產出所有評分股票的 AI 分析 (0.5s/次)
@@ -282,9 +287,10 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
   └─ 每張卡片：排名 + 股票名 + 總分 + 三因子分數 + 收盤價 + 漲跌幅
 
 右側買法篩選 → GET /api/right-side-signals/screen/batch?min_signals=2 → 批量篩選結果
-  ├─ 表格顯示：股號 + 股名 + 6 個信號觸發狀態 + 觸發數量
+  ├─ 表格顯示：股號 + 股名 + 6 個信號觸發狀態 + 觸發數量 + 評級 + 條件標籤 + 訊號明細
   ├─ 分頁排序：按觸發數量排序，支援分頁（每頁 10 筆）
-  └─ 篩選條件：最少信號數（1-6 可選）
+  ├─ 篩選條件：最少信號數（1-6 可選）
+  └─ 客戶端 toggle 篩選：今日突破 / 週趨勢向上 / 強力推薦 / 風險等級
 
 個股詳情 (右側信號卡片) → GET /api/right-side-signals/{stock_id}
   └─ 信號卡片：展示 6 個信號名稱、狀態、描述
@@ -464,7 +470,7 @@ cd frontend && npm run dev
 - `RightSideSignalDetector` 類別（`right_side_signal_detector.py`）
 - 單檔查詢：`GET /api/right-side-signals/{stock_id}`
 - 批量篩選：`GET /api/right-side-signals/screen/batch?min_signals=2`
-  - 掃描範圍：Top 50 評分股（最新 ScoreResult）+ 近 7 日成交量 > 200 萬股（約 2,000 張）之股票聯集
+  - 掃描範圍：Top 100 評分股（最新 ScoreResult）+ 近 7 日成交量 > 200 萬股（約 2,000 張）之股票聯集
   - 回傳依加權評分（score）降序排列
 
 **前端實現**
@@ -562,5 +568,5 @@ cd frontend && npm run dev
 - LLM 分析全面升級（所有評分股票）
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
-**最後更新**: 2026-02-21
-**版本**: 2.10
+**最後更新**: 2026-02-22
+**版本**: 2.11

@@ -99,7 +99,7 @@ txt(s, 1, 1.8, 11, 1.2, "台股智慧選股系統", sz=52, color=GOLD, bold=True
 bar(s, 4.5, 3.2, 4)
 txt(s, 1, 3.5, 11, 0.8, "指標公式與評分邏輯", sz=28, color=WHITE, align=PP_ALIGN.CENTER)
 txt(s, 1, 4.8, 11, 0.5, "完整公式對照手冊", sz=18, color=DIM, align=PP_ALIGN.CENTER)
-txt(s, 1, 6.2, 11, 0.4, "v2.1  |  2026 年 2 月", sz=14, color=DIM, align=PP_ALIGN.CENTER)
+txt(s, 1, 6.2, 11, 0.4, "v2.2  |  2026 年 2 月", sz=14, color=DIM, align=PP_ALIGN.CENTER)
 
 # ========== Slide 2: 評分系統總覽 ==========
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -108,7 +108,7 @@ txt(s, 0.8, 0.4, 11, 0.7, "評分系統如何運作？", sz=36, color=GOLD, bold
 bar(s, 0.8, 1.0, 3)
 
 steps = [
-    ("1", "篩選候選股", "從 ~1,300 檔中\n篩出約 50 檔", BLUE),
+    ("1", "篩選候選股", "從 ~1,300 檔中\n篩出約 100 檔", BLUE),
     ("2", "三因子評分", "籌碼+基本面+技術\n各打 0-100 分", GREEN),
     ("3", "加權合計", "依權重合計\n產出綜合分數\n寫入排名", GOLD),
 ]
@@ -146,15 +146,15 @@ txt(s, 1.1, 2.9, 5, 0.4, "篩選條件：ratio > 2.5", sz=16, color=GREEN, bold=
 txt(s, 1.1, 3.5, 5, 0.8, "意義：成交量突然暴增的股票\n通常代表有重大事件或資金湧入", sz=13, color=GRAY)
 
 card(s, 7, 1.5, 5.5, 3.8, fill=RGBColor(0x1E, 0x3A, 0x1E))
-txt(s, 7.3, 1.6, 5, 0.5, "🏆  路線 B：Top 50 保底", sz=22, color=GREEN, bold=True)
+txt(s, 7.3, 1.6, 5, 0.5, "🏆  路線 B：Top 100 保底", sz=22, color=GREEN, bold=True)
 txt(s, 7.3, 2.2, 5, 0.35, "篩選條件：", sz=14, color=DIM)
-txt(s, 7.3, 2.5, 5, 0.4, "FALLBACK_TOP_N = 50", sz=16, color=WHITE, font="Consolas")
-txt(s, 7.3, 2.9, 5, 0.4, "最新交易日成交量前 50 名", sz=16, color=GREEN, bold=True)
+txt(s, 7.3, 2.5, 5, 0.4, "FALLBACK_TOP_N = 100", sz=16, color=WHITE, font="Consolas")
+txt(s, 7.3, 2.9, 5, 0.4, "最新交易日成交量前 100 名", sz=16, color=GREEN, bold=True)
 txt(s, 7.3, 3.5, 5, 0.8, "意義：確保市場上最活躍的\n大型股都會被納入評分", sz=13, color=GRAY)
 
 card(s, 3, 5.8, 7.3, 1.2, fill=RGBColor(0x3A, 0x2E, 0x15))
 txt(s, 3.3, 5.85, 6.7, 0.5, "🎯  合併結果", sz=22, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
-txt(s, 3.3, 6.35, 6.7, 0.5, "A 排前面 + B 填充補齊 → 去重 → 約 50 檔候選股進入評分", sz=14, color=GRAY, align=PP_ALIGN.CENTER)
+txt(s, 3.3, 6.35, 6.7, 0.5, "A 排前面 + B 填充補齊 → 去重 → 約 100 檔候選股進入評分", sz=14, color=GRAY, align=PP_ALIGN.CENTER)
 
 txt(s, 3, 5.2, 3.5, 0.5, "↓", sz=28, color=BLUE, align=PP_ALIGN.CENTER)
 txt(s, 7, 5.2, 3.5, 0.5, "↓", sz=28, color=GREEN, align=PP_ALIGN.CENTER)
@@ -581,6 +581,47 @@ for i, (icon, name, desc, weight, color) in enumerate(signals):
 
 txt(s, 0.8, 6.7, 11.5, 0.35, "💡 信號觸發判斷使用最近 120 天日K資料  |  權重合計 = 25+20+20+15+12+8 = 100", sz=13, color=DIM, align=PP_ALIGN.CENTER)
 
+# ========== Slide 10.5: 進階條件篩選 ==========
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg_fill(s)
+txt(s, 0.8, 0.4, 11, 0.7, "右側買法：進階條件篩選", sz=34, color=GOLD, bold=True)
+bar(s, 0.8, 1.0, 3)
+txt(s, 0.8, 1.2, 11, 0.35, "在 6 個基本信號之外，系統額外計算 4 個進階條件", sz=16, color=DIM)
+
+# Condition 1: Today Breakout
+card(s, 0.8, 1.8, 5.7, 2.5, fill=RGBColor(0x1E, 0x3A, 0x1E))
+txt(s, 1.0, 1.9, 5.3, 0.45, "🚀  今日突破 (today_breakout)", sz=18, color=GREEN, bold=True)
+txt(s, 1.0, 2.4, 5.3, 0.3, "判斷條件：", sz=13, color=DIM)
+txt(s, 1.0, 2.7, 5.3, 0.3, "量價齊揚 = True  AND  突破20日高點 = True", sz=13, color=WHITE, font="Consolas")
+txt(s, 1.0, 3.1, 5.3, 0.6, "意義：同時出現量增價揚與突破高點\n代表多方力道強勁的突破訊號", sz=12, color=GRAY)
+
+# Condition 2: Weekly Trend Up
+card(s, 7, 1.8, 5.7, 2.5, fill=RGBColor(0x1E, 0x2E, 0x4A))
+txt(s, 7.2, 1.9, 5.3, 0.45, "📈  週趨勢向上 (weekly_trend_up)", sz=18, color=BLUE, bold=True)
+txt(s, 7.2, 2.4, 5.3, 0.3, "判斷條件：", sz=13, color=DIM)
+txt(s, 7.2, 2.7, 5.3, 0.3, "MA5 > MA20  AND  MA5(今) > MA5(3日前)", sz=13, color=WHITE, font="Consolas")
+txt(s, 7.2, 3.1, 5.3, 0.6, "意義：短期均線在中期均線上方\n且短期趨勢持續上升中", sz=12, color=GRAY)
+
+# Condition 3: Risk Level
+card(s, 0.8, 4.6, 5.7, 2.5, fill=RGBColor(0x3A, 0x2E, 0x15))
+txt(s, 1.0, 4.7, 5.3, 0.45, "⚠️  風險等級 (risk_level)", sz=18, color=ORANGE, bold=True)
+txt(s, 1.0, 5.2, 5.3, 0.3, "計算公式：20日報酬率標準差 × √252", sz=13, color=WHITE, font="Consolas")
+
+score_table(s, 1.0, 5.6, 5.3, [
+    ("波動率<25% 且 分數>=60", "low 低風險", GREEN),
+    ("波動率<40% 或 分數>=45", "medium 中風險", GOLD),
+    ("其他", "high 高風險", RED),
+])
+
+# Condition 4: Strong Recommend
+card(s, 7, 4.6, 5.7, 2.5, fill=RGBColor(0x2A, 0x1E, 0x3A))
+txt(s, 7.2, 4.7, 5.3, 0.45, "🌟  強力推薦 (strong_recommend)", sz=18, color=PURPLE, bold=True)
+txt(s, 7.2, 5.2, 5.3, 0.3, "必須同時滿足 4 個條件：", sz=13, color=DIM)
+txt(s, 7.2, 5.55, 5.3, 0.25, "① 信號加權分數 >= 60", sz=12, color=WHITE, font="Consolas")
+txt(s, 7.2, 5.8, 5.3, 0.25, "② 觸發信號數 >= 3", sz=12, color=WHITE, font="Consolas")
+txt(s, 7.2, 6.05, 5.3, 0.25, "③ 週趨勢向上 = True", sz=12, color=WHITE, font="Consolas")
+txt(s, 7.2, 6.3, 5.3, 0.25, "④ 風險等級 ≠ high", sz=12, color=WHITE, font="Consolas")
+
 # ========== Slide 11: 買賣點預測 ==========
 s = prs.slides.add_slide(prs.slide_layouts[6])
 bg_fill(s)
@@ -632,7 +673,7 @@ bar(s, 0.8, 1.0, 3)
 
 times = [
     ("Step 1", "資料收集", "全市場收盤價\n法人、融資融券\n營收、財報", BLUE),
-    ("Step 2", "候選股篩選", "量能異常偵測\n+ Top 50 保底\n→ ~50 檔候選", GREEN),
+    ("Step 2", "候選股篩選", "量能異常偵測\n+ Top 100 保底\n→ ~100 檔候選", GREEN),
     ("Step 3", "三因子評分", "籌碼+基本面\n+技術面\n加權排名", GOLD),
     ("完成", "結果上線", "Dashboard\n顯示最新\n排名結果", TEAL),
 ]
@@ -658,7 +699,7 @@ s = prs.slides.add_slide(prs.slide_layouts[6])
 bg_fill(s)
 txt(s, 1, 2, 11, 1, "讓數據說話", sz=48, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
 bar(s, 4.5, 3.2, 4)
-txt(s, 1, 3.5, 11, 0.8, "台股智慧選股系統 v2.1", sz=24, color=WHITE, align=PP_ALIGN.CENTER)
+txt(s, 1, 3.5, 11, 0.8, "台股智慧選股系統 v2.2", sz=24, color=WHITE, align=PP_ALIGN.CENTER)
 txt(s, 1, 4.8, 11, 0.5, "三因子量化評分  ×  AI 智慧分析  ×  動能信號偵測", sz=18, color=DIM, align=PP_ALIGN.CENTER)
 
 # Save

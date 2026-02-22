@@ -53,7 +53,7 @@ stock-system/
 │   │   │   ├── news_collector.py     # Google News RSS 爬蟲
 │   │   │   ├── rate_limiter.py       # API 速率限制
 │   │   │   ├── stock_service.py      # 股票查詢邏輯
-│   │   │   ├── hard_filter.py        # 初步篩選 (成交量，FALLBACK_TOP_N=50)
+│   │   │   ├── hard_filter.py        # 初步篩選 (成交量，FALLBACK_TOP_N=100)
 │   │   │   ├── chip_scorer.py        # 籌碼評分
 │   │   │   ├── fundamental_scorer.py # 基本面評分
 │   │   │   ├── technical_scorer.py   # 技術面評分
@@ -68,7 +68,7 @@ stock-system/
 │   │   │   ├── chat_service.py       # AI 聊天服務 (建構系統提示詞 + 編排 LLM 對話)
 │   │   │   ├── chat_rate_limiter.py  # 聊天限流 (會員等級差異: Free 3/min+10/day, Premium 5/min+100/day)
 │   │   │   ├── report_rate_limiter.py # 報告生成限流 (Free 5/day, Premium unlimited)
-│   │   │   ├── right_side_signal_detector.py # 右側買法信號檢測 (6個信號)
+│   │   │   ├── right_side_signal_detector.py # 右側買法信號檢測 (6個信號 + 4個篩選條件)
 │   │   │   ├── news_preparator.py    # 新聞預處理
 │   │   │   ├── on_demand_data_fetcher.py # 按需資料抓取 (非 Pipeline 股票)
 │   │   │   └── prompt_templates.py   # LLM 提示詞範本
@@ -113,7 +113,7 @@ stock-system/
 │   │   │   ├── history-backtest-view.vue # 回測歷史
 │   │   │   ├── right-side-screening-view.vue # 右側買法篩選
 │   │   │   └── settings-view.vue     # 系統設定
-│   │   ├── components/               # 22 個可重用元件
+│   │   ├── components/               # 22 個可重用元件 (含新增右側買法條件標籤顯示)
 │   │   │   ├── ai-assistant/
 │   │   │   │   ├── ai-chat-message.vue     # 聊天氣泡訊息元件 (使用者/AI 雙向)
 │   │   │   │   └── ai-assistant-widget.vue # 浮動氣泡 + 彈出聊天面板 (整合真實 API + mock fallback)
@@ -144,12 +144,13 @@ stock-system/
 │   │   │   └── shared/
 │   │   │       ├── sector-tag.vue    # 產業標籤
 │   │   │       └── scroll-to-top.vue # 回到頂部按鈕 (全域，位置已調整避免與 AI 氣泡重疊)
-│   │   ├── stores/                   # 4 個 Pinia 狀態存儲
+│   │   ├── stores/                   # 5 個 Pinia 狀態存儲
 │   │   │   ├── auth-store.ts         # 使用者與令牌管理
 │   │   │   ├── stock-store.ts        # 股票數據快取
 │   │   │   ├── screening-store.ts    # 篩選參數與結果
-│   │   │   └── settings-store.ts     # 使用者偏好
-│   │   ├── api/                      # 11 個 API 呼叫模組
+│   │   │   ├── settings-store.ts     # 使用者偏好
+│   │   │   └── sector-tags-store.ts  # 產業分類標籤
+│   │   ├── api/                      # 12 個 API 呼叫模組
 │   │   │   ├── client.ts             # Axios 實例與攔截器
 │   │   │   ├── auth-api.ts           # 認證 API
 │   │   │   ├── admin-api.ts          # 管理員 API 客戶端
@@ -160,13 +161,14 @@ stock-system/
 │   │   │   ├── backtest-api.ts       # 回測 API
 │   │   │   ├── reports-api.ts        # 報告 API
 │   │   │   ├── chat-api.ts           # AI 聊天 API 客戶端
-│   │   │   └── right-side-signals-api.ts # 右側買法信號 API 客戶端
+│   │   │   ├── right-side-signals-api.ts # 右側買法信號 API 客戶端
+│   │   │   └── sector-tags-api.ts    # 產業標籤 API 客戶端
 │   │   ├── types/                    # 5 個 TypeScript 型別定義
 │   │   │   ├── auth.ts               # User, LoginRequest, RegisterRequest, Token
 │   │   │   ├── stock.ts              # Stock, DailyPrice, Institutional
 │   │   │   ├── screening.ts          # ScreeningParams, Result
 │   │   │   ├── report.ts             # Report, LLMReport
-│   │   │   └── right-side-signals.ts # RightSideSignal, RightSideSignalResult
+│   │   │   └── right-side-signals.ts # RightSideSignal, RightSideSignalResult (含 today_breakout, weekly_trend_up, strong_recommend, risk_level)
 │   │   ├── router/                   # Vue Router 設定
 │   │   └── assets/                   # 靜態資源 (圖片, 字體)
 │   ├── index.html                    # HTML 入口
@@ -227,7 +229,7 @@ get_current_user(token: str) → User (依賴注入)
 ```
 流程:
 1. HardFilter.filter_by_volume() → 候選股票清單
-   ├─ 量能異常比 > 2.5x 或 FALLBACK_TOP_N=50
+   ├─ 量能異常比 > 2.5x 或 FALLBACK_TOP_N=100
    └─ 保留: stock_id 列表
 
 2. 逐股評分:
@@ -556,6 +558,19 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 
 ## 近期更新摘要
 
+### 2026-02-22: 右側買法新增四項篩選條件與候選池擴增至100檔
+
+**後端變更**
+- `right_side_signal_detector.py` 新增 4 個方法：`_check_today_breakout()`, `_check_weekly_trend_up()`, `_calc_risk_level()`, `_check_strong_recommend()`
+- `right_side_signals.py` router 批量 endpoint 回傳 4 個新欄位（today_breakout, weekly_trend_up, strong_recommend, risk_level）
+- `hard_filter.py`: FALLBACK_TOP_N 從 50 改為 100
+
+**前端變更**
+- `right-side-signals.ts`: 新增 4 個欄位到 type
+- `right-side-screening-view.vue`: 新增 4 個篩選 toggle；條件標籤與訊號明細分成獨立兩欄；表格新增評級、條件標籤、訊號明細欄位
+- `right-side-signal-card.vue`: 新增顯示 4 個條件標籤
+- `dashboard-view.vue`: 評級欄位移到收盤價前面
+
 ### 2026-02-21: 會員系統完全實裝 (Membership System)
 
 **新功能說明**
@@ -672,14 +687,14 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
   - 含 `_calc_prediction()`: 買賣點預測（進場=收盤、停損=max(MA20,20日低)、目標=1.5x 風報比、動作=buy/hold/avoid）
 - `app/routers/right_side_signals.py`: 2 個 API 端點
   - `GET /api/right-side-signals/{stock_id}` — 單檔股票 6 個信號 + 買賣點預測
-  - `GET /api/right-side-signals/screen/batch?min_signals=2` — 批量篩選（Top 50 評分股 + 近7日量 > 200 萬股聯集，依加權評分降序）
+  - `GET /api/right-side-signals/screen/batch?min_signals=2` — 批量篩選（Top 100 評分股 + 近7日量 > 200 萬股聯集，依加權評分降序），回傳含 today_breakout, weekly_trend_up, strong_recommend, risk_level 四個欄位
 - 註冊路由至 `app/main.py`
 
 **前端新增**
 - `src/types/right-side-signals.ts`: TypeScript 型別定義（RightSideSignal, RightSideSignalResult, RightSideScreenItem 等）
 - `src/api/right-side-signals-api.ts`: API 客戶端封裝
-- `src/components/stock-detail/right-side-signal-card.vue`: 股票詳情頁信號卡片展示
-- `src/views/right-side-screening-view.vue`: 獨立篩選頁面，支援分頁、排序、最少信號數篩選
+- `src/components/stock-detail/right-side-signal-card.vue`: 股票詳情頁信號卡片展示（含4個條件標籤）
+- `src/views/right-side-screening-view.vue`: 獨立篩選頁面，支援分頁、排序、最少信號數篩選、4個篩選 toggle（今日突破、週趨勢向上、強力推薦、風險等級）
 - 路由新增：`/right-side` 導向篩選頁面
 - Sidebar「分析」分區：新增「右側買法」導航項目
 
@@ -793,6 +808,6 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - LLM 分析擴展至所有評分股票
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
-**最後更新**: 2026-02-21
-**版本**: 3.0
-**狀態**: 會員系統完全實裝，301 個測試全部通過
+**最後更新**: 2026-02-22
+**版本**: 3.1
+**狀態**: 右側買法新增4個篩選條件，候選池擴增至100檔，301 個測試全部通過

@@ -90,7 +90,7 @@ txt(s, 1, 1.8, 11, 1.2, "台股智慧選股系統", sz=52, color=GOLD, bold=True
 bar(s, 4.5, 3.2, 4)
 txt(s, 1, 3.5, 11, 0.8, "使用者操作手冊", sz=28, color=WHITE, align=PP_ALIGN.CENTER)
 txt(s, 1, 4.8, 11, 0.5, "多因子篩選  ×  AI 智慧分析  ×  動能信號偵測", sz=18, color=DIM, align=PP_ALIGN.CENTER)
-txt(s, 1, 6.2, 11, 0.4, "v2.0  |  2026 年 2 月", sz=14, color=DIM, align=PP_ALIGN.CENTER)
+txt(s, 1, 6.2, 11, 0.4, "v2.2  |  2026 年 2 月", sz=14, color=DIM, align=PP_ALIGN.CENTER)
 
 # ========== Slide 2: 系統三大核心 ==========
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -141,21 +141,23 @@ bg(s)
 txt(s, 0.8, 0.4, 11, 0.7, "主儀表板 Dashboard", sz=36, color=GOLD, bold=True)
 bar(s, 0.8, 1.0, 2.5)
 
-icon_card(s, 0.8, 1.5, 2.8, 2, "🏆", "排名總覽", "Top 20 / 50 / All\n切換顯示範圍")
-icon_card(s, 4, 1.5, 2.8, 2, "📊", "綜合分數", "三因子加權分數\n即時排名更新")
-icon_card(s, 7.2, 1.5, 2.8, 2, "📉", "雷達圖", "視覺化三因子\n分數分布比較")
+icon_card(s, 0.8, 1.5, 2.8, 2, "📋", "統計摘要", "分析股票數、今日最高分\n高籌碼分數、資料日期")
+icon_card(s, 4, 1.5, 2.8, 2, "🏷️", "產業分類", "全部 + 各產業標籤\n快速切換篩選")
+icon_card(s, 7.2, 1.5, 2.8, 2, "🏆", "Top 30 排名", "9 欄可排序表格\n每頁 10 筆分頁")
 icon_card(s, 10.4, 1.5, 2.8, 2, "🔗", "一鍵深入", "點擊任一股票\n進入詳情頁面")
 
 card(s, 0.8, 4, 11.8, 2.5)
 txt(s, 1.1, 4.1, 5, 0.4, "排名表格欄位", sz=20, color=GOLD, bold=True)
 
-# Table header simulation
-for i, (col, w) in enumerate([("排名", 1.2), ("股票名稱", 2), ("綜合分數", 1.5), ("籌碼面", 1.3), ("基本面", 1.3), ("技術面", 1.3), ("收盤價", 1.3), ("漲跌幅", 1.3)]):
-    x = 1.1 + sum([1.2, 2, 1.5, 1.3, 1.3, 1.3, 1.3][:i])
+# Table header simulation – match dashboard-view.vue columns
+cols = [("#", 0.7), ("代號", 1.1), ("名稱", 1.5), ("總分", 1.0), ("收盤價", 1.3), ("漲跌", 1.1), ("籌碼", 1.1), ("基本面", 1.2), ("技術面", 1.2)]
+widths = [w for _, w in cols]
+for i, (col, w) in enumerate(cols):
+    x = 1.1 + sum(widths[:i])
     card(s, x, 4.7, w - 0.1, 0.5, fill=RGBColor(0x35, 0x35, 0x55))
     txt(s, x, 4.7, w - 0.1, 0.5, col, sz=13, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
 
-txt(s, 1.1, 5.5, 11, 0.5, "支援多欄位排序  |  每頁 10 筆分頁  |  統計摘要卡片", sz=15, color=DIM, align=PP_ALIGN.CENTER)
+txt(s, 1.1, 5.5, 11, 0.5, "支援多欄位排序  |  每頁 10 筆分頁  |  Top 30 統計摘要卡片", sz=15, color=DIM, align=PP_ALIGN.CENTER)
 
 # ========== Slide 5: 個股詳情頁 ==========
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -245,7 +247,24 @@ for i, (name, weight) in enumerate(signals):
     txt(s, 7.5, y, 3, 0.35, name, sz=13, color=GRAY)
     txt(s, 10.5, y, 1, 0.35, f"{weight}分", sz=13, color=GOLD, bold=True, align=PP_ALIGN.RIGHT)
 
-txt(s, 7.3, 5.3, 5.2, 0.4, "可設定「最少信號數」篩選條件（1-6）", sz=14, color=DIM)
+txt(s, 7.3, 5.3, 5.2, 0.4, "可設定「最少信號數」+ 4 種進階篩選", sz=14, color=DIM)
+
+# ========== Slide 7.5: 右側買法進階篩選 ==========
+s = prs.slides.add_slide(prs.slide_layouts[6])
+bg(s)
+txt(s, 0.8, 0.4, 11, 0.7, "右側買法：進階篩選條件", sz=36, color=GOLD, bold=True)
+bar(s, 0.8, 1.0, 2.5)
+txt(s, 0.8, 1.2, 11, 0.35, "除了最少信號數，還有 4 個進階篩選條件可組合使用", sz=16, color=DIM)
+
+icon_card(s, 0.8, 1.8, 2.8, 2.3, "🚀", "今日突破", "量價齊揚 + 突破20日高\n多方突破確認")
+icon_card(s, 4, 1.8, 2.8, 2.3, "📈", "週趨勢向上", "MA5 > MA20 且持續上升\n中短期多頭排列")
+icon_card(s, 7.2, 1.8, 2.8, 2.3, "⚠️", "風險等級", "低 / 中 / 高 三級\n依波動率+分數判定")
+icon_card(s, 10.4, 1.8, 2.8, 2.3, "🌟", "強力推薦", "分數≥60、觸發≥3\n趨勢向上、非高風險")
+
+card(s, 0.8, 4.5, 11.8, 2.2)
+txt(s, 1.1, 4.6, 11.2, 0.5, "💡  條件可組合疊加，逐步縮小篩選範圍", sz=20, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
+txt(s, 1.1, 5.2, 11.2, 0.4, "篩選結果表格新增「評級」「條件標籤」「訊號明細」三個欄位", sz=16, color=GRAY, align=PP_ALIGN.CENTER)
+txt(s, 1.1, 5.7, 11.2, 0.4, "候選池擴增至 Top 100 評分股 + 近7日量 > 200 萬股聯集", sz=15, color=DIM, align=PP_ALIGN.CENTER)
 
 # ========== Slide 8: AI 聊天助手 ==========
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -370,7 +389,7 @@ s = prs.slides.add_slide(prs.slide_layouts[6])
 bg(s)
 txt(s, 1, 2.2, 11, 1, "開始使用", sz=48, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
 bar(s, 4.5, 3.3, 4)
-txt(s, 1, 3.6, 11, 0.8, "台股智慧選股系統 v2.0", sz=24, color=WHITE, align=PP_ALIGN.CENTER)
+txt(s, 1, 3.6, 11, 0.8, "台股智慧選股系統 v2.2", sz=24, color=WHITE, align=PP_ALIGN.CENTER)
 txt(s, 1, 4.8, 11, 0.5, "多因子篩選  ×  AI 智慧分析  ×  動能信號偵測", sz=18, color=DIM, align=PP_ALIGN.CENTER)
 
 # Save
