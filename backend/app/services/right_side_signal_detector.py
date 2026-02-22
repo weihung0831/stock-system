@@ -53,11 +53,23 @@ class RightSideSignalDetector:
         triggered = sum(1 for s in signals if s["triggered"])
         prediction = self._calc_prediction(df, score)
 
+        # Extra screening tags
+        today_breakout = self._check_today_breakout(df)
+        weekly_trend_up = self._check_weekly_trend_up(df)
+        risk_level = self._calc_risk_level(df, score)
+        strong_recommend = self._check_strong_recommend(
+            score, triggered, today_breakout, weekly_trend_up, risk_level
+        )
+
         return {
             "signals": signals,
             "score": score,
             "triggered_count": triggered,
             "prediction": prediction,
+            "today_breakout": today_breakout,
+            "weekly_trend_up": weekly_trend_up,
+            "strong_recommend": strong_recommend,
+            "risk_level": risk_level,
         }
 
     @staticmethod
@@ -268,3 +280,64 @@ class RightSideSignalDetector:
             sig["triggered"] = False
             sig["description"] = "計算錯誤"
         return sig
+
+    # ========== Extra screening tags ==========
+
+    @staticmethod
+    def _check_today_breakout(df: pd.DataFrame) -> bool:
+        """今日突破：當日收盤創 20 日新高。"""
+        try:
+            if len(df) < 21:
+                return False
+            latest_close = df.iloc[-1]["close"]
+            prev_20d_high = df["high"].iloc[-21:-1].max()
+            return bool(latest_close > prev_20d_high)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _check_weekly_trend_up(df: pd.DataFrame) -> bool:
+        """週趨勢向上：5日均線 > 20日均線，且 5日均線近3日上升。"""
+        try:
+            if len(df) < 23:
+                return False
+            ma5 = df["close"].rolling(5).mean()
+            ma20 = df["close"].rolling(20).mean()
+            ma5_above_ma20 = bool(ma5.iloc[-1] > ma20.iloc[-1])
+            ma5_rising = bool(ma5.iloc[-1] > ma5.iloc[-3])
+            return ma5_above_ma20 and ma5_rising
+        except Exception:
+            return False
+
+    @staticmethod
+    def _calc_risk_level(df: pd.DataFrame, score: int) -> str:
+        """風險評估：依波動率 + 分數綜合判定 low / medium / high。"""
+        try:
+            if len(df) < 20:
+                return "high"
+            # 20日報酬率標準差（年化波動率簡化版）
+            returns = df["close"].pct_change().dropna().iloc[-20:]
+            volatility = float(returns.std()) * (252 ** 0.5)
+            if volatility < 0.25 and score >= 60:
+                return "low"
+            if volatility < 0.40 or score >= 45:
+                return "medium"
+            return "high"
+        except Exception:
+            return "high"
+
+    @staticmethod
+    def _check_strong_recommend(
+        score: int,
+        triggered: int,
+        today_breakout: bool,
+        weekly_trend_up: bool,
+        risk_level: str,
+    ) -> bool:
+        """強力推薦：分數 >= 60、觸發 >= 3、週趨勢向上、風險非高。"""
+        return (
+            score >= 60
+            and triggered >= 3
+            and weekly_trend_up
+            and risk_level != "high"
+        )

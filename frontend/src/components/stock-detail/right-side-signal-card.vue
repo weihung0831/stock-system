@@ -9,6 +9,10 @@ const signals = ref<RightSideSignal[]>([])
 const triggeredCount = ref(0)
 const score = ref(0)
 const prediction = ref<TradePrediction | null>(null)
+const todayBreakout = ref(false)
+const weeklyTrendUp = ref(false)
+const strongRecommend = ref(false)
+const riskLevel = ref<'low' | 'medium' | 'high'>('high')
 const loading = ref(false)
 
 async function load() {
@@ -19,11 +23,19 @@ async function load() {
     triggeredCount.value = res.triggered_count
     score.value = res.score
     prediction.value = res.prediction
+    todayBreakout.value = res.today_breakout ?? false
+    weeklyTrendUp.value = res.weekly_trend_up ?? false
+    strongRecommend.value = res.strong_recommend ?? false
+    riskLevel.value = res.risk_level ?? 'high'
   } catch {
     signals.value = []
     triggeredCount.value = 0
     score.value = 0
     prediction.value = null
+    todayBreakout.value = false
+    weeklyTrendUp.value = false
+    strongRecommend.value = false
+    riskLevel.value = 'high'
   } finally {
     loading.value = false
   }
@@ -54,6 +66,16 @@ watch(() => props.stockId, load, { immediate: true })
     </div>
 
     <div v-else>
+      <!-- Condition tags -->
+      <div class="cond-tags">
+        <span v-if="todayBreakout" class="cond-tag breakout">今日突破</span>
+        <span v-if="weeklyTrendUp" class="cond-tag trend-up">週趨勢向上</span>
+        <span v-if="strongRecommend" class="cond-tag strong-rec">強力推薦</span>
+        <span :class="['cond-tag', `risk-${riskLevel}`]">
+          {{ riskLevel === 'low' ? '低風險' : riskLevel === 'medium' ? '中風險' : '高風險' }}
+        </span>
+      </div>
+
       <div class="signal-grid">
         <div
           v-for="sig in signals"
@@ -139,6 +161,58 @@ watch(() => props.stockId, load, { immediate: true })
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Condition tags */
+.cond-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.cond-tag {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cond-tag.breakout {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.cond-tag.trend-up {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--up, #22c55e);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.cond-tag.strong-rec {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--amber, #e5a91a);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.cond-tag.risk-low {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--up, #22c55e);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.cond-tag.risk-medium {
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--amber, #e5a91a);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.cond-tag.risk-high {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--down, #ef4444);
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .signal-grid {

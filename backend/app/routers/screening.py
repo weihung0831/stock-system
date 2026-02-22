@@ -150,11 +150,12 @@ def get_results(
                     weights={"chip": 40, "fundamental": 35, "technical": 25}
                 )
 
-        # Query score results
+        # Query score results (top 30 for dashboard)
         results = (
             db.query(ScoreResult)
             .filter(ScoreResult.score_date == query_date)
             .order_by(ScoreResult.rank.asc())
+            .limit(30)
             .all()
         )
 

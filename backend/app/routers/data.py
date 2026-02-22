@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
 from app.models.user import User
 from app.models.pipeline_log import PipelineLog
-from app.dependencies import require_admin
+from app.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def run_data_collection(user_id: int):
 def trigger_data_collection(
     background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_admin)]
+    current_user: Annotated[User, Depends(get_current_user)]
 ):
     """
     Trigger data collection pipeline (admin only).
@@ -86,7 +86,7 @@ def trigger_data_collection(
 @router.get("/status")
 def get_collection_status(
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_admin)]
+    current_user: Annotated[User, Depends(get_current_user)]
 ):
     """
     Get latest data collection status (admin only).

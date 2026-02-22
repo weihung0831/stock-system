@@ -10,7 +10,7 @@ from app.models.daily_price import DailyPrice
 logger = logging.getLogger(__name__)
 
 # Fallback: take top N stocks by recent volume if ratio filter empty
-FALLBACK_TOP_N = 50
+FALLBACK_TOP_N = 100
 
 
 class HardFilter:

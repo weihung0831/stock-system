@@ -10,9 +10,24 @@ const items = ref<RightSideScreenItem[]>([])
 const minSignals = ref(2)
 const errorMsg = ref('')
 
-const totalTriggered = computed(() => items.value.length)
+/* Extra filter toggles */
+const filterBreakout = ref(false)
+const filterWeeklyUp = ref(false)
+const filterStrongRec = ref(false)
+const filterRisk = ref<'' | 'low' | 'medium' | 'high'>('')
+
+const filteredItems = computed(() => {
+  let list = items.value
+  if (filterBreakout.value) list = list.filter(i => i.today_breakout)
+  if (filterWeeklyUp.value) list = list.filter(i => i.weekly_trend_up)
+  if (filterStrongRec.value) list = list.filter(i => i.strong_recommend)
+  if (filterRisk.value) list = list.filter(i => i.risk_level === filterRisk.value)
+  return list
+})
+
+const totalTriggered = computed(() => filteredItems.value.length)
 const maxCount = computed(() =>
-  items.value.length ? Math.max(...items.value.map(i => i.triggered_count)) : 0,
+  filteredItems.value.length ? Math.max(...filteredItems.value.map(i => i.triggered_count)) : 0,
 )
 
 /* Sort */
@@ -35,8 +50,8 @@ function sortIcon(key: string): string {
 }
 
 const sortedItems = computed(() => {
-  if (!sortKey.value) return items.value
-  const arr = [...items.value]
+  if (!sortKey.value) return filteredItems.value
+  const arr = [...filteredItems.value]
   const key = sortKey.value as keyof RightSideScreenItem
   const dir = sortOrder.value === 'asc' ? 1 : -1
   arr.sort((a, b) => {
@@ -98,9 +113,9 @@ doScreen()
         <div class="stat-change">個訊號以上</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">功能說明</div>
-        <div class="stat-value" style="font-size: 1.2rem">右側買法</div>
-        <div class="stat-change">趨勢確認進場訊號</div>
+        <div class="stat-label">強力推薦</div>
+        <div class="stat-value" style="color: var(--up)">{{ filteredItems.filter(i => i.strong_recommend).length }}</div>
+        <div class="stat-change up">檔股票</div>
       </div>
     </div>
 
@@ -122,6 +137,38 @@ doScreen()
       </button>
     </div>
 
+    <!-- Extra condition filters -->
+    <div class="tag-filter-bar">
+      <button
+        :class="['tag-toggle', { active: filterBreakout }]"
+        @click="filterBreakout = !filterBreakout; currentPage = 1"
+      >
+        今日突破
+      </button>
+      <button
+        :class="['tag-toggle', { active: filterWeeklyUp }]"
+        @click="filterWeeklyUp = !filterWeeklyUp; currentPage = 1"
+      >
+        週趨勢向上
+      </button>
+      <button
+        :class="['tag-toggle strong', { active: filterStrongRec }]"
+        @click="filterStrongRec = !filterStrongRec; currentPage = 1"
+      >
+        強力推薦
+      </button>
+      <select
+        v-model="filterRisk"
+        class="filter-select"
+        @change="currentPage = 1"
+      >
+        <option value="">風險：全部</option>
+        <option value="low">低風險</option>
+        <option value="medium">中風險</option>
+        <option value="high">高風險</option>
+      </select>
+    </div>
+
     <!-- Error -->
     <div v-if="errorMsg" class="error-bar">{{ errorMsg }}</div>
 
@@ -141,15 +188,16 @@ doScreen()
       </div>
 
       <div class="card" style="margin-bottom: 20px">
-        <table class="stock-table">
+        <table class="stock-table right-side-table">
           <thead>
             <tr>
-              <th style="width: 50px">#</th>
-              <th class="sortable-th" @click="toggleSort('stock_id')">代號 <span class="sort-icon">{{ sortIcon('stock_id') }}</span></th>
-              <th class="sortable-th" @click="toggleSort('stock_name')">名稱 <span class="sort-icon">{{ sortIcon('stock_name') }}</span></th>
-              <th class="sortable-th" @click="toggleSort('score')">評分 <span class="sort-icon">{{ sortIcon('score') }}</span></th>
-              <th class="sortable-th" @click="toggleSort('triggered_count')">觸發數 <span class="sort-icon">{{ sortIcon('triggered_count') }}</span></th>
-              <th>訊號明細</th>
+              <th class="col-rank">#</th>
+              <th class="col-code sortable-th" @click="toggleSort('stock_id')">代號 <span class="sort-icon">{{ sortIcon('stock_id') }}</span></th>
+              <th class="col-name sortable-th" @click="toggleSort('stock_name')">名稱 <span class="sort-icon">{{ sortIcon('stock_name') }}</span></th>
+              <th class="col-score sortable-th" @click="toggleSort('score')">評分 <span class="sort-icon">{{ sortIcon('score') }}</span></th>
+              <th class="col-count sortable-th" @click="toggleSort('triggered_count')">觸發數 <span class="sort-icon">{{ sortIcon('triggered_count') }}</span></th>
+              <th class="col-tags">條件標籤</th>
+              <th class="col-signals">訊號明細</th>
             </tr>
           </thead>
           <tbody>
@@ -165,20 +213,32 @@ doScreen()
                 <span :class="['score-pill', scoreClass(item.score)]">{{ item.score }}</span>
               </td>
               <td>{{ item.triggered_count }} / 6</td>
-              <td class="signal-chips">
-                <span
-                  v-for="sig in item.signals"
-                  :key="sig.id"
-                  class="mini-chip"
-                  :class="{ on: sig.triggered }"
-                  :title="sig.description"
-                >
-                  {{ sig.label }}
-                </span>
+              <td>
+                <div class="tag-chips-cell">
+                  <span v-if="item.today_breakout" class="cond-tag breakout">突破</span>
+                  <span v-if="item.weekly_trend_up" class="cond-tag trend-up">週漲</span>
+                  <span v-if="item.strong_recommend" class="cond-tag strong-rec">強推</span>
+                  <span :class="['cond-tag', `risk-${item.risk_level}`]">
+                    {{ item.risk_level === 'low' ? '低風險' : item.risk_level === 'medium' ? '中風險' : '高風險' }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <div class="signal-chips">
+                  <span
+                    v-for="sig in item.signals"
+                    :key="sig.id"
+                    class="mini-chip"
+                    :class="{ on: sig.triggered }"
+                    :title="sig.description"
+                  >
+                    {{ sig.label }}
+                  </span>
+                </div>
               </td>
             </tr>
             <tr v-if="pagedItems.length === 0">
-              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 40px">
+              <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px">
                 尚無資料
               </td>
             </tr>
@@ -324,16 +384,30 @@ doScreen()
 .page-btn.active { background: var(--amber, #e5a91a); color: var(--bg-dark, #0e1525); border-color: var(--amber, #e5a91a); font-weight: 700; }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+/* Right-side table: fixed layout for predictable column widths */
+.right-side-table {
+  table-layout: fixed;
+}
+
+
+.col-rank { width: 36px; }
+.col-code { width: 80px; }
+.col-name { width: 150px; }
+.col-score { width: 80px; }
+.col-count { width: 80px; }
+.col-tags { width: 18%; }
+.col-signals { width: auto; }
+
 /* Signal chips (page-specific) */
 .signal-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .mini-chip {
   font-size: 0.72rem;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 10px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -345,6 +419,97 @@ doScreen()
   border-color: var(--up);
   color: var(--up);
   background: rgba(34, 197, 94, 0.08);
+}
+
+/* Tag filter bar */
+.tag-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.tag-toggle {
+  padding: 5px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag-toggle:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.tag-toggle.active {
+  background: rgba(229, 169, 26, 0.15);
+  border-color: var(--amber);
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.tag-toggle.strong.active {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--up);
+  color: var(--up);
+}
+
+/* Tag chips cell */
+.tag-chips-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  white-space: normal;
+}
+
+.cond-tag {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cond-tag.breakout {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.cond-tag.trend-up {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--up);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.cond-tag.strong-rec {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--amber);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.cond-tag.risk-low {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--up);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.cond-tag.risk-medium {
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--amber);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.cond-tag.risk-high {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--down);
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .empty-state {

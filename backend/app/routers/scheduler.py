@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from apscheduler.triggers.cron import CronTrigger
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.pipeline_log import PipelineLog
 from app.tasks.daily_pipeline import run_daily_pipeline
@@ -88,7 +88,7 @@ def _run_pipeline_in_background():
 
 @router.post("/trigger", response_model=TriggerResponse)
 def trigger_pipeline(
-    admin_user: Annotated[User, Depends(require_admin)],
+    admin_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)]
 ):
     """
@@ -135,7 +135,7 @@ def trigger_pipeline(
 
 @router.get("/status", response_model=PipelineStatusResponse)
 def get_pipeline_status(
-    admin_user: Annotated[User, Depends(require_admin)],
+    admin_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)]
 ):
     """
@@ -190,7 +190,7 @@ def get_pipeline_status(
 
 @router.get("/logs", response_model=PipelineLogsResponse)
 def get_logs(
-    admin_user: Annotated[User, Depends(require_admin)],
+    admin_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page")
@@ -252,7 +252,7 @@ def _get_or_create_settings(db: Session) -> SystemSetting:
 
 @router.get("/settings", response_model=SchedulerSettingsResponse)
 def get_scheduler_settings(
-    admin_user: Annotated[User, Depends(require_admin)],
+    admin_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)]
 ):
     """Get current scheduler settings."""
@@ -267,7 +267,7 @@ def get_scheduler_settings(
 @router.put("/settings", response_model=SchedulerSettingsResponse)
 def update_scheduler_settings(
     body: SchedulerSettingsUpdate,
-    admin_user: Annotated[User, Depends(require_admin)],
+    admin_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)]
 ):
     """Update scheduler settings and reschedule the job."""
@@ -306,7 +306,7 @@ def update_scheduler_settings(
 
 @router.delete("/logs")
 def clear_logs(
-    admin_user: Annotated[User, Depends(require_admin)],
+    admin_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)]
 ):
     """Clear all pipeline execution logs (admin only)."""

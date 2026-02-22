@@ -21,6 +21,10 @@ export interface RightSideSignalResult {
   triggered_count: number
   score: number
   prediction: TradePrediction | null
+  today_breakout: boolean
+  weekly_trend_up: boolean
+  strong_recommend: boolean
+  risk_level: 'low' | 'medium' | 'high'
 }
 
 export interface RightSideScreenItem {
@@ -30,6 +34,10 @@ export interface RightSideScreenItem {
   triggered_count: number
   score: number
   prediction: TradePrediction | null
+  today_breakout: boolean
+  weekly_trend_up: boolean
+  strong_recommend: boolean
+  risk_level: 'low' | 'medium' | 'high'
 }
 
 export interface RightSideScreenResponse {

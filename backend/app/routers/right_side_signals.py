@@ -22,40 +22,24 @@ def screen_batch(
     min_signals: int = Query(default=2, ge=1, le=6),
     db: Session = Depends(get_db),
 ):
-    """Batch screen: top 50 scored stocks + stocks with volume > 2000 lots."""
+    """Batch screen: top 100 stocks by recent volume from DailyPrice."""
     from datetime import timedelta
     from sqlalchemy import func
     from app.models.daily_price import DailyPrice
-    from app.models.score_result import ScoreResult
 
-    candidate_ids: set[str] = set()
+    # 取最近有價格資料的日期，抓該日成交量前 100 名
+    latest_date = db.query(func.max(DailyPrice.trade_date)).scalar()
+    if not latest_date:
+        return {"items": [], "total": 0, "min_signals": min_signals}
 
-    # Source 1: Top 50 from latest ScoreResult
-    latest_date = db.query(ScoreResult.score_date).order_by(
-        ScoreResult.score_date.desc()
-    ).first()
-    if latest_date:
-        top50 = (
-            db.query(ScoreResult.stock_id)
-            .filter(ScoreResult.score_date == latest_date[0])
-            .order_by(ScoreResult.total_score.desc())
-            .limit(50)
-            .all()
-        )
-        candidate_ids.update(row[0] for row in top50)
-
-    # Source 2: Stocks with latest volume > 2000 lots (2,000,000 shares)
-    recent_cutoff = date.today() - timedelta(days=7)
-    high_vol = (
+    top100_vol = (
         db.query(DailyPrice.stock_id)
-        .filter(DailyPrice.trade_date >= recent_cutoff)
-        .group_by(DailyPrice.stock_id)
-        .having(func.max(DailyPrice.volume) > 2_000_000)
+        .filter(DailyPrice.trade_date == latest_date)
+        .order_by(DailyPrice.volume.desc())
+        .limit(100)
         .all()
     )
-    candidate_ids.update(row[0] for row in high_vol)
-
-    stock_ids = list(candidate_ids)
+    stock_ids = [row[0] for row in top100_vol]
     if not stock_ids:
         return {"items": [], "total": 0, "min_signals": min_signals}
 
