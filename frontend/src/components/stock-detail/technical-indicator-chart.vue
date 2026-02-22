@@ -80,8 +80,12 @@ const option = computed<EChartsOption>(() => ({
     valueFormatter: (val: any) => val != null ? Number(val).toFixed(2) : '-'
   },
   legend: {
-    data: ['K', 'D', 'RSI'],
-    textStyle: { color: '#8c9ab5', fontSize: 11 },
+    data: [
+      { name: 'K', textStyle: { color: '#f0b429' } },
+      { name: 'D', textStyle: { color: '#8b5cf6' } },
+      { name: 'RSI', textStyle: { color: '#22d3ee' } }
+    ],
+    textStyle: { fontSize: 11 },
     top: 0,
     right: 0
   },
@@ -109,7 +113,8 @@ const option = computed<EChartsOption>(() => ({
       data: chartData.value.k,
       smooth: true,
       symbol: 'none',
-      lineStyle: { width: 1.5, color: '#f0b429' }
+      color: '#f0b429',
+      lineStyle: { width: 1.5 }
     },
     {
       name: 'D',
@@ -117,7 +122,8 @@ const option = computed<EChartsOption>(() => ({
       data: chartData.value.d,
       smooth: true,
       symbol: 'none',
-      lineStyle: { width: 1.5, color: '#8b5cf6' }
+      color: '#8b5cf6',
+      lineStyle: { width: 1.5 }
     },
     {
       name: 'RSI',
@@ -125,7 +131,8 @@ const option = computed<EChartsOption>(() => ({
       data: chartData.value.rsi,
       smooth: true,
       symbol: 'none',
-      lineStyle: { width: 1.5, color: '#22d3ee' },
+      color: '#22d3ee',
+      lineStyle: { width: 1.5 },
       markLine: {
         silent: true,
         data: [
