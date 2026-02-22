@@ -160,7 +160,7 @@ const option = computed<EChartsOption>(() => ({
       const candle = params.find((p: any) => p.seriesType === 'candlestick')
       const vol = params.find((p: any) => p.seriesType === 'bar')
       if (!candle) return ''
-      const [open, close, low, high] = candle.data
+      const [, open, close, low, high] = candle.value
       let html = `<div style="margin-bottom:4px">${candle.axisValue}</div>`
       html += `<div>開盤: <b>${open}</b></div>`
       html += `<div>收盤: <b>${close}</b></div>`
