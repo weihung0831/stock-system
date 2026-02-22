@@ -82,6 +82,9 @@ function openStock(row: ScoreResult) {
           <th class="sortable-th" @click="toggleSort('stock_name')">
             名稱 <span class="sort-icon">{{ sortIcon('stock_name') }}</span>
           </th>
+          <th class="sortable-th" @click="toggleSort('total_score')">
+            總分 <span class="sort-icon">{{ sortIcon('total_score') }}</span>
+          </th>
           <th class="sortable-th" @click="toggleSort('close_price')">
             收盤價 <span class="sort-icon">{{ sortIcon('close_price') }}</span>
           </th>
@@ -96,9 +99,6 @@ function openStock(row: ScoreResult) {
           </th>
           <th class="sortable-th" @click="toggleSort('technical_score')">
             技術面 <span class="sort-icon">{{ sortIcon('technical_score') }}</span>
-          </th>
-          <th class="sortable-th" @click="toggleSort('total_score')">
-            總分 <span class="sort-icon">{{ sortIcon('total_score') }}</span>
           </th>
         </tr>
       </thead>
@@ -118,6 +118,7 @@ function openStock(row: ScoreResult) {
               @click.stop="router.push(`/reports?stock=${row.stock_id}`)"
             >AI</span>
           </td>
+          <td class="total-score">{{ row.total_score.toFixed(1) }}</td>
           <td style="font-family: var(--font-mono)">${{ row.close_price?.toFixed(2) ?? '-' }}</td>
           <td :class="['price-change', (row.change_percent ?? 0) >= 0 ? 'up' : 'down']" style="font-family: var(--font-mono)">
             {{ formatChange(row) }}
@@ -125,7 +126,6 @@ function openStock(row: ScoreResult) {
           <td><span :class="['score-pill', scoreClass(row.chip_score)]">{{ row.chip_score.toFixed(1) }}</span></td>
           <td><span :class="['score-pill', scoreClass(row.fundamental_score)]">{{ row.fundamental_score.toFixed(1) }}</span></td>
           <td><span :class="['score-pill', scoreClass(row.technical_score)]">{{ row.technical_score.toFixed(1) }}</span></td>
-          <td class="total-score">{{ row.total_score.toFixed(1) }}</td>
         </tr>
         <tr v-if="results.length === 0">
           <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px">
