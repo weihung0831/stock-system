@@ -77,14 +77,28 @@ def get_latest_reports(
 
         latest_date = latest_date_result[0]
 
-        # Get all reports from that date with stock names
-        rows = (
-            db.query(LLMReport, Stock.stock_name)
-            .outerjoin(Stock, LLMReport.stock_id == Stock.stock_id)
-            .filter(LLMReport.report_date == latest_date)
-            .order_by(LLMReport.stock_id)
-            .all()
-        )
+        # Free users can only see reports they generated themselves
+        tier = current_user.membership_tier if not current_user.is_admin else 'premium'
+
+        if tier == 'free':
+            from app.models.report_usage import ReportUsage
+            # Only return reports the user has usage records for
+            rows = (
+                db.query(LLMReport, Stock.stock_name)
+                .outerjoin(Stock, LLMReport.stock_id == Stock.stock_id)
+                .join(ReportUsage, (ReportUsage.stock_id == LLMReport.stock_id) & (ReportUsage.user_id == current_user.id))
+                .filter(LLMReport.report_date == latest_date)
+                .order_by(LLMReport.stock_id)
+                .all()
+            )
+        else:
+            rows = (
+                db.query(LLMReport, Stock.stock_name)
+                .outerjoin(Stock, LLMReport.stock_id == Stock.stock_id)
+                .filter(LLMReport.report_date == latest_date)
+                .order_by(LLMReport.stock_id)
+                .all()
+            )
 
         results = []
         for report, stock_name in rows:
@@ -293,6 +307,17 @@ def get_report_history(
         Paginated list of historical reports
     """
     try:
+        # Free users can only see reports they generated themselves
+        tier = current_user.membership_tier if not current_user.is_admin else 'premium'
+        if tier == 'free':
+            from app.models.report_usage import ReportUsage
+            has_usage = db.query(ReportUsage).filter(
+                ReportUsage.user_id == current_user.id,
+                ReportUsage.stock_id == stock_id,
+            ).first()
+            if not has_usage:
+                return ReportsListResponse(items=[], total=0, page=page, limit=limit)
+
         # Calculate offset
         skip = (page - 1) * limit
 
