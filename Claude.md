@@ -42,7 +42,7 @@ cd backend && pytest --cov=app --cov-report=term-missing
 
 ## Gotchas
 
-- `FALLBACK_TOP_N=100`（候選池上限）在 `hard_filter.py`
+- `FALLBACK_TOP_N=500`（候選池上限）在 `hard_filter.py`
 - Pydantic v2 class Config 已棄用，用 `model_config = ConfigDict(...)`
 - `.env` 檔案不可提交至 git
 - 前端 `components.d.ts` 為自動生成，勿手動編輯

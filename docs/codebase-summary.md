@@ -51,7 +51,7 @@ stock-system/
 │   │   │   ├── news_collector.py     # Google News RSS 爬蟲
 │   │   │   ├── rate_limiter.py       # API 速率限制
 │   │   │   ├── stock_service.py      # 股票查詢邏輯
-│   │   │   ├── hard_filter.py        # 初步篩選 (成交量，FALLBACK_TOP_N=100)
+│   │   │   ├── hard_filter.py        # 初步篩選 (成交量，FALLBACK_TOP_N=500)
 │   │   │   ├── chip_scorer.py        # 籌碼評分
 │   │   │   ├── fundamental_scorer.py # 基本面評分
 │   │   │   ├── technical_scorer.py   # 技術面評分
@@ -227,7 +227,7 @@ get_current_user(token: str) → User (依賴注入)
 ```
 流程:
 1. HardFilter.filter_by_volume() → 候選股票清單
-   ├─ 量能異常比 > 2.5x 或 FALLBACK_TOP_N=100
+   ├─ 量能異常比 > 2.5x 或 FALLBACK_TOP_N=500
    └─ 保留: stock_id 列表
 
 2. 逐股評分:
@@ -266,10 +266,11 @@ FinmindCollector (FinMind HTTP API)
 └─ fetch_margin_trading() → MarginTrading 表
 
 TWSECollector (TWSE 官方 API)
-├─ fetch_all_daily_prices() → 全市場價格 (STOCK_DAY_ALL)
-├─ fetch_all_institutional() → 全市場法人買賣 (T86)
-├─ fetch_all_margin_trading() → 全市場融資融券 (MI_MARGN)
-├─ fetch_all_valuation() → 全市場估值 (BWIBBU_ALL)
+├─ fetch_latest_prices() → 全市場價格 (STOCK_DAY_ALL)
+├─ fetch_latest_prices_fallback() → 全市場價格備援 (MI_INDEX)
+├─ fetch_institutional_all() → 全市場法人買賣 (T86)
+├─ fetch_margin_all() → 全市場融資融券 (MI_MARGN)
+├─ fetch_per_ratio() → 全市場估值 (BWIBBU_ALL)
 ├─ fetch_monthly_revenue() → 月營收 (t187ap05_P)
 └─ fetch_stock_history() → 個股歷史資料
 
@@ -549,6 +550,17 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 ---
 
 ## 📅 近期更新摘要
+
+### 2026-02-23: 連假後資料抓取備援機制與候選池擴增至500檔
+
+**後端變更**
+- `twse_collector.py`: 新增 `fetch_latest_prices_fallback()` 使用 MI_INDEX 端點，當 STOCK_DAY_ALL 延遲時自動切換
+- `data_fetch_steps.py`: Step B 新增 MI_INDEX 備援邏輯（比對日期不符時觸發）
+- `hard_filter.py`: FALLBACK_TOP_N 從 100 改為 500；新增連假週回溯（往前搜尋 2~4 週）；新增交易日資料不足時回退至最近有充足資料的日期
+- `right_side_signals.py`: 批量篩選新增資料不足回退邏輯（<50 筆時自動回退）
+
+**前端變更**
+- `screening-result-table.vue`: 分頁改用省略號模式（首尾 + 當前頁附近）
 
 ### 2026-02-22: 右側買法新增四項篩選條件與候選池擴增至100檔
 

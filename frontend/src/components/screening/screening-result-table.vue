@@ -56,6 +56,24 @@ function handlePageChange(page: number) {
   currentPage.value = page
 }
 
+// Show first, last, and nearby pages with ellipsis for compact pagination
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+  const pages: (number | '...')[] = [1]
+  const start = Math.max(2, cur - 1)
+  const end = Math.min(total - 1, cur + 1)
+
+  if (start > 2) pages.push('...')
+  for (let i = start; i <= end; i++) pages.push(i)
+  if (end < total - 1) pages.push('...')
+  pages.push(total)
+
+  return pages
+})
+
 const scoreClass = (v: number) => v >= 80 ? 'score-high' : v >= 65 ? 'score-mid' : 'score-low'
 
 const formatChange = (row: ScoreResult) => {
@@ -138,12 +156,14 @@ function openStock(row: ScoreResult) {
     <!-- Pagination -->
     <div v-if="totalPages > 1" class="pagination">
       <button class="page-btn" :disabled="currentPage === 1" @click="handlePageChange(currentPage - 1)">‹</button>
-      <button
-        v-for="p in totalPages"
-        :key="p"
-        :class="['page-btn', { active: p === currentPage }]"
-        @click="handlePageChange(p)"
-      >{{ p }}</button>
+      <template v-for="(p, i) in visiblePages" :key="i">
+        <span v-if="p === '...'" class="page-ellipsis">…</span>
+        <button
+          v-else
+          :class="['page-btn', { active: p === currentPage }]"
+          @click="handlePageChange(p as number)"
+        >{{ p }}</button>
+      </template>
       <button class="page-btn" :disabled="currentPage === totalPages" @click="handlePageChange(currentPage + 1)">›</button>
     </div>
   </div>
@@ -191,6 +211,7 @@ function openStock(row: ScoreResult) {
 .page-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); }
 .page-btn.active { background: var(--amber); color: var(--bg-dark); border-color: var(--amber); font-weight: 700; }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.page-ellipsis { color: var(--text-muted); font-size: 13px; padding: 0 4px; user-select: none; }
 
 .ai-report-badge {
   display: inline-block;

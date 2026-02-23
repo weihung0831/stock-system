@@ -108,7 +108,7 @@ txt(s, 0.8, 0.4, 11, 0.7, "評分系統如何運作？", sz=36, color=GOLD, bold
 bar(s, 0.8, 1.0, 3)
 
 steps = [
-    ("1", "篩選候選股", "從 ~1,300 檔中\n篩出約 100 檔", BLUE),
+    ("1", "篩選候選股", "從 ~1,300 檔中\n篩出約 500 檔", BLUE),
     ("2", "三因子評分", "籌碼+基本面+技術\n各打 0-100 分", GREEN),
     ("3", "加權合計", "依權重合計\n產出綜合分數\n寫入排名", GOLD),
 ]
@@ -146,15 +146,15 @@ txt(s, 1.1, 2.9, 5, 0.4, "篩選條件：ratio > 2.5", sz=16, color=GREEN, bold=
 txt(s, 1.1, 3.5, 5, 0.8, "意義：成交量突然暴增的股票\n通常代表有重大事件或資金湧入", sz=13, color=GRAY)
 
 card(s, 7, 1.5, 5.5, 3.8, fill=RGBColor(0x1E, 0x3A, 0x1E))
-txt(s, 7.3, 1.6, 5, 0.5, "🏆  路線 B：Top 100 保底", sz=22, color=GREEN, bold=True)
+txt(s, 7.3, 1.6, 5, 0.5, "🏆  路線 B：Top 500 保底", sz=22, color=GREEN, bold=True)
 txt(s, 7.3, 2.2, 5, 0.35, "篩選條件：", sz=14, color=DIM)
-txt(s, 7.3, 2.5, 5, 0.4, "FALLBACK_TOP_N = 100", sz=16, color=WHITE, font="Consolas")
-txt(s, 7.3, 2.9, 5, 0.4, "最新交易日成交量前 100 名", sz=16, color=GREEN, bold=True)
-txt(s, 7.3, 3.5, 5, 0.8, "意義：確保市場上最活躍的\n大型股都會被納入評分", sz=13, color=GRAY)
+txt(s, 7.3, 2.5, 5, 0.4, "FALLBACK_TOP_N = 500", sz=16, color=WHITE, font="Consolas")
+txt(s, 7.3, 2.9, 5, 0.4, "最新交易日成交量前 500 名", sz=16, color=GREEN, bold=True)
+txt(s, 7.3, 3.5, 5, 0.8, "意義：確保市場上最活躍的\n股票都會被納入評分", sz=13, color=GRAY)
 
 card(s, 3, 5.8, 7.3, 1.2, fill=RGBColor(0x3A, 0x2E, 0x15))
 txt(s, 3.3, 5.85, 6.7, 0.5, "🎯  合併結果", sz=22, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
-txt(s, 3.3, 6.35, 6.7, 0.5, "A 排前面 + B 填充補齊 → 去重 → 約 100 檔候選股進入評分", sz=14, color=GRAY, align=PP_ALIGN.CENTER)
+txt(s, 3.3, 6.35, 6.7, 0.5, "A 排前面 + B 填充補齊 → 去重 → 上限 500 檔候選股進入評分", sz=14, color=GRAY, align=PP_ALIGN.CENTER)
 
 txt(s, 3, 5.2, 3.5, 0.5, "↓", sz=28, color=BLUE, align=PP_ALIGN.CENTER)
 txt(s, 7, 5.2, 3.5, 0.5, "↓", sz=28, color=GREEN, align=PP_ALIGN.CENTER)
@@ -673,7 +673,7 @@ bar(s, 0.8, 1.0, 3)
 
 times = [
     ("Step 1", "資料收集", "全市場收盤價\n法人、融資融券\n營收、財報", BLUE),
-    ("Step 2", "候選股篩選", "量能異常偵測\n+ Top 100 保底\n→ ~100 檔候選", GREEN),
+    ("Step 2", "候選股篩選", "量能異常偵測\n+ Top 500 保底\n→ ~500 檔候選", GREEN),
     ("Step 3", "三因子評分", "籌碼+基本面\n+技術面\n加權排名", GOLD),
     ("完成", "結果上線", "Dashboard\n顯示最新\n排名結果", TEAL),
 ]

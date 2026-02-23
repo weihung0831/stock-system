@@ -119,7 +119,9 @@ A. 股票清單 (FinMind)
    └─ 過濾已下市股票（date 欄位 < 30 天前的排除）
 
 B. 當日收盤 (TWSE bulk，1次 API)
-   └─ 全市場 ~1300 檔 → DailyPrice 表
+   ├─ 主要：STOCK_DAY_ALL (OpenAPI) → 全市場 ~1300 檔
+   ├─ 備援：MI_INDEX (連假後 OpenAPI 延遲時自動切換)
+   └─ → DailyPrice 表
 
 C. 歷史回補 (TWSE STOCK_DAY，逐檔)
    ├─ 對象：Top 100 成交量 ∪ 47 檔優先股
@@ -158,11 +160,11 @@ G. 季財報 (FinMind，逐檔，3 個 dataset)
     ├─ 比值 > 2.5x 的股票 = 量能突增
     └─ 結果：ratio_filtered（可能 0~數十檔）
 
-  路線 B：Top 100 成交量 (FALLBACK_TOP_N = 100)
-    └─ 最新交易日成交量前 100 名
+  路線 B：Top 500 成交量 (FALLBACK_TOP_N = 500)
+    └─ 最新交易日成交量前 500 名
 
-  合併策略：ratio_filtered 在前 + top_100 填充
-  └─ 去重後輸出 ~100 檔候選股
+  合併策略：ratio_filtered 在前 + top_500 填充
+  └─ 去重後輸出 ~500 檔候選股（上限 500）
 ```
 
 ### 📊 Step 3：三因子評分與 LLM 分析 `scoring_engine.py` + `llm_analyzer.py`
@@ -264,7 +266,7 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
     │  └─ 非交易日：略過 (不產生 pipeline_log，減少 DB 寫入)
     │
     ├─ 1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR、營收、財報
-    ├─ 2. hard_filter → 篩出 ~100 檔候選股 (FALLBACK_TOP_N=100)
+    ├─ 2. hard_filter → 篩出 ~500 檔候選股 (FALLBACK_TOP_N=500)
     └─ 3. scoring + llm_analysis
        ├─ 三因子加權評分 → 排名寫入 DB
        └─ Gemini 產出所有評分股票的 AI 分析 (0.5s/次)

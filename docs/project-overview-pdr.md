@@ -58,7 +58,7 @@
 - **綜合分數**: 加權組合 (客製化權重)
 
 ### 4. 🔍 篩選系統 (Screening)
-- **硬篩選**: 基於成交量的初步篩選（FALLBACK_TOP_N=100）
+- **硬篩選**: 基於成交量的初步篩選（FALLBACK_TOP_N=500）
 - **標準篩選**: 預設權重的快速篩選
 - **自訂篩選**: 彈性的篩選條件組合
 
@@ -407,6 +407,13 @@
 - 後端：`chat_rate_limiter.py`，會員等級差異限流
 - 前端：429 錯誤處理 + 升級對話提示
 - 測試：`test_chat_rate_limiter.py` (7個) 涵蓋分鐘/日限制/重置邏輯
+
+### 2026-02-23: 🔄 連假後資料抓取備援機制與候選池擴增至500檔
+- **資料備援**：`twse_collector.py` 新增 `fetch_latest_prices_fallback()` (MI_INDEX 端點)
+- **Pipeline 備援**：`data_fetch_steps.py` 當 STOCK_DAY_ALL 資料過期時自動切換 MI_INDEX
+- **Hard Filter 強化**：FALLBACK_TOP_N 100→500；連假週回溯 2~4 週；資料不足日自動回退
+- **右側篩選備援**：批量篩選 <50 筆時自動回退至最近充足資料日
+- **前端分頁**：省略號分頁模式（首尾 + 當前頁附近）
 
 ### 2026-02-22: 📈 右側買法新增四項篩選條件與候選池擴增至100檔
 - **後端新增**：`RightSideSignalDetector` 新增 4 個方法

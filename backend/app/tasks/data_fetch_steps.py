@@ -154,6 +154,7 @@ def _fetch_twse_history_batch(
     twse: 'TWSECollector',
     db: Session,
     stock_ids: List[str],
+    months: int = 8,
 ) -> int:
     """Fetch historical prices via TWSE STOCK_DAY API (free, per-stock)."""
     saved = 0
@@ -162,7 +163,7 @@ def _fetch_twse_history_batch(
         if i > 0 and i % 10 == 0:
             logger.info(f"  TWSE history progress: {i}/{total}, {saved} saved")
 
-        prices = twse.fetch_stock_history(sid, months=8)
+        prices = twse.fetch_stock_history(sid, months=months)
         for p in prices:
             existing = db.query(DailyPrice).filter_by(
                 stock_id=sid, trade_date=p["trade_date"]
@@ -468,6 +469,22 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
             logger.info(f"TWSE prices saved: {saved_twse} (total fetched: {len(twse_prices)})")
         else:
             logger.warning("TWSE prices empty (market may be closed)")
+
+        # Step B fallback: if STOCK_DAY_ALL is stale (date != target),
+        # use MI_INDEX endpoint which updates faster (1 call, all stocks)
+        twse_data_date = twse_prices[0]["trade_date"] if twse_prices else None
+        if twse_data_date != date_str:
+            logger.warning(
+                f"TWSE bulk data is stale ({twse_data_date}), "
+                f"trying MI_INDEX fallback for {date_str}"
+            )
+            fallback_prices = twse.fetch_latest_prices_fallback(date_str)
+            if fallback_prices:
+                fallback_saved = _save_twse_prices(db, fallback_prices)
+                saved_twse += fallback_saved
+                logger.info(f"MI_INDEX fallback saved: {fallback_saved}")
+            else:
+                logger.warning("MI_INDEX fallback also empty")
 
         # --- Step C: Historical backfill for top stocks ---
         saved_hist = 0

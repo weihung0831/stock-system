@@ -23,14 +23,28 @@ def screen_batch(
     db: Session = Depends(get_db),
 ):
     """Batch screen: top 100 stocks by recent volume from DailyPrice."""
-    from datetime import timedelta
-    from sqlalchemy import func
+    from sqlalchemy import func, desc
     from app.models.daily_price import DailyPrice
 
-    # 取最近有價格資料的日期，抓該日成交量前 100 名
     latest_date = db.query(func.max(DailyPrice.trade_date)).scalar()
     if not latest_date:
         return {"items": [], "total": 0, "min_signals": min_signals}
+
+    # If latest date has too few records (e.g. API delay after holidays),
+    # fall back to the most recent date with sufficient data
+    day_count = db.query(func.count(DailyPrice.id)).filter(
+        DailyPrice.trade_date == latest_date
+    ).scalar() or 0
+    if day_count < 50:
+        rich_date = (
+            db.query(DailyPrice.trade_date)
+            .group_by(DailyPrice.trade_date)
+            .having(func.count(DailyPrice.id) >= 50)
+            .order_by(desc(DailyPrice.trade_date))
+            .first()
+        )
+        if rich_date:
+            latest_date = rich_date[0]
 
     top100_vol = (
         db.query(DailyPrice.stock_id)

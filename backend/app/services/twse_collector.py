@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 TWSE_OPENAPI = "https://openapi.twse.com.tw/v1/exchangeReport"
 TWSE_STOCK_DAY = "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY"
+TWSE_MI_INDEX = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
 
 
 class TWSECollector:
@@ -70,6 +71,81 @@ class TWSECollector:
 
         except Exception as e:
             logger.error(f"TWSE fetch failed: {e}")
+            return []
+
+    def fetch_latest_prices_fallback(self, date_str: str) -> List[Dict]:
+        """
+        Fallback: fetch all stock prices via MI_INDEX endpoint.
+
+        Use when STOCK_DAY_ALL (OpenAPI) is stale. MI_INDEX updates faster
+        and returns the same data (1 API call, all stocks).
+        """
+        try:
+            twse_date = date_str.replace("-", "")
+            resp = requests.get(
+                TWSE_MI_INDEX,
+                params={
+                    "date": twse_date,
+                    "type": "ALLBUT0999",
+                    "response": "json",
+                },
+                timeout=30,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            if resp.status_code != 200:
+                logger.error(f"TWSE MI_INDEX error: {resp.status_code}")
+                return []
+
+            data = resp.json()
+            if data.get("stat") != "OK":
+                return []
+
+            # Price table is typically at index 8
+            price_table = None
+            for t in data.get("tables", []):
+                if t.get("data") and len(t["data"]) > 100:
+                    fields = t.get("fields", [])
+                    if "證券代號" in fields and "收盤價" in fields:
+                        price_table = t
+                        break
+
+            if not price_table:
+                logger.warning("MI_INDEX: price table not found")
+                return []
+
+            def clean_num(s):
+                return str(s).replace(",", "").strip()
+
+            results = []
+            for row in price_table["data"]:
+                code = str(row[0]).strip()
+                if not code or not code[0].isdigit():
+                    continue
+                try:
+                    volume = int(clean_num(row[2]) or 0)
+                    open_p = float(clean_num(row[5]) or 0)
+                    high = float(clean_num(row[6]) or 0)
+                    low = float(clean_num(row[7]) or 0)
+                    close = float(clean_num(row[8]) or 0)
+                    if close == 0:
+                        continue
+                    results.append({
+                        "stock_id": code,
+                        "trade_date": date_str,
+                        "open": open_p,
+                        "high": high,
+                        "low": low,
+                        "close": close,
+                        "volume": volume,
+                    })
+                except (ValueError, TypeError, IndexError):
+                    continue
+
+            logger.info(f"TWSE MI_INDEX fallback: {len(results)} stocks for {date_str}")
+            return results
+
+        except Exception as e:
+            logger.error(f"TWSE MI_INDEX fallback failed: {e}")
             return []
 
     def fetch_per_ratio(self) -> List[Dict]:
