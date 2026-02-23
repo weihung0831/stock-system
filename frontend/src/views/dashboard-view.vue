@@ -24,6 +24,7 @@ const sectorFiltered = computed(() => {
 const currentPage = ref(1)
 const pageSize = 10
 const topN = 30
+const LOW_RESULT_THRESHOLD = 10
 
 const top30 = computed(() => {
   const sliced = sectorFiltered.value.slice(0, topN)
@@ -196,6 +197,14 @@ onMounted(async () => {
           {{ tab.label }} ({{ tab.count }})
         </option>
       </select>
+    </div>
+
+    <!-- Low results hint (post-holiday) -->
+    <div
+      v-if="!screeningStore.loading && screeningStore.results.length > 0 && screeningStore.results.length < LOW_RESULT_THRESHOLD"
+      class="low-results-hint"
+    >
+      連假後交易資料尚在累積中，篩選結果較少屬正常現象，待數個交易日後將恢復正常數量。
     </div>
 
     <!-- Stock ranking table -->
@@ -397,6 +406,17 @@ onMounted(async () => {
 }
 .sortable-th:hover .sort-icon {
   color: var(--amber);
+}
+
+.low-results-hint {
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  background: rgba(229, 169, 26, 0.08);
+  border: 1px solid rgba(229, 169, 26, 0.25);
+  border-radius: 8px;
+  color: var(--amber);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .ai-report-badge {
