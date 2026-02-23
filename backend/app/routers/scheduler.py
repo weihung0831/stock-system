@@ -288,7 +288,12 @@ def update_scheduler_settings(
             if row.scheduler_enabled:
                 app_scheduler.reschedule_job(
                     "daily_pipeline",
-                    trigger=CronTrigger(day_of_week="mon-fri", hour=row.scheduler_hour, minute=row.scheduler_minute),
+                    trigger=CronTrigger(
+                        day_of_week="mon-fri",
+                        hour=row.scheduler_hour,
+                        minute=row.scheduler_minute,
+                        timezone="Asia/Taipei",
+                    ),
                 )
                 logger.info(f"Rescheduled pipeline to {row.scheduler_hour:02d}:{row.scheduler_minute:02d}")
             else:
