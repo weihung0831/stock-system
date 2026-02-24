@@ -10,6 +10,11 @@ logger = logging.getLogger(__name__)
 FINMIND_API = "https://api.finmindtrade.com/api/v4/data"
 
 
+class FinMindQuotaExhausted(Exception):
+    """Raised when FinMind API returns 402 (daily quota reached)."""
+    pass
+
+
 class FinMindCollector:
     """Collector for Taiwan stock data using FinMind v4 API directly."""
 
@@ -41,6 +46,9 @@ class FinMindCollector:
                     logger.warning(f"Rate limited, waiting 60s (attempt {attempt+1})")
                     time.sleep(60)
                     continue
+                elif resp.status_code == 402:
+                    logger.error(f"FinMind quota exhausted (402): {resp.text[:200]}")
+                    raise FinMindQuotaExhausted(resp.text[:200])
                 else:
                     logger.error(f"FinMind API error {resp.status_code}: {resp.text[:200]}")
                     return None

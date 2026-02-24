@@ -115,14 +115,29 @@ def _fetch_finmind_prices_batch(
     start_date: str,
     end_date: str,
 ) -> int:
-    """Fetch historical prices via FinMind per-stock API."""
+    """Fetch historical prices via FinMind per-stock API.
+
+    Stops early if FinMind quota is exhausted (402) and commits
+    whatever was saved so far.
+    """
+    from app.services.finmind_collector import FinMindQuotaExhausted
+
     saved = 0
     total = len(stock_ids)
     for i, sid in enumerate(stock_ids):
         if i > 0 and i % 30 == 0:
             logger.info(f"  FinMind progress: {i}/{total}, {saved} saved")
 
-        df = collector.fetch_daily_prices(sid, start_date, end_date)
+        try:
+            df = collector.fetch_daily_prices(sid, start_date, end_date)
+        except FinMindQuotaExhausted:
+            logger.warning(
+                f"FinMind quota exhausted at {i}/{total}, "
+                f"saved {saved} so far. Remaining stocks need TWSE fallback."
+            )
+            db.commit()
+            return saved
+
         if df is None or df.empty:
             continue
 
@@ -489,7 +504,7 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         # --- Step C: Historical backfill for top stocks ---
         saved_hist = 0
         # Get top 100 by volume from latest TWSE data
-        top_stock_ids = _get_top_stocks_by_volume(db, limit=100)
+        top_stock_ids = _get_top_stocks_by_volume(db, limit=500)
         # Merge with priority stocks for coverage
         all_target_ids = list(set(top_stock_ids) | set(PRIORITY_STOCKS))
         # Filter to valid numeric stock IDs
@@ -516,8 +531,11 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
             # Check if any still need more data, use TWSE STOCK_DAY as fallback
             still_need = _stocks_needing_backfill(db, need_backfill, 20)
             if still_need:
-                logger.info(f"Step C fallback: {len(still_need)} stocks via TWSE STOCK_DAY")
-                saved_hist += _fetch_twse_history_batch(twse, db, still_need[:20])
+                logger.info(
+                    f"Step C fallback: {len(still_need)} stocks via TWSE STOCK_DAY "
+                    f"(~{len(still_need) * 24}s estimated)"
+                )
+                saved_hist += _fetch_twse_history_batch(twse, db, still_need)
         else:
             logger.info("Step C: All target stocks have 30+ days data")
 

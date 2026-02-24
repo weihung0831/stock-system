@@ -2,13 +2,19 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, timedelta
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func as sqlfunc, desc as sqldesc
 from sqlalchemy.orm import Session
+import pandas as pd
 
 from app.database import get_db
+from app.dependencies import get_current_user
+from app.models.user import User
 from app.models.stock import Stock
+from app.models.daily_price import DailyPrice
 from app.services.right_side_signal_detector import RightSideSignalDetector
 
 logger = logging.getLogger(__name__)
@@ -16,59 +22,84 @@ router = APIRouter(prefix="/api/right-side-signals", tags=["right-side-signals"]
 
 detector = RightSideSignalDetector()
 
+# Day-level cache: {date_str: [all_results]}
+_cache: dict[str, list[dict]] = {}
+_cache_date: str = ""
+
+
+def _get_candidates(db: Session) -> list[str]:
+    """Get candidate stock IDs using Hard Filter (consistent with Dashboard)."""
+    from app.services.hard_filter import HardFilter
+    return HardFilter().filter_by_volume(db, threshold=2.5)
+
+
+def _batch_load_prices(db: Session, stock_ids: list[str]) -> dict[str, pd.DataFrame]:
+    """Load 180 days of prices for all stocks in 1 SQL query, return per-stock DataFrames."""
+    cutoff = date.today() - timedelta(days=180)
+    rows = (
+        db.query(
+            DailyPrice.stock_id, DailyPrice.trade_date,
+            DailyPrice.open, DailyPrice.high, DailyPrice.low,
+            DailyPrice.close, DailyPrice.volume,
+        )
+        .filter(DailyPrice.stock_id.in_(stock_ids), DailyPrice.trade_date >= cutoff)
+        .order_by(DailyPrice.stock_id, DailyPrice.trade_date.asc())
+        .all()
+    )
+
+    # Group into per-stock DataFrames
+    grouped: dict[str, list] = {}
+    for sid, td, o, h, lo, c, v in rows:
+        grouped.setdefault(sid, []).append({
+            "date": td, "open": float(o), "high": float(h),
+            "low": float(lo), "close": float(c), "volume": int(v),
+        })
+
+    result = {}
+    for sid, records in grouped.items():
+        df = pd.DataFrame(records)
+        df.set_index("date", inplace=True)
+        result[sid] = df
+    return result
+
 
 @router.get("/screen/batch")
 def screen_batch(
     min_signals: int = Query(default=2, ge=1, le=6),
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
-    """Batch screen: top 500 stocks by recent volume from DailyPrice."""
-    from sqlalchemy import func, desc
-    from app.models.daily_price import DailyPrice
+    """Batch screen right-side signals with day-level caching."""
+    global _cache, _cache_date
+    today = str(date.today())
 
-    latest_date = db.query(func.max(DailyPrice.trade_date)).scalar()
-    if not latest_date:
-        return {"items": [], "total": 0, "min_signals": min_signals}
+    # Return cached results if available (filter by min_signals)
+    if _cache_date == today and _cache:
+        filtered = [r for r in _cache if r["triggered_count"] >= min_signals]
+        return {"items": filtered, "total": len(filtered), "min_signals": min_signals}
 
-    # If latest date has too few records (e.g. API delay after holidays),
-    # fall back to the most recent date with sufficient data
-    day_count = db.query(func.count(DailyPrice.id)).filter(
-        DailyPrice.trade_date == latest_date
-    ).scalar() or 0
-    if day_count < 50:
-        rich_date = (
-            db.query(DailyPrice.trade_date)
-            .group_by(DailyPrice.trade_date)
-            .having(func.count(DailyPrice.id) >= 50)
-            .order_by(desc(DailyPrice.trade_date))
-            .first()
-        )
-        if rich_date:
-            latest_date = rich_date[0]
-
-    top100_vol = (
-        db.query(DailyPrice.stock_id)
-        .filter(DailyPrice.trade_date == latest_date)
-        .order_by(DailyPrice.volume.desc())
-        .limit(500)
-        .all()
-    )
-    stock_ids = [row[0] for row in top100_vol]
+    # Get candidates (same pool as Dashboard)
+    stock_ids = _get_candidates(db)
     if not stock_ids:
         return {"items": [], "total": 0, "min_signals": min_signals}
 
-    # Build stock name lookup
+    # Batch load prices in 1 SQL query (instead of 500)
+    price_map = _batch_load_prices(db, stock_ids)
+
+    # Build stock name lookup (1 SQL)
     stocks = db.query(Stock.stock_id, Stock.stock_name).filter(
         Stock.stock_id.in_(stock_ids)
     ).all()
     name_map = {s.stock_id: s.stock_name for s in stocks}
 
-    results = []
+    # Detect signals using pre-loaded DataFrames
+    all_results = []
     for sid in stock_ids:
         try:
-            result = detector.detect(db, sid)
-            if result["triggered_count"] >= min_signals:
-                results.append({
+            df = price_map.get(sid)
+            result = detector.detect(db, sid, preloaded_df=df)
+            if result["triggered_count"] > 0:
+                all_results.append({
                     "stock_id": sid,
                     "stock_name": name_map.get(sid, sid),
                     **result,
@@ -76,16 +107,22 @@ def screen_batch(
         except Exception as e:
             logger.warning(f"Signal detection failed for {sid}: {e}")
 
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return {
-        "items": results,
-        "total": len(results),
-        "min_signals": min_signals,
-    }
+    all_results.sort(key=lambda x: x["score"], reverse=True)
+
+    # Cache all results for today
+    _cache = all_results
+    _cache_date = today
+
+    filtered = [r for r in all_results if r["triggered_count"] >= min_signals]
+    return {"items": filtered, "total": len(filtered), "min_signals": min_signals}
 
 
 @router.get("/{stock_id}")
-def get_stock_signals(stock_id: str, db: Session = Depends(get_db)):
+def get_stock_signals(
+    stock_id: str,
+    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+):
     """Get 6 right-side signals for a single stock."""
     result = detector.detect(db, stock_id)
     return {"stock_id": stock_id, **result}

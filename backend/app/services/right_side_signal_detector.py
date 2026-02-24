@@ -26,9 +26,9 @@ class RightSideSignalDetector:
         {"id": "breakout_bb_upper", "label": "突破布林上軌", "weight": 8},
     ]
 
-    def detect(self, db: Session, stock_id: str) -> dict:
+    def detect(self, db: Session, stock_id: str, preloaded_df: pd.DataFrame | None = None) -> dict:
         """Run all 6 signal checks, calculate score & trade prediction."""
-        df = self._load_prices(db, stock_id)
+        df = preloaded_df if preloaded_df is not None else self._load_prices(db, stock_id)
         if df is None or len(df) < 20:
             signals = [
                 {**s, "triggered": False, "description": "資料不足"}

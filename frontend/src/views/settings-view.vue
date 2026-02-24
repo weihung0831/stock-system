@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useScreeningStore } from '@/stores/screening-store'
 import { ElMessage } from 'element-plus'
 import WeightSliderGroup from '@/components/settings/weight-slider-group.vue'
@@ -100,11 +100,20 @@ const logSortKey = ref<string>('')
 const logSortOrder = ref<'asc' | 'desc'>('asc')
 const logCurrentPage = ref(1)
 const logPageSize = 10
+let logPollTimer: ReturnType<typeof setInterval> | null = null
 
 const fetchLogs = async () => {
   try {
     const { data } = await apiClient.get('/scheduler/logs', { params: { limit: 100 } })
     recentLogs.value = data.logs ?? []
+    // Auto-poll while any log is still running
+    const hasRunning = recentLogs.value.some(l => l.status === 'running')
+    if (hasRunning && !logPollTimer) {
+      logPollTimer = setInterval(fetchLogs, 5000)
+    } else if (!hasRunning && logPollTimer) {
+      clearInterval(logPollTimer)
+      logPollTimer = null
+    }
   } catch {
     // Logs are optional
   }
@@ -177,6 +186,13 @@ const handleClearLogs = async () => {
 onMounted(() => {
   fetchLogs()
   sectorTagsStore.fetchTags()
+})
+
+onUnmounted(() => {
+  if (logPollTimer) {
+    clearInterval(logPollTimer)
+    logPollTimer = null
+  }
 })
 </script>
 
