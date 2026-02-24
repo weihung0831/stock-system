@@ -455,12 +455,16 @@ class TestCalcPrediction:
         pred = RightSideSignalDetector._calc_prediction(df, 60)
         assert pred["entry"] == 100.0
 
-    def test_risk_reward_fixed_1_5(self):
-        """risk_reward must always be 1.5."""
+    def test_risk_reward_dynamic(self):
+        """risk_reward varies by score: >=60 → 2.0, >=35 → 1.5, else → 1.0."""
         closes = [100.0] * 25
         df = self._make_df(closes)
-        pred = RightSideSignalDetector._calc_prediction(df, 60)
-        assert pred["risk_reward"] == 1.5
+        pred_high = RightSideSignalDetector._calc_prediction(df, 60)
+        pred_mid = RightSideSignalDetector._calc_prediction(df, 50)
+        pred_low = RightSideSignalDetector._calc_prediction(df, 20)
+        assert pred_high["risk_reward"] == 2.0
+        assert pred_mid["risk_reward"] == 1.5
+        assert pred_low["risk_reward"] == 1.0
 
     def test_action_buy_when_score_ge_60(self):
         """action = buy when score >= 60."""
@@ -519,16 +523,22 @@ class TestCalcPrediction:
         assert pred["stop_loss"] == expected_stop
 
     def test_target_formula(self):
-        """target = entry + 1.5 * (entry - stop_loss)."""
-        # Use normal upward trend where stop < entry
+        """target = entry + M * risk, M depends on score."""
         closes = [100.0] * 24 + [110.0]
         lows = [85.0] * 24 + [105.0]
         df = self._make_df(closes, lows=lows)
+        # score>=60 → multiplier=2.0
         pred = RightSideSignalDetector._calc_prediction(df, 60)
         expected_target = round(
-            pred["entry"] + 1.5 * (pred["entry"] - pred["stop_loss"]), 2
+            pred["entry"] + 2.0 * (pred["entry"] - pred["stop_loss"]), 2
         )
         assert pred["target"] == expected_target
+        # score>=35 → multiplier=1.5
+        pred_mid = RightSideSignalDetector._calc_prediction(df, 50)
+        expected_mid = round(
+            pred_mid["entry"] + 1.5 * (pred_mid["entry"] - pred_mid["stop_loss"]), 2
+        )
+        assert pred_mid["target"] == expected_mid
 
     def test_prediction_dict_has_required_keys(self):
         """Prediction dict must contain all required keys."""

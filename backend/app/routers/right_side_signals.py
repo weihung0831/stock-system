@@ -22,7 +22,7 @@ def screen_batch(
     min_signals: int = Query(default=2, ge=1, le=6),
     db: Session = Depends(get_db),
 ):
-    """Batch screen: top 100 stocks by recent volume from DailyPrice."""
+    """Batch screen: top 500 stocks by recent volume from DailyPrice."""
     from sqlalchemy import func, desc
     from app.models.daily_price import DailyPrice
 
@@ -50,7 +50,7 @@ def screen_batch(
         db.query(DailyPrice.stock_id)
         .filter(DailyPrice.trade_date == latest_date)
         .order_by(DailyPrice.volume.desc())
-        .limit(100)
+        .limit(500)
         .all()
     )
     stock_ids = [row[0] for row in top100_vol]

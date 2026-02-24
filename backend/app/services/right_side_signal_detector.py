@@ -96,7 +96,9 @@ class RightSideSignalDetector:
             stop_loss = round(close * 0.95, 2)
 
         risk = close - stop_loss
-        target = round(close + 1.5 * risk, 2) if risk > 0 else round(close * 1.05, 2)
+        reward_multiplier = 2.0 if score >= 60 else 1.5 if score >= 35 else 1.0
+        target = round(close + reward_multiplier * risk, 2) if risk > 0 else round(close * 1.05, 2)
+        rr = round((target - close) / risk, 1) if risk > 0 else 0.0
 
         if score >= 60:
             action = "buy"
@@ -112,7 +114,7 @@ class RightSideSignalDetector:
             "entry": round(close, 2),
             "stop_loss": stop_loss,
             "target": target,
-            "risk_reward": round(1.5, 1),
+            "risk_reward": rr,
             "action": action,
             "action_label": action_label,
         }

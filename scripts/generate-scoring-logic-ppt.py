@@ -646,9 +646,9 @@ txt(s, 5.1, 3.1, 3.4, 0.5, "取最近支撐位\n確保停損低於進場價", sz
 card(s, 9, 1.5, 3.8, 3.0, fill=RGBColor(0x1E, 0x2E, 0x4A))
 txt(s, 9.2, 1.6, 3.4, 0.5, "🎯  目標價", sz=24, color=BLUE, bold=True, align=PP_ALIGN.CENTER)
 txt(s, 9.2, 2.15, 3.4, 0.3, "risk = entry - stop_loss", sz=13, color=WHITE, font="Consolas")
-txt(s, 9.2, 2.45, 3.4, 0.3, "target = entry + 1.5 × risk", sz=13, color=GOLD, bold=True, font="Consolas")
-txt(s, 9.2, 2.8, 3.4, 0.3, "若 risk <= 0:", sz=12, color=DIM, font="Consolas")
-txt(s, 9.2, 3.05, 3.4, 0.3, "  target = entry × 1.05", sz=13, color=ORANGE, font="Consolas")
+txt(s, 9.2, 2.45, 3.4, 0.3, "target = entry + M × risk", sz=13, color=GOLD, bold=True, font="Consolas")
+txt(s, 9.2, 2.75, 3.4, 0.3, "M: ≥60→2.0  ≥35→1.5  else→1.0", sz=11, color=ORANGE, font="Consolas")
+txt(s, 9.2, 3.05, 3.4, 0.3, "若 risk<=0: entry × 1.05", sz=12, color=DIM, font="Consolas")
 
 # Action suggestions
 txt(s, 0.8, 4.8, 11, 0.5, "動作建議（依信號分數判定）", sz=22, color=GOLD, bold=True)

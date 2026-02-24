@@ -66,7 +66,7 @@ stock-system/
 │   │   │   ├── chat_service.py       # AI 聊天服務 (建構系統提示詞 + 編排 LLM 對話)
 │   │   │   ├── chat_rate_limiter.py  # 聊天限流 (會員等級差異: Free 3/min+10/day, Premium 5/min+100/day)
 │   │   │   ├── report_rate_limiter.py # 報告生成限流 (Free 5/day, Premium unlimited)
-│   │   │   ├── right_side_signal_detector.py # 右側買法信號檢測 (6個信號 + 4個篩選條件)
+│   │   │   ├── right_side_signal_detector.py # 右側買法信號檢測 (6個信號 + 4個篩選條件 + 動態風報比計算)
 │   │   │   ├── news_preparator.py    # 新聞預處理
 │   │   │   ├── on_demand_data_fetcher.py # 按需資料抓取 (非 Pipeline 股票)
 │   │   │   └── prompt_templates.py   # LLM 提示詞範本
@@ -109,7 +109,7 @@ stock-system/
 │   │   │   ├── chip-stats-view.vue   # 籌碼統計
 │   │   │   ├── reports-list-view.vue # 報告清單
 │   │   │   ├── history-backtest-view.vue # 回測歷史
-│   │   │   ├── right-side-screening-view.vue # 右側買法篩選
+│   │   │   ├── right-side-screening-view.vue # 右側買法篩選 (9欄表格含操作/報酬比欄 + 3組標籤式篩選列)
 │   │   │   └── settings-view.vue     # 系統設定
 │   │   ├── components/               # 22 個可重用元件 (含新增右側買法條件標籤顯示)
 │   │   │   ├── ai-assistant/
@@ -166,7 +166,7 @@ stock-system/
 │   │   │   ├── stock.ts              # Stock, DailyPrice, Institutional
 │   │   │   ├── screening.ts          # ScreeningParams, Result
 │   │   │   ├── report.ts             # Report, LLMReport
-│   │   │   └── right-side-signals.ts # RightSideSignal, RightSideSignalResult (含 today_breakout, weekly_trend_up, strong_recommend, risk_level)
+│   │   │   └── right-side-signals.ts # RightSideSignal, RightSideSignalResult (含 today_breakout, weekly_trend_up, strong_recommend, risk_level, prediction.action, prediction.risk_reward)
 │   │   ├── router/                   # Vue Router 設定
 │   │   └── assets/                   # 靜態資源 (圖片, 字體)
 │   ├── index.html                    # HTML 入口
@@ -551,6 +551,24 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 
 ## 📅 近期更新摘要
 
+### 2026-02-24: 右側買法篩選頁面重新設計與風報比動態計算
+
+**後端變更**
+- `right_side_signals.py`: 批量篩選候選池從 Top 100 擴增至 Top 500（依成交量），與 `hard_filter.py` 的 FALLBACK_TOP_N 一致
+- `right_side_signal_detector.py`:
+  - `risk_reward` 由硬編碼 1.5 改為動態計算：`(target - entry) / risk`
+  - `reward_multiplier` 依分數動態調整：score≥60 → 2.0x，score≥35 → 1.5x，其餘 → 1.0x
+
+**前端變更**
+- `right-side-screening-view.vue`:
+  - 表格新增「操作」欄（buy/hold/avoid 動作建議）與「報酬比」欄（risk_reward 數值）
+  - 信號晶片改用 `flex: 1 1 auto` 讓信號標籤均分填滿欄位
+  - 篩選列重新設計為 3 組標籤式按鈕：
+    - 條件：今日突破 / 週趨勢向上 / 強力推薦
+    - 風險：低 / 中 / 高（顏色：綠/黃/紅，原為下拉選單）
+    - 操作：買入 / 觀望 / 不建議（新增篩選組，顏色：綠/黃/紅）
+  - 欄寬重新分配以容納 9 個欄位（原 7 個）
+
 ### 2026-02-23: 連假後資料抓取備援機制與候選池擴增至500檔
 
 **後端變更**
@@ -812,6 +830,6 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - LLM 分析擴展至所有評分股票
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
-**最後更新**: 2026-02-22
-**版本**: 3.1
-**狀態**: 右側買法新增4個篩選條件，候選池擴增至100檔，301 個測試全部通過
+**最後更新**: 2026-02-24
+**版本**: 3.2
+**狀態**: 右側買法篩選頁面重新設計（操作欄、報酬比欄、標籤式篩選列），候選池擴增至500檔，風報比動態計算，301 個測試全部通過

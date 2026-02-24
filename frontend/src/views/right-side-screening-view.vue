@@ -15,6 +15,7 @@ const filterBreakout = ref(false)
 const filterWeeklyUp = ref(false)
 const filterStrongRec = ref(false)
 const filterRisk = ref<'' | 'low' | 'medium' | 'high'>('')
+const filterAction = ref<'' | 'buy' | 'hold' | 'avoid'>('')
 
 const filteredItems = computed(() => {
   let list = items.value
@@ -22,6 +23,7 @@ const filteredItems = computed(() => {
   if (filterWeeklyUp.value) list = list.filter(i => i.weekly_trend_up)
   if (filterStrongRec.value) list = list.filter(i => i.strong_recommend)
   if (filterRisk.value) list = list.filter(i => i.risk_level === filterRisk.value)
+  if (filterAction.value) list = list.filter(i => i.prediction?.action === filterAction.value)
   return list
 })
 
@@ -52,11 +54,17 @@ function sortIcon(key: string): string {
 const sortedItems = computed(() => {
   if (!sortKey.value) return filteredItems.value
   const arr = [...filteredItems.value]
-  const key = sortKey.value as keyof RightSideScreenItem
   const dir = sortOrder.value === 'asc' ? 1 : -1
   arr.sort((a, b) => {
-    const va = a[key] ?? ''
-    const vb = b[key] ?? ''
+    let va: any, vb: any
+    if (sortKey.value === 'prediction.risk_reward') {
+      va = a.prediction?.risk_reward ?? -1
+      vb = b.prediction?.risk_reward ?? -1
+    } else {
+      const key = sortKey.value as keyof RightSideScreenItem
+      va = a[key] ?? ''
+      vb = b[key] ?? ''
+    }
     if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
     return String(va).localeCompare(String(vb)) * dir
   })
@@ -137,36 +145,26 @@ doScreen()
       </button>
     </div>
 
-    <!-- Extra condition filters -->
-    <div class="tag-filter-bar">
-      <button
-        :class="['tag-toggle', { active: filterBreakout }]"
-        @click="filterBreakout = !filterBreakout; currentPage = 1"
-      >
-        今日突破
-      </button>
-      <button
-        :class="['tag-toggle', { active: filterWeeklyUp }]"
-        @click="filterWeeklyUp = !filterWeeklyUp; currentPage = 1"
-      >
-        週趨勢向上
-      </button>
-      <button
-        :class="['tag-toggle strong', { active: filterStrongRec }]"
-        @click="filterStrongRec = !filterStrongRec; currentPage = 1"
-      >
-        強力推薦
-      </button>
-      <select
-        v-model="filterRisk"
-        class="filter-select"
-        @change="currentPage = 1"
-      >
-        <option value="">風險：全部</option>
-        <option value="low">低風險</option>
-        <option value="medium">中風險</option>
-        <option value="high">高風險</option>
-      </select>
+    <!-- Condition filters -->
+    <div class="filter-groups">
+      <div class="filter-group">
+        <span class="filter-group-label">條件</span>
+        <button :class="['tag-toggle', { active: filterBreakout }]" @click="filterBreakout = !filterBreakout; currentPage = 1">今日突破</button>
+        <button :class="['tag-toggle', { active: filterWeeklyUp }]" @click="filterWeeklyUp = !filterWeeklyUp; currentPage = 1">週趨勢向上</button>
+        <button :class="['tag-toggle strong', { active: filterStrongRec }]" @click="filterStrongRec = !filterStrongRec; currentPage = 1">強力推薦</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">風險</span>
+        <button :class="['tag-toggle risk-low', { active: filterRisk === 'low' }]" @click="filterRisk = filterRisk === 'low' ? '' : 'low'; currentPage = 1">低</button>
+        <button :class="['tag-toggle risk-med', { active: filterRisk === 'medium' }]" @click="filterRisk = filterRisk === 'medium' ? '' : 'medium'; currentPage = 1">中</button>
+        <button :class="['tag-toggle risk-high', { active: filterRisk === 'high' }]" @click="filterRisk = filterRisk === 'high' ? '' : 'high'; currentPage = 1">高</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">操作</span>
+        <button :class="['tag-toggle buy', { active: filterAction === 'buy' }]" @click="filterAction = filterAction === 'buy' ? '' : 'buy'; currentPage = 1">買入</button>
+        <button :class="['tag-toggle hold', { active: filterAction === 'hold' }]" @click="filterAction = filterAction === 'hold' ? '' : 'hold'; currentPage = 1">觀望</button>
+        <button :class="['tag-toggle avoid', { active: filterAction === 'avoid' }]" @click="filterAction = filterAction === 'avoid' ? '' : 'avoid'; currentPage = 1">不建議</button>
+      </div>
     </div>
 
     <!-- Error -->
@@ -188,6 +186,7 @@ doScreen()
       </div>
 
       <div class="card" style="margin-bottom: 20px">
+        <div class="table-scroll-wrapper">
         <table class="stock-table right-side-table">
           <thead>
             <tr>
@@ -197,6 +196,8 @@ doScreen()
               <th class="col-score sortable-th" @click="toggleSort('score')">評分 <span class="sort-icon">{{ sortIcon('score') }}</span></th>
               <th class="col-count sortable-th" @click="toggleSort('triggered_count')">觸發數 <span class="sort-icon">{{ sortIcon('triggered_count') }}</span></th>
               <th class="col-tags">條件標籤</th>
+              <th class="col-action">操作</th>
+              <th class="col-rr sortable-th" @click="toggleSort('prediction.risk_reward')">報酬比 <span class="sort-icon">{{ sortIcon('prediction.risk_reward') }}</span></th>
               <th class="col-signals">訊號明細</th>
             </tr>
           </thead>
@@ -224,6 +225,16 @@ doScreen()
                 </div>
               </td>
               <td>
+                <span v-if="item.prediction" :class="['action-pill', `action-${item.prediction.action}`]">
+                  {{ item.prediction.action_label }}
+                </span>
+                <span v-else class="text-muted">—</span>
+              </td>
+              <td>
+                <span v-if="item.prediction" class="rr-value">{{ item.prediction.risk_reward.toFixed(1) }}</span>
+                <span v-else class="text-muted">—</span>
+              </td>
+              <td>
                 <div class="signal-chips">
                   <span
                     v-for="sig in item.signals"
@@ -238,12 +249,13 @@ doScreen()
               </td>
             </tr>
             <tr v-if="pagedItems.length === 0">
-              <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px">
+              <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px">
                 尚無資料
               </td>
             </tr>
           </tbody>
         </table>
+        </div>
 
         <!-- Pagination -->
         <div v-if="totalPages > 1" class="pagination">
@@ -384,25 +396,61 @@ doScreen()
 .page-btn.active { background: var(--amber, #e5a91a); color: var(--bg-dark, #0e1525); border-color: var(--amber, #e5a91a); font-weight: 700; }
 .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* Right-side table: fixed layout for predictable column widths */
-.right-side-table {
-  table-layout: fixed;
+/* Horizontal scroll on small screens */
+.table-scroll-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
+/* Right-side table: fixed layout, full width */
+.right-side-table {
+  table-layout: fixed;
+  width: 100%;
+}
 
-.col-rank { width: 36px; }
-.col-code { width: 80px; }
-.col-name { width: 150px; }
-.col-score { width: 80px; }
-.col-count { width: 80px; }
-.col-tags { width: 18%; }
-.col-signals { width: auto; }
+.col-rank { width: 3%; }
+.col-code { width: 6%; }
+.col-name { width: 9%; }
+.col-score { width: 5%; }
+.col-count { width: 5%; }
+.col-tags { width: 16%; }
+.col-action { width: 6%; }
+.col-rr { width: 6%; }
+.col-signals { width: 44%; }
+
+/* Action pill */
+.action-pill {
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.action-buy { background: rgba(34, 197, 94, 0.12); color: var(--up); border: 1px solid rgba(34, 197, 94, 0.25); }
+.action-hold { background: rgba(251, 191, 36, 0.12); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.25); }
+.action-avoid { background: rgba(239, 68, 68, 0.12); color: var(--down); border: 1px solid rgba(239, 68, 68, 0.25); }
+
+.rr-value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.text-muted {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
 
 /* Signal chips (page-specific) */
 .signal-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+.signal-chips .mini-chip {
+  flex: 1 1 auto;
+  text-align: center;
 }
 
 .mini-chip {
@@ -421,13 +469,26 @@ doScreen()
   background: rgba(34, 197, 94, 0.08);
 }
 
-/* Tag filter bar */
-.tag-filter-bar {
+
+.filter-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.filter-group {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-group-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  min-width: 28px;
 }
 
 .tag-toggle {
@@ -458,6 +519,42 @@ doScreen()
   background: rgba(34, 197, 94, 0.15);
   border-color: var(--up);
   color: var(--up);
+}
+
+.tag-toggle.risk-low.active {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--up);
+  color: var(--up);
+}
+
+.tag-toggle.risk-med.active {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.tag-toggle.risk-high.active {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--down);
+  color: var(--down);
+}
+
+.tag-toggle.buy.active {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--up);
+  color: var(--up);
+}
+
+.tag-toggle.hold.active {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.tag-toggle.avoid.active {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--down);
+  color: var(--down);
 }
 
 /* Tag chips cell */
@@ -549,6 +646,32 @@ doScreen()
     font-size: 16px;
     font-weight: 900;
     color: #0e1525 !important;
+  }
+
+  .right-side-table {
+    table-layout: auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .col-rank,
+  .col-code,
+  .col-name,
+  .col-score,
+  .col-count,
+  .col-tags,
+  .col-action,
+  .col-rr,
+  .col-signals {
+    width: auto;
+  }
+
+  .signal-chips {
+    flex-wrap: nowrap;
+  }
+
+  .tag-chips-cell {
+    flex-wrap: nowrap;
   }
 }
 </style>
