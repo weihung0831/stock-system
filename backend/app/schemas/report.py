@@ -1,6 +1,6 @@
 """LLM report-related schemas."""
 from datetime import date, datetime
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 
 
@@ -15,6 +15,7 @@ class LLMReportResponse(BaseModel):
     chip_analysis: str
     fundamental_analysis: str
     technical_analysis: str
+    right_side_analysis: Optional[str] = ""
     news_sentiment: str
     news_summary: str
     risk_alerts: List[str]

@@ -34,6 +34,7 @@ function splitToBullets(text: string | undefined | null): string[] {
 const chipBullets = computed(() => splitToBullets(props.report?.chip_analysis))
 const fundamentalBullets = computed(() => splitToBullets(props.report?.fundamental_analysis))
 const technicalBullets = computed(() => splitToBullets(props.report?.technical_analysis))
+const rightSideBullets = computed(() => splitToBullets(props.report?.right_side_analysis))
 const newsSummaryBullets = computed(() => splitToBullets(props.report?.news_summary))
 const recommendationItems = computed(() => splitToBullets(props.report?.recommendation))
 </script>
@@ -67,6 +68,13 @@ const recommendationItems = computed(() => splitToBullets(props.report?.recommen
     <ul class="llm-bullets">
       <li v-for="(item, idx) in technicalBullets" :key="'t'+idx">{{ item }}</li>
     </ul>
+
+    <template v-if="rightSideBullets.length > 0">
+      <h4>🎯 右側買法信號</h4>
+      <ul class="llm-bullets right-side">
+        <li v-for="(item, idx) in rightSideBullets" :key="'rs'+idx">{{ item }}</li>
+      </ul>
+    </template>
 
     <h4>📰 新聞情緒</h4>
     <p v-if="report.news_sentiment"><strong>情緒:</strong> {{ report.news_sentiment }}</p>
@@ -105,6 +113,9 @@ const recommendationItems = computed(() => splitToBullets(props.report?.recommen
 }
 .llm-bullets li {
   margin-bottom: 4px;
+}
+.llm-bullets.right-side li {
+  color: var(--text-secondary);
 }
 .llm-bullets.risk li {
   color: #fca5a5;

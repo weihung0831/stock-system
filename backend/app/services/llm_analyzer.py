@@ -17,6 +17,7 @@ from app.models.revenue import Revenue
 from app.models.llm_report import LLMReport
 from app.services.llm_client import LLMClient
 from app.services.news_preparator import NewsPreparator
+from app.services.right_side_signal_detector import RightSideSignalDetector
 from app.services.prompt_templates import (
     SYSTEM_PROMPT,
     RESPONSE_SCHEMA,
@@ -79,6 +80,7 @@ class LLMAnalyzer:
                 chip_data=stock_data['chip'],
                 fundamental_data=stock_data['fundamental'],
                 technical_data=stock_data['technical'],
+                right_side_data=stock_data['right_side'],
                 news_text=news_text,
                 scores=score_data
             )
@@ -114,10 +116,13 @@ class LLMAnalyzer:
                 LLMReport.report_date == report_date
             ).first()
 
+            right_side_text = result.get('right_side_analysis', '')
+
             if existing:
                 existing.chip_analysis = result['chip_analysis']
                 existing.fundamental_analysis = result['fundamental_analysis']
                 existing.technical_analysis = result['technical_analysis']
+                existing.right_side_analysis = right_side_text
                 existing.news_sentiment = result['news_sentiment']
                 existing.news_summary = result['news_summary']
                 existing.risk_alerts = result['risk_alerts']
@@ -133,6 +138,7 @@ class LLMAnalyzer:
                     chip_analysis=result['chip_analysis'],
                     fundamental_analysis=result['fundamental_analysis'],
                     technical_analysis=result['technical_analysis'],
+                    right_side_analysis=right_side_text,
                     news_sentiment=result['news_sentiment'],
                     news_summary=result['news_summary'],
                     risk_alerts=result['risk_alerts'],
@@ -247,7 +253,8 @@ class LLMAnalyzer:
         data: Dict[str, Any] = {
             'chip': {},
             'fundamental': {},
-            'technical': {}
+            'technical': {},
+            'right_side': {}
         }
 
         try:
@@ -277,28 +284,25 @@ class LLMAnalyzer:
                 for inst in institutional
             ]
 
-            # -- Chip: margin trading latest --
-            margin = (
+            # -- Chip: margin trading last 5 days --
+            margins = (
                 db.query(MarginTrading)
                 .filter(MarginTrading.stock_id == stock_id)
                 .order_by(desc(MarginTrading.trade_date))
-                .first()
+                .limit(5)
+                .all()
             )
 
-            if margin:
-                data['chip']['margin'] = {
-                    'margin_balance': margin.margin_balance,
-                    'margin_change': margin.margin_change,
-                    'short_balance': margin.short_balance,
-                    'short_change': margin.short_change,
+            data['chip']['margin'] = [
+                {
+                    'date': m.trade_date.strftime('%Y-%m-%d'),
+                    'margin_balance': m.margin_balance,
+                    'margin_change': m.margin_change,
+                    'short_balance': m.short_balance,
+                    'short_change': m.short_change,
                 }
-            else:
-                data['chip']['margin'] = {
-                    'margin_balance': 'N/A',
-                    'margin_change': 'N/A',
-                    'short_balance': 'N/A',
-                    'short_change': 'N/A',
-                }
+                for m in margins
+            ] if margins else []
 
             # -- Fundamental: revenue last 3 months --
             revenues = (
@@ -350,6 +354,11 @@ class LLMAnalyzer:
             )
 
             if prices:
+                latest = prices[0]  # desc order, index 0 = most recent
+                data['technical']['close'] = f"{float(latest.close):.2f}"
+                data['technical']['volume'] = int(latest.volume)
+                data['technical']['trade_date'] = latest.trade_date.strftime('%Y-%m-%d')
+
                 closes = [float(p.close) for p in prices]
                 # Moving averages
                 for period in [5, 10, 20, 60, 120]:
@@ -378,6 +387,29 @@ class LLMAnalyzer:
                 else:
                     data['technical']['macd_dif'] = 'N/A'
                     data['technical']['macd'] = 'N/A'
+
+            # -- Right-side signals --
+            try:
+                detector = RightSideSignalDetector()
+                rs = detector.detect(db, stock_id)
+                triggered = [
+                    s for s in rs.get('signals', []) if s.get('triggered')
+                ]
+                data['right_side'] = {
+                    'score': rs.get('score', 0),
+                    'triggered_count': rs.get('triggered_count', 0),
+                    'triggered_signals': [
+                        {'label': s['label'], 'description': s.get('description', '')}
+                        for s in triggered
+                    ],
+                    'prediction': rs.get('prediction'),
+                    'today_breakout': rs.get('today_breakout', False),
+                    'weekly_trend_up': rs.get('weekly_trend_up', False),
+                    'strong_recommend': rs.get('strong_recommend', False),
+                    'risk_level': rs.get('risk_level', 'high'),
+                }
+            except Exception as e:
+                logger.warning(f"Right-side signals failed for {stock_id}: {e}")
 
         except Exception as e:
             logger.error(f"Error gathering data for {stock_id}: {e}")

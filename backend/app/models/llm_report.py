@@ -18,6 +18,7 @@ class LLMReport(Base, TimestampMixin):
     news_sentiment = Column(String(20), nullable=False)  # positive/neutral/negative
     news_summary = Column(Text, nullable=False)
     risk_alerts = Column(JSON, nullable=False)  # List of risk items
+    right_side_analysis = Column(Text, nullable=True)  # Right-side signal analysis
     recommendation = Column(Text, nullable=False)
     confidence = Column(String(10), nullable=False)  # high/medium/low
     raw_response = Column(Text, nullable=True)

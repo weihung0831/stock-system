@@ -78,6 +78,15 @@ async def lifespan(app: FastAPI):
             conn.commit()
             logger.info("Added membership_tier column to users table")
 
+    # Migrate: add right_side_analysis column to llm_reports
+    if "llm_reports" in insp.get_table_names():
+        report_cols = {c["name"] for c in insp.get_columns("llm_reports")}
+        if "right_side_analysis" not in report_cols:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE llm_reports ADD COLUMN right_side_analysis TEXT NULL"))
+                conn.commit()
+            logger.info("Added right_side_analysis column to llm_reports table")
+
     logger.info("Database tables created successfully")
 
     # Read scheduler settings from DB

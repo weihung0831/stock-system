@@ -7,6 +7,7 @@ export interface LLMReport {
   chip_analysis: string
   fundamental_analysis: string
   technical_analysis: string
+  right_side_analysis: string
   news_sentiment: string
   news_summary: string
   risk_alerts: string[]
