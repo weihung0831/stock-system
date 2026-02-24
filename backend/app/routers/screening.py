@@ -1,9 +1,9 @@
 """Screening router for multi-factor stock screening."""
 import logging
-from typing import Annotated
+from typing import Annotated, List
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func as sqlfunc
+from sqlalchemy import func as sqlfunc, desc as sqldesc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -29,6 +29,84 @@ from app.models.financial import Financial
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/screening", tags=["screening"])
+
+
+def _build_score_responses(
+    db: Session,
+    score_data: List[dict],
+) -> List[ScoreResultResponse]:
+    """Batch-build ScoreResultResponse items (3 SQL queries instead of N*2).
+
+    Args:
+        db: Database session
+        score_data: List of dicts with keys: stock_id, score_date,
+            chip_score, fundamental_score, technical_score, total_score, rank
+    """
+    if not score_data:
+        return []
+
+    stock_ids = [d['stock_id'] for d in score_data]
+
+    # Batch query: all Stock info in 1 query
+    stocks_map = {
+        s.stock_id: s
+        for s in db.query(Stock).filter(Stock.stock_id.in_(stock_ids)).all()
+    }
+
+    # Batch query: latest 2 prices per stock using window function
+    # Subquery: rank prices by trade_date desc per stock
+    price_subq = (
+        db.query(
+            DailyPrice.stock_id,
+            DailyPrice.close,
+            DailyPrice.trade_date,
+            sqlfunc.row_number().over(
+                partition_by=DailyPrice.stock_id,
+                order_by=sqldesc(DailyPrice.trade_date),
+            ).label('rn'),
+        )
+        .filter(DailyPrice.stock_id.in_(stock_ids))
+        .subquery()
+    )
+    recent_prices = (
+        db.query(price_subq.c.stock_id, price_subq.c.close, price_subq.c.rn)
+        .filter(price_subq.c.rn <= 2)
+        .all()
+    )
+
+    # Organize: {stock_id: {1: close, 2: close}}
+    prices_map: dict = {}
+    for sid, close, rn in recent_prices:
+        prices_map.setdefault(sid, {})[rn] = float(close) if close else 0.0
+
+    # Build response items
+    items = []
+    for d in score_data:
+        sid = d['stock_id']
+        stock = stocks_map.get(sid)
+        price_info = prices_map.get(sid, {})
+
+        close_price = price_info.get(1, 0.0)
+        prev_price = price_info.get(2, 0.0)
+        change_pct = 0.0
+        if prev_price > 0:
+            change_pct = round((close_price - prev_price) / prev_price * 100, 2)
+
+        items.append(ScoreResultResponse(
+            stock_id=sid,
+            stock_name=stock.stock_name if stock else None,
+            score_date=d['score_date'],
+            chip_score=d['chip_score'],
+            fundamental_score=d['fundamental_score'],
+            technical_score=d['technical_score'],
+            total_score=d['total_score'],
+            rank=d['rank'],
+            industry=stock.industry if stock else None,
+            close_price=close_price,
+            change_percent=change_pct,
+        ))
+
+    return items
 
 
 @router.post("/run", response_model=ScreeningResultsResponse)
@@ -58,44 +136,20 @@ def run_screening(
             threshold=request.threshold
         )
 
-        # Convert to response format
-        items = []
-        for idx, result in enumerate(results):
-            stock = db.query(Stock).filter(Stock.stock_id == result['stock_id']).first()
-            stock_name = stock.stock_name if stock else None
-            industry = stock.industry if stock else None
-
-            close_price = 0.0
-            change_pct = 0.0
-            recent_prices = (
-                db.query(DailyPrice)
-                .filter(DailyPrice.stock_id == result['stock_id'])
-                .order_by(DailyPrice.trade_date.desc())
-                .limit(2)
-                .all()
-            )
-            if recent_prices:
-                close_price = float(recent_prices[0].close or 0)
-                if len(recent_prices) >= 2 and recent_prices[1].close:
-                    prev = float(recent_prices[1].close)
-                    if prev > 0:
-                        change_pct = round((close_price - prev) / prev * 100, 2)
-
-            items.append(
-                ScoreResultResponse(
-                    stock_id=result['stock_id'],
-                    stock_name=stock_name,
-                    score_date=str(date.today()),
-                    chip_score=result['chip_score'],
-                    fundamental_score=result['fundamental_score'],
-                    technical_score=result['technical_score'],
-                    total_score=result['total_score'],
-                    rank=idx + 1,
-                    industry=industry,
-                    close_price=close_price,
-                    change_percent=change_pct,
-                )
-            )
+        # Convert to batch-friendly format
+        score_data = [
+            {
+                'stock_id': r['stock_id'],
+                'score_date': str(date.today()),
+                'chip_score': r['chip_score'],
+                'fundamental_score': r['fundamental_score'],
+                'technical_score': r['technical_score'],
+                'total_score': r['total_score'],
+                'rank': idx + 1,
+            }
+            for idx, r in enumerate(results)
+        ]
+        items = _build_score_responses(db, score_data)
 
         return ScreeningResultsResponse(
             items=items,
@@ -175,45 +229,20 @@ def get_results(
             "technical": float(first_result.technical_weight)
         }
 
-        # Convert to response format
-        items = []
-        for result in results:
-            stock = db.query(Stock).filter(Stock.stock_id == result.stock_id).first()
-            stock_name = stock.stock_name if stock else None
-            industry = stock.industry if stock else None
-
-            # Get latest 2 prices for close_price and change_percent
-            close_price = 0.0
-            change_pct = 0.0
-            recent_prices = (
-                db.query(DailyPrice)
-                .filter(DailyPrice.stock_id == result.stock_id)
-                .order_by(DailyPrice.trade_date.desc())
-                .limit(2)
-                .all()
-            )
-            if recent_prices:
-                close_price = float(recent_prices[0].close or 0)
-                if len(recent_prices) >= 2 and recent_prices[1].close:
-                    prev = float(recent_prices[1].close)
-                    if prev > 0:
-                        change_pct = round((close_price - prev) / prev * 100, 2)
-
-            items.append(
-                ScoreResultResponse(
-                    stock_id=result.stock_id,
-                    stock_name=stock_name,
-                    score_date=str(result.score_date),
-                    chip_score=float(result.chip_score),
-                    fundamental_score=float(result.fundamental_score),
-                    technical_score=float(result.technical_score),
-                    total_score=float(result.total_score),
-                    rank=result.rank,
-                    industry=industry,
-                    close_price=close_price,
-                    change_percent=change_pct,
-                )
-            )
+        # Batch-build response items (3 SQL instead of N*2)
+        score_data = [
+            {
+                'stock_id': r.stock_id,
+                'score_date': str(r.score_date),
+                'chip_score': float(r.chip_score),
+                'fundamental_score': float(r.fundamental_score),
+                'technical_score': float(r.technical_score),
+                'total_score': float(r.total_score),
+                'rank': r.rank,
+            }
+            for r in results
+        ]
+        items = _build_score_responses(db, score_data)
 
         return ScreeningResultsResponse(
             items=items,
