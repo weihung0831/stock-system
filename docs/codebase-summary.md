@@ -20,7 +20,7 @@ stock-system/
 │   │   │   ├── financial.py          # 財務報表
 │   │   │   ├── news.py               # 新聞記錄
 │   │   │   ├── score_result.py       # 最終評分結果 (含籌碼/基本面/技術面子分數)
-│   │   │   ├── llm_report.py         # AI 分析報告
+│   │   │   ├── llm_report.py         # AI 分析報告 (含 right_side_analysis 欄位)
 │   │   │   ├── report_usage.py       # 報告使用追蹤 (每日限額記錄)
 │   │   │   ├── user.py               # 使用者帳戶 (含 membership_tier, email)
 │   │   │   └── pipeline_log.py       # 流程執行日誌
@@ -60,7 +60,7 @@ stock-system/
 │   │   │   ├── chip_stats_service.py # 籌碼統計
 │   │   │   ├── backtest_service.py   # 回測引擎 + 評分日期查詢
 │   │   │   ├── twse_collector.py    # TWSE 官方 API 資料收集
-│   │   │   ├── llm_analyzer.py       # AI 分析 (新聞摘要，24h 快取，0.5s 速率限制)
+│   │   │   ├── llm_analyzer.py       # AI 分析 (整合右側信號+籌碼/基本面/技術面，24h 快取)
 │   │   │   ├── gemini_client.py      # Google Gemini API 包裝
 │   │   │   ├── llm_client.py         # LLM 通用客戶端 (含 generate_chat 自由文字對話)
 │   │   │   ├── chat_service.py       # AI 聊天服務 (建構系統提示詞 + 編排 LLM 對話)
@@ -69,7 +69,7 @@ stock-system/
 │   │   │   ├── right_side_signal_detector.py # 右側買法信號檢測 (6個信號 + 4個篩選條件 + 動態風報比計算)
 │   │   │   ├── news_preparator.py    # 新聞預處理
 │   │   │   ├── on_demand_data_fetcher.py # 按需資料抓取 (非 Pipeline 股票)
-│   │   │   └── prompt_templates.py   # LLM 提示詞範本
+│   │   │   └── prompt_templates.py   # LLM 提示詞範本 (含右側信號交叉驗證指令)
 │   │   └── tasks/                    # 5 個自動化任務檔案
 │   │       ├── daily_pipeline.py     # 日常流程協調 (3步驟，16:30 執行)
 │   │       ├── data_fetch_steps.py   # 數據收集步驟
@@ -126,7 +126,7 @@ stock-system/
 │   │   │   │   ├── price-candlestick-chart.vue # K 線圖
 │   │   │   │   ├── technical-indicator-chart.vue # 技術指標
 │   │   │   │   ├── factor-score-card.vue   # 評分卡
-│   │   │   │   └── llm-report-panel.vue    # AI 報告面板
+│   │   │   │   └── llm-report-panel.vue    # AI 報告面板 (含右側買法信號段落)
 │   │   │   ├── screening/
 │   │   │   │   ├── filter-builder-form.vue # 篩選條件構建
 │   │   │   │   └── screening-result-table.vue # 篩選結果表 (含分頁+排序)
@@ -292,33 +292,27 @@ RateLimiter (自訂)
 
 ```
 流程:
-ScoreResult 表 (所有評分股票) → NewsPreparator → Gemini API → LLMReport 表
+ScoreResult 表 → 收集 5 面向數據 → NewsPreparator → Gemini API → LLMReport 表
 
-NewsPreparator（新架構：按需新聞）
-├─ 建構子注入 NewsCollector
-├─ 檢查 News 表是否有該股票新聞
-├─ 若無 → 呼叫 NewsCollector.fetch_news(stock_id, days=14)
-├─ 格式化文本
-└─ 準備提示詞
+數據收集 (_gather_stock_data)
+├─ 籌碼面：法人近 10 日買賣超 + 融資融券近 5 日趨勢
+├─ 基本面：營收 3 月 YoY + EPS 4 季 + ROE/負債比/現金流
+├─ 技術面：收盤價 + 成交量 + MA(5/10/20/60/120) + KD/MACD/RSI
+├─ 右側信號：RightSideSignalDetector 偵測 6 信號 + 進出場預測
+└─ 新聞：NewsPreparator 按需抓取 14 天個股新聞
 
-GeminiClient（改進版）
+Prompt 架構 (prompt_templates.py)
+├─ SYSTEM_PROMPT：指示 LLM 進行交叉驗證分析
+│  ├─ right_side_analysis：信號與籌碼/技術/基本面交叉驗證
+│  └─ recommendation：整合所有面向，含具體進出場價位
+├─ 6 個 prompt 段落：籌碼 → 基本面 → 技術面 → 右側信號 → 新聞 → 評分
+└─ RESPONSE_SCHEMA：9 個輸出欄位（含 right_side_analysis）
+
+GeminiClient
 ├─ 調用 Google Generative AI (Gemini 2.5 Pro)
-├─ max_tokens: 8192（支援更長報告）
-├─ 截斷檢測：finish_reason='length' 時自動重試
-├─ 欄位長度限制（每欄 150 字元，最多 3 個風險提示）
-├─ 處理回應
-├─ 錯誤重試
+├─ max_tokens: 8192
+├─ 截斷檢測 + 自動重試
 └─ 速率限制: 0.5 秒/次
-
-NewsCollector（修正版）
-├─ URL 編碼：urllib.parse.quote 處理特殊字元
-├─ HTML 標籤過濾：清理 RSS 摘要
-└─ Google News RSS 搜尋
-
-PromptTemplates
-├─ 新聞摘要範本
-├─ 投資建議範本
-└─ 情緒分析範本
 ```
 
 **相關檔案**:
@@ -551,23 +545,32 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 
 ## 📅 近期更新摘要
 
-### 2026-02-24: 右側買法篩選頁面重新設計與風報比動態計算
+### 2026-02-24: AI 報告整合右側買法信號 + 篩選頁面重新設計
 
-**後端變更**
-- `right_side_signals.py`: 批量篩選候選池從 Top 100 擴增至 Top 500（依成交量），與 `hard_filter.py` 的 FALLBACK_TOP_N 一致
-- `right_side_signal_detector.py`:
-  - `risk_reward` 由硬編碼 1.5 改為動態計算：`(target - entry) / risk`
-  - `reward_multiplier` 依分數動態調整：score≥60 → 2.0x，score≥35 → 1.5x，其餘 → 1.0x
+**AI 報告右側信號整合**
+- `llm_analyzer.py`:
+  - `_gather_stock_data` 新增右側信號收集（呼叫 `RightSideSignalDetector.detect()`）
+  - 技術面新增收盤價、成交量、交易日期
+  - 融資融券由 1 筆改為近 5 日趨勢
+  - 儲存新欄位 `right_side_analysis` 至 DB
+- `prompt_templates.py`:
+  - SYSTEM_PROMPT 新增交叉驗證指令（右側信號 × 籌碼/技術/基本面）
+  - 新增 `=== 右側買法信號 ===` prompt 段落（信號觸發、進出場價位、報酬風險比、條件標籤）
+  - 評分段新增右側信號分
+  - RESPONSE_SCHEMA 新增 `right_side_analysis` 欄位
+  - recommendation 描述更新為整合所有面向含具體價位
+- `llm_report.py`: 新增 `right_side_analysis` 欄位 (nullable Text)
+- `report.py` schema: 新增 `right_side_analysis: Optional[str]`
+- `main.py`: DB migration 自動加欄位
 
-**前端變更**
-- `right-side-screening-view.vue`:
-  - 表格新增「操作」欄（buy/hold/avoid 動作建議）與「報酬比」欄（risk_reward 數值）
-  - 信號晶片改用 `flex: 1 1 auto` 讓信號標籤均分填滿欄位
-  - 篩選列重新設計為 3 組標籤式按鈕：
-    - 條件：今日突破 / 週趨勢向上 / 強力推薦
-    - 風險：低 / 中 / 高（顏色：綠/黃/紅，原為下拉選單）
-    - 操作：買入 / 觀望 / 不建議（新增篩選組，顏色：綠/黃/紅）
-  - 欄寬重新分配以容納 9 個欄位（原 7 個）
+**前端 AI 報告顯示**
+- `llm-report-panel.vue`: 新增 🎯 右側買法信號 段落（條件顯示，有資料才出現）
+- `report.ts`: 新增 `right_side_analysis` 型別
+
+**篩選頁面重新設計**
+- `right_side_signals.py`: 候選池 100→500
+- `right_side_signal_detector.py`: 動態風報比計算（score≥60→2.0x，≥35→1.5x，其餘→1.0x）
+- `right-side-screening-view.vue`: 新增操作/報酬比欄、3 組標籤式篩選列
 
 ### 2026-02-23: 連假後資料抓取備援機制與候選池擴增至500檔
 
@@ -831,5 +834,5 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
 **最後更新**: 2026-02-24
-**版本**: 3.2
-**狀態**: 右側買法篩選頁面重新設計（操作欄、報酬比欄、標籤式篩選列），候選池擴增至500檔，風報比動態計算，301 個測試全部通過
+**版本**: 3.3
+**狀態**: AI 報告整合右側買法信號（交叉驗證分析+具體進出場價位），技術面/融資融券數據強化，301 個測試全部通過

@@ -65,40 +65,35 @@ def get_latest_reports(
         List of latest LLM reports
     """
     try:
-        # Find most recent report_date
-        latest_date_result = (
-            db.query(LLMReport.report_date)
-            .order_by(desc(LLMReport.report_date))
-            .first()
+        from sqlalchemy import func as sa_func
+
+        # Subquery: latest report per stock
+        latest_sub = (
+            db.query(
+                LLMReport.stock_id,
+                sa_func.max(LLMReport.id).label('max_id')
+            )
+            .group_by(LLMReport.stock_id)
+            .subquery()
         )
-
-        if not latest_date_result:
-            return []
-
-        latest_date = latest_date_result[0]
 
         # Free users can only see reports they generated themselves
         tier = current_user.membership_tier if not current_user.is_admin else 'premium'
 
+        base_query = (
+            db.query(LLMReport, Stock.stock_name)
+            .join(latest_sub, LLMReport.id == latest_sub.c.max_id)
+            .outerjoin(Stock, LLMReport.stock_id == Stock.stock_id)
+        )
+
         if tier == 'free':
             from app.models.report_usage import ReportUsage
-            # Only return reports the user has usage records for
-            rows = (
-                db.query(LLMReport, Stock.stock_name)
-                .outerjoin(Stock, LLMReport.stock_id == Stock.stock_id)
-                .join(ReportUsage, (ReportUsage.stock_id == LLMReport.stock_id) & (ReportUsage.user_id == current_user.id))
-                .filter(LLMReport.report_date == latest_date)
-                .order_by(LLMReport.stock_id)
-                .all()
+            base_query = base_query.join(
+                ReportUsage,
+                (ReportUsage.stock_id == LLMReport.stock_id) & (ReportUsage.user_id == current_user.id)
             )
-        else:
-            rows = (
-                db.query(LLMReport, Stock.stock_name)
-                .outerjoin(Stock, LLMReport.stock_id == Stock.stock_id)
-                .filter(LLMReport.report_date == latest_date)
-                .order_by(LLMReport.stock_id)
-                .all()
-            )
+
+        rows = base_query.order_by(desc(LLMReport.report_date)).all()
 
         results = []
         for report, stock_name in rows:
