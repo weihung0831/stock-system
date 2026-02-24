@@ -18,8 +18,9 @@ __pycache__/
 .env.*
 !.env.example
 
-# Claude Code (personal config)
-.claude/
+# Claude Code (personal config, except shared commands)
+.claude/*
+!.claude/commands/
 
 # Contract / confidential docs
 **/合約*
