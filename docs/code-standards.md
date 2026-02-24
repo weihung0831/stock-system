@@ -765,7 +765,9 @@ def filter_stocks(db: Session) -> list:
 ## ⚡ 性能考慮
 
 ### 🐍 Python 後端
-- 📌 使用 SQLAlchemy 的延遲載入避免 N+1 查詢
+- 📌 使用 SQLAlchemy 視窗函數進行批次查詢避免 N+1
+  - 例: `rank() over (partition by stock_id order by date desc)` 取各股最新 N 筆記錄
+  - 見: `screening.py` 的 `_build_score_responses()` 函數（批次查詢最新價格、法人、新聞）
 - 📌 在評分計算中使用快取結果
 - 📌 非同步任務用 APScheduler 而非同步阻塞
 
@@ -777,5 +779,5 @@ def filter_stocks(db: Session) -> list:
 
 ---
 
-**最後更新**: 2026-02-22
-**版本**: 1.1
+**最後更新**: 2026-02-24
+**版本**: 1.2

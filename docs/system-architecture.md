@@ -233,22 +233,26 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
 
 → 排序 → 寫入 ScoreResult 表（含 rank）
 
-#### 🤖 LLM 分析 `step_llm_analysis`
+#### 🤖 LLM 分析（隨需呼叫）
 
 ```
-取所有評分股票 (不限數量) → NewsPreparator → Gemini 2.5 Pro → LLMReport 表
-  ├─ NewsPreparator 檢查 News 表
-  │  ├─ 若該股票無新聞 → 呼叫 NewsCollector.fetch_news() 即時抓取
-  │  └─ 格式化新聞為 LLM 輸入
-  ├─ 分析所有評分股票（無上限限制）
-  ├─ max_tokens: 8192（支援更長報告）
-  ├─ 截斷檢測：finish_reason='length' 時自動重試
-  ├─ 速率限制：0.5 秒/次（Gemini 2.5 Pro 高速率額度）
-  └─ 產出每檔股票的 AI 分析摘要 → LLMReport 表
+LLM 分析已從 Pipeline 步驟 3 改為隨需呼叫
+  ├─ 端點: POST /api/reports/{stock_id}/generate
+  ├─ 觸發條件: 使用者點擊「產生 AI 分析」按鈕
+  ├─ 快取機制: 同日內快取命中避免重複呼叫
+  ├─ 會員限流: Free 5/day, Premium unlimited
+  └─ 流程:
+     ├─ 取單檔股票評分與 5 面向數據 → NewsPreparator → Gemini 2.5 Pro → LLMReport 表
+     ├─ NewsPreparator 檢查 News 表
+     │  ├─ 若該股票無新聞 → 呼叫 NewsCollector.fetch_news() 即時抓取
+     │  └─ 格式化新聞為 LLM 輸入
+     ├─ max_tokens: 8192（支援更長報告）
+     ├─ 截斷檢測：finish_reason='length' 時自動重試
+     ├─ 速率限制：0.5 秒/次（Gemini 2.5 Pro 高速率額度）
+     └─ 產出 AI 分析摘要 → LLMReport 表
 
-**新聞架構變更**
-- 舊：Pipeline 批次抓「台股」通用新聞
-- 新：LLM 分析時按需抓個股新聞
+**新聞架構**
+- LLM 分析時按需抓個股新聞
   ├─ NewsPreparator 依賴注入 NewsCollector
   ├─ 先查 DB，無資料則即時 fetch_news(stock_id, days=14)
   └─ URL 編碼修正（urllib.parse.quote）+ HTML 標籤過濾
@@ -267,14 +271,16 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
     │
     ├─ 1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR、營收、財報
     ├─ 2. hard_filter → 篩出 ~500 檔候選股 (FALLBACK_TOP_N=500)
-    └─ 3. scoring + llm_analysis
-       ├─ 三因子加權評分 → 排名寫入 DB
-       └─ Gemini 產出所有評分股票的 AI 分析 (0.5s/次)
-          └─ 新聞按需抓取：NewsPreparator 檢查 DB → 缺失時呼叫 NewsCollector
+    └─ 3. scoring
+       └─ 三因子加權評分 → 排名寫入 DB
+
+    **注**: LLM 分析已改為隨需呼叫 (POST /api/reports/{stock_id}/generate)
+          不再是 Pipeline 自動步驟，改為使用者點擊時按需生成
     │
     ▼
-使用者開 Dashboard → 看到最新排名 + AI 建議
-  └─ Top 30 排名 + 產業分類篩選
+使用者開 Dashboard → 看到最新排名 + 過濾篩選
+  ├─ Top 30 排名 + 產業分類篩選
+  └─ 點擊「產生 AI 分析」→ 即時呼叫 Gemini 產出摘要
 ```
 
 ---
@@ -589,4 +595,4 @@ cd frontend && npm run dev
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
 **最後更新**: 2026-02-24
-**版本**: 2.12
+**版本**: 2.13

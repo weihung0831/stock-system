@@ -73,7 +73,7 @@ stock-system/
 │   │   └── tasks/                    # 5 個自動化任務檔案
 │   │       ├── daily_pipeline.py     # 日常流程協調 (3步驟，16:30 執行)
 │   │       ├── data_fetch_steps.py   # 數據收集步驟
-│   │       ├── analysis_steps.py     # 分析與評分步驟（含按需新聞抓取）
+│   │       ├── analysis_steps.py     # 評分與即時 LLM 分析步驟（含按需新聞抓取）
 │   │       ├── pipeline_status.py    # 進度與日誌
 │   │       └── __init__.py
 │   ├── tests/                        # 單元測試 (301 個測試)
@@ -502,7 +502,7 @@ tailwindcss (可選)
 |------|------|------|
 | API 端點響應 | < 2秒 | ✅ |
 | 篩選執行時間 | < 10秒 | ✅ |
-| 數據庫查詢 | < 500ms | ✅ |
+| 數據庫查詢 (N+1 優化後) | 3 次 SQL | ✅ |
 | 前端首屏載入 | < 3秒 | ✅ |
 | 測試覆蓋率 | > 80% | ✅ 100% (核心服務) |
 
@@ -544,6 +544,33 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 ---
 
 ## 📅 近期更新摘要
+
+### 2026-02-24: 篩選端點批次查詢優化 (N+1 查詢 → 3 次 SQL)
+
+**後端最佳化**
+- `screening.py` 重構 `_build_score_responses()` 共用輔助函數
+  - 使用 SQLAlchemy 視窗函數 (Window Functions) 批次查詢
+  - 原：60+ SQL 查詢 (N+1 問題)
+  - 新：3 次 SQL 查詢
+    1. ScoreResult + DailyPrice (最新 2 筆價格，依 date DESC 排序)
+    2. Institutional (最新 1 筆)
+    3. News (最新 1 筆)
+  - 兩個端點受惠：`GET /screening/results` + `GET /screening/results/{stock_id}`
+
+### 2026-02-24: 移除未使用批次 LLM 分析函式
+
+**後端清理**
+- `analysis_steps.py`: 移除 `step_llm_analysis()` 死代碼
+  - 原設計：Pipeline 的第 3 步為批次分析所有評分股票
+  - 實際使用：LLM 分析僅供隨需呼叫 (`POST /api/reports/{stock_id}/generate`)
+  - 移除 4 個相應測試 (`test_analysis_steps.py`)
+
+### 2026-02-24: Python 依賴版本鎖定
+
+**鎖定檔案**
+- `backend/uv.lock`: 使用 `uv` 包管理器鎖定所有依賴版本
+  - 確保開發、測試、生產環境使用相同版本
+  - 改進依賴重現性與安全性
 
 ### 2026-02-24: AI 報告整合右側買法信號 + 篩選頁面重新設計
 
@@ -834,5 +861,5 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
 **最後更新**: 2026-02-24
-**版本**: 3.3
-**狀態**: AI 報告整合右側買法信號（交叉驗證分析+具體進出場價位），技術面/融資融券數據強化，301 個測試全部通過
+**版本**: 3.4
+**狀態**: 篩選端點 N+1 優化完成 (3 次 SQL)，移除死代碼，AI 報告整合右側買法信號，301 個測試全部通過

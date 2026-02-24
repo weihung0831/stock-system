@@ -90,7 +90,7 @@ txt(s, 1, 1.8, 11, 1.2, "台股智慧選股系統", sz=52, color=GOLD, bold=True
 bar(s, 4.5, 3.2, 4)
 txt(s, 1, 3.5, 11, 0.8, "使用者操作手冊", sz=28, color=WHITE, align=PP_ALIGN.CENTER)
 txt(s, 1, 4.8, 11, 0.5, "多因子篩選  ×  AI 智慧分析  ×  動能信號偵測", sz=18, color=DIM, align=PP_ALIGN.CENTER)
-txt(s, 1, 6.2, 11, 0.4, "v2.2  |  2026 年 2 月", sz=14, color=DIM, align=PP_ALIGN.CENTER)
+txt(s, 1, 6.2, 11, 0.4, "v3.4  |  2026 年 2 月", sz=14, color=DIM, align=PP_ALIGN.CENTER)
 
 # ========== Slide 2: 系統三大核心 ==========
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -389,7 +389,7 @@ s = prs.slides.add_slide(prs.slide_layouts[6])
 bg(s)
 txt(s, 1, 2.2, 11, 1, "開始使用", sz=48, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
 bar(s, 4.5, 3.3, 4)
-txt(s, 1, 3.6, 11, 0.8, "台股智慧選股系統 v2.2", sz=24, color=WHITE, align=PP_ALIGN.CENTER)
+txt(s, 1, 3.6, 11, 0.8, "台股智慧選股系統 v3.4", sz=24, color=WHITE, align=PP_ALIGN.CENTER)
 txt(s, 1, 4.8, 11, 0.5, "多因子篩選  ×  AI 智慧分析  ×  動能信號偵測", sz=18, color=DIM, align=PP_ALIGN.CENTER)
 
 # Save
