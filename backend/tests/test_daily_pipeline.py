@@ -193,57 +193,55 @@ class TestRunDailyPipeline:
         from app.tasks import daily_pipeline
         daily_pipeline._holiday_cache.clear()
 
-        with patch("app.tasks.daily_pipeline.date") as mock_date:
-            with patch("app.tasks.daily_pipeline.step_fetch_stock_data") as mock_fetch:
-                with patch("app.tasks.daily_pipeline.step_hard_filter") as mock_filter:
-                    with patch("app.tasks.daily_pipeline.step_scoring") as mock_score:
-                        with patch("app.tasks.daily_pipeline.requests.get") as mock_get:
-                            mock_date.today.return_value = date(2024, 1, 2)  # Tuesday
-                            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+        with patch("app.tasks.daily_pipeline.date") as mock_date, \
+             patch("app.tasks.daily_pipeline.SessionLocal", return_value=test_db), \
+             patch("app.tasks.daily_pipeline.step_fetch_stock_data") as mock_fetch, \
+             patch("app.tasks.daily_pipeline.step_hard_filter") as mock_filter, \
+             patch("app.tasks.daily_pipeline.step_scoring") as mock_score, \
+             patch("app.tasks.daily_pipeline.requests.get") as mock_get:
 
-                            mock_get.return_value.json.return_value = {
-                                "stat": "ok",
-                                "data": []
-                            }
+            mock_date.today.return_value = date(2024, 1, 2)  # Tuesday
+            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
 
-                            mock_fetch.return_value = {"success": True}
-                            mock_filter.return_value = {"success": True, "candidates": ["2330", "2454"]}
-                            mock_score.return_value = {"success": True}
+            mock_get.return_value.json.return_value = {
+                "stat": "ok",
+                "data": []
+            }
 
-                            result = run_daily_pipeline(trigger_type="scheduled")
+            mock_fetch.return_value = {"success": True}
+            mock_filter.return_value = {"success": True, "candidates": ["2330", "2454"]}
+            mock_score.return_value = {"success": True}
 
-                            # Should have executed the pipeline
-                            assert mock_fetch.called or result.get("status") in ["success", "completed"]
+            result = run_daily_pipeline(trigger_type="scheduled")
+
+            assert mock_fetch.called or result.get("status") in ["success", "completed"]
 
     def test_run_daily_pipeline_manual_trigger_uses_last_trading_day(self, test_db):
         """Test manual trigger on weekend uses last trading day."""
         from app.tasks import daily_pipeline
         daily_pipeline._holiday_cache.clear()
 
-        # Simply test that manual trigger does not skip on weekends
-        with patch("app.tasks.daily_pipeline.requests.get") as mock_get:
+        with patch("app.tasks.daily_pipeline.requests.get") as mock_get, \
+             patch("app.tasks.daily_pipeline.SessionLocal", return_value=test_db), \
+             patch("app.tasks.daily_pipeline.step_fetch_stock_data") as mock_fetch, \
+             patch("app.tasks.daily_pipeline.step_hard_filter") as mock_filter, \
+             patch("app.tasks.daily_pipeline.step_scoring") as mock_score, \
+             patch("app.tasks.daily_pipeline.date") as mock_date_class:
+
             mock_get.return_value.json.return_value = {
                 "stat": "ok",
                 "data": []
             }
 
-            with patch("app.tasks.daily_pipeline.date") as mock_date_class:
-                # Setup: Sunday Jan 7, 2024 is not a trading day
-                mock_date_class.today.return_value = date(2024, 1, 7)
-                # Mock date class constructor to return actual date objects
-                mock_date_class.side_effect = lambda *args, **kw: \
-                    date(2024, 1, 7) if args == () else date(*args, **kw)
+            # Sunday Jan 7, 2024
+            mock_date_class.today.return_value = date(2024, 1, 7)
+            mock_date_class.side_effect = lambda *args, **kw: date(*args, **kw)
+            mock_date_class.fromisoformat = date.fromisoformat
 
-                # Patch timedelta too
-                with patch("app.tasks.daily_pipeline.timedelta") as mock_delta:
-                    mock_delta.side_effect = timedelta
+            mock_fetch.return_value = {"success": True}
+            mock_filter.return_value = {"success": True, "candidates": []}
+            mock_score.return_value = {"success": True}
 
-                    # For manual trigger, should not raise error
-                    try:
-                        result = run_daily_pipeline(trigger_type="manual")
-                        # Should succeed or skip, not crash
-                        assert result is not None
-                    except Exception as e:
-                        # If it's not a trading day handling issue, that's ok
-                        assert "trading" in str(e).lower() or \
-                               result.get("status") in ["skipped", "completed", "success"]
+            result = run_daily_pipeline(trigger_type="manual")
+            assert result is not None
+            assert result.get("status") in ["success", "failed", "completed"]

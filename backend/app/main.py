@@ -113,13 +113,12 @@ async def lifespan(app: FastAPI):
         replace_existing=True
     )
 
-    if not sched_enabled:
-        scheduler.start()
-        scheduler.pause_job("daily_pipeline")
-        logger.info(f"Scheduler started: pipeline paused (disabled in settings)")
-    else:
-        scheduler.start()
+    scheduler.start()
+    if sched_enabled:
         logger.info(f"Scheduler started: daily pipeline at {sched_hour:02d}:{sched_minute:02d}")
+    else:
+        scheduler.pause_job("daily_pipeline")
+        logger.info("Scheduler started: pipeline paused (disabled in settings)")
 
     yield
 

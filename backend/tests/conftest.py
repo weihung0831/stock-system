@@ -239,7 +239,11 @@ def admin_jwt_token(test_admin_user):
 
 @pytest.fixture(autouse=True)
 def patch_settings():
-    """Patch settings for all tests."""
+    """Patch settings for all tests.
+
+    Patches both app.config.settings and all modules that import it directly,
+    so `from app.config import settings` references also get the mock.
+    """
     with patch("app.config.settings") as mock_settings:
         mock_settings.DATABASE_URL = "sqlite:///:memory:"
         mock_settings.FINMIND_TOKEN = "test_token"
@@ -251,4 +255,6 @@ def patch_settings():
         mock_settings.JWT_EXPIRE_MINUTES = 1440
         mock_settings.CORS_ORIGINS = "http://localhost:5173"
         mock_settings.cors_origins_list = ["http://localhost:5173"]
-        yield mock_settings
+        # Also patch modules that used `from app.config import settings`
+        with patch("app.services.auth_service.settings", mock_settings):
+            yield mock_settings
