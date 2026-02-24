@@ -2,7 +2,7 @@
 import logging
 import time
 from datetime import date, timedelta
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 import requests
 
 logger = logging.getLogger(__name__)
@@ -299,65 +299,219 @@ class TWSECollector:
             logger.error(f"TWSE margin fetch failed: {e}")
             return []
 
+    def _parse_revenue_items(self, raw: list) -> List[Dict]:
+        """Parse revenue JSON items from TWSE OpenAPI endpoint."""
+        results = []
+        for item in raw:
+            code = item.get("公司代號", "")
+            if not code or not code[0].isdigit():
+                continue
+
+            # Parse ROC year-month (11501 → 2026-01)
+            roc_ym = item.get("資料年月", "")
+            if len(roc_ym) >= 4:
+                year = int(roc_ym[:3]) + 1911
+                month = int(roc_ym[3:])
+                revenue_date = f"{year}-{month:02d}-01"
+            else:
+                continue
+
+            try:
+                revenue = int(item.get("營業收入-當月營收", 0) or 0)
+                yoy_str = item.get("營業收入-去年同月增減(%)", "0") or "0"
+                mom_str = item.get("營業收入-上月比較增減(%)", "0") or "0"
+                yoy = float(yoy_str) if yoy_str != "-" else 0.0
+                mom = float(mom_str) if mom_str != "-" else 0.0
+
+                results.append({
+                    "stock_id": code,
+                    "revenue_date": revenue_date,
+                    "revenue": revenue,
+                    "revenue_yoy": round(yoy, 4),
+                    "revenue_mom": round(mom, 4),
+                })
+            except (ValueError, TypeError):
+                continue
+        return results
+
     def fetch_monthly_revenue(self) -> List[Dict]:
         """
-        Fetch latest monthly revenue for ALL listed companies (1 API call).
+        Fetch latest monthly revenue for ALL companies (listed + OTC).
+
+        Calls both t187ap05_L (上市) and t187ap05_P (上櫃) endpoints.
+        TWSE data already includes pre-calculated YoY% and MoM%.
 
         Returns:
             List of dicts with stock_id, revenue_date, revenue, yoy, mom
         """
+        endpoints = [
+            ("t187ap05_L", "上市"),
+            ("t187ap05_P", "上櫃"),
+        ]
+        all_results = []
+        for endpoint, label in endpoints:
+            try:
+                resp = requests.get(
+                    f"https://openapi.twse.com.tw/v1/opendata/{endpoint}",
+                    timeout=30,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                if resp.status_code != 200:
+                    logger.error(f"TWSE revenue {label} ({endpoint}) error: {resp.status_code}")
+                    continue
+
+                raw = resp.json()
+                if not raw:
+                    continue
+
+                parsed = self._parse_revenue_items(raw)
+                logger.info(f"TWSE revenue {label}: {len(parsed)} companies")
+                all_results.extend(parsed)
+
+            except Exception as e:
+                logger.error(f"TWSE revenue {label} fetch failed: {e}")
+                continue
+
+        logger.info(f"TWSE: fetched revenue for {len(all_results)} companies total")
+        return all_results
+
+    def fetch_quarterly_financials(self) -> List[Dict]:
+        """
+        Fetch quarterly financial data from TWSE OpenAPI streaming endpoints.
+
+        Combines data from:
+        - t187ap06_L_ci: Income statement (EPS, Revenue, GrossProfit, OperatingIncome)
+        - t187ap07_L_ci: Balance sheet (TotalAssets, Liabilities, Equity)
+        - t187ap17_L: Profitability ratios (gross margin, operating margin)
+
+        NOTE: These endpoints only return companies that filed TODAY.
+        During filing season, ~15-25 companies per day. Needs daily accumulation.
+        No cash flow data available — operating_cash_flow/free_cash_flow will be null.
+
+        Returns:
+            List of dicts compatible with Financial model fields.
+        """
+        # Step 1: Fetch income statement data
+        income_map = {}  # key: (stock_id, report_date)
         try:
             resp = requests.get(
-                "https://openapi.twse.com.tw/v1/opendata/t187ap05_P",
+                "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci",
                 timeout=30,
-                headers={"User-Agent": "Mozilla/5.0"}
+                headers={"User-Agent": "Mozilla/5.0"},
             )
-            if resp.status_code != 200:
-                logger.error(f"TWSE revenue API error: {resp.status_code}")
-                return []
+            if resp.status_code == 200:
+                raw = resp.json() or []
+                for item in raw:
+                    code = item.get("公司代號", "")
+                    if not code or not code[0].isdigit():
+                        continue
+                    # Parse report date from ROC format
+                    roc_ym = item.get("資料年度", "")
+                    season = item.get("資料季別", "")
+                    if not roc_ym or not season:
+                        continue
+                    try:
+                        year = int(roc_ym) + 1911
+                        quarter = int(season)
+                        quarter_month = {1: 3, 2: 6, 3: 9, 4: 12}
+                        month = quarter_month.get(quarter, 12)
+                        report_date = f"{year}-{month:02d}-01"
 
-            raw = resp.json()
-            if not raw:
-                return []
+                        eps = float(item.get("基本每股盈餘（元）", 0) or 0)
+                        revenue = int(float(item.get("營業收入", 0) or 0))
+                        gross_profit = int(float(item.get("營業毛利（毛損）", 0) or 0))
+                        op_income = int(float(item.get("營業利益（損失）", 0) or 0))
+                        net_income = int(float(item.get("本期淨利（淨損）", 0) or 0))
 
-            results = []
-            for item in raw:
-                code = item.get("公司代號", "")
-                if not code or not code[0].isdigit():
-                    continue
-
-                # Parse ROC year-month (11501 → 2026-01)
-                roc_ym = item.get("資料年月", "")
-                if len(roc_ym) >= 4:
-                    year = int(roc_ym[:3]) + 1911
-                    month = int(roc_ym[3:])
-                    revenue_date = f"{year}-{month:02d}-01"
-                else:
-                    continue
-
-                try:
-                    revenue = int(item.get("營業收入-當月營收", 0) or 0)
-                    yoy_str = item.get("營業收入-去年同月增減(%)", "0") or "0"
-                    mom_str = item.get("營業收入-上月比較增減(%)", "0") or "0"
-                    yoy = float(yoy_str) if yoy_str != "-" else 0.0
-                    mom = float(mom_str) if mom_str != "-" else 0.0
-
-                    results.append({
-                        "stock_id": code,
-                        "revenue_date": revenue_date,
-                        "revenue": revenue,
-                        "revenue_yoy": round(yoy, 4),
-                        "revenue_mom": round(mom, 4),
-                    })
-                except (ValueError, TypeError):
-                    continue
-
-            logger.info(f"TWSE: fetched revenue for {len(results)} companies")
-            return results
-
+                        income_map[(code, report_date)] = {
+                            "stock_id": code,
+                            "report_date": report_date,
+                            "eps": round(eps, 4),
+                            "revenue": revenue,
+                            "gross_profit": gross_profit,
+                            "operating_income": op_income,
+                            "net_income": net_income,
+                        }
+                    except (ValueError, TypeError):
+                        continue
+                logger.info(f"TWSE income statement: {len(income_map)} records")
         except Exception as e:
-            logger.error(f"TWSE revenue fetch failed: {e}")
-            return []
+            logger.error(f"TWSE income statement fetch failed: {e}")
+
+        # Step 2: Fetch balance sheet data
+        balance_map = {}  # key: (stock_id, report_date)
+        try:
+            resp = requests.get(
+                "https://openapi.twse.com.tw/v1/opendata/t187ap07_L_ci",
+                timeout=30,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            if resp.status_code == 200:
+                raw = resp.json() or []
+                for item in raw:
+                    code = item.get("公司代號", "")
+                    if not code or not code[0].isdigit():
+                        continue
+                    roc_ym = item.get("資料年度", "")
+                    season = item.get("資料季別", "")
+                    if not roc_ym or not season:
+                        continue
+                    try:
+                        year = int(roc_ym) + 1911
+                        quarter = int(season)
+                        quarter_month = {1: 3, 2: 6, 3: 9, 4: 12}
+                        month = quarter_month.get(quarter, 12)
+                        report_date = f"{year}-{month:02d}-01"
+
+                        total_assets = float(item.get("資產總計", 0) or 0)
+                        liabilities = float(item.get("負債總計", 0) or 0)
+                        equity = float(item.get("權益總計", 0) or 0)
+
+                        balance_map[(code, report_date)] = {
+                            "total_assets": total_assets,
+                            "liabilities": liabilities,
+                            "equity": equity,
+                        }
+                    except (ValueError, TypeError):
+                        continue
+                logger.info(f"TWSE balance sheet: {len(balance_map)} records")
+        except Exception as e:
+            logger.error(f"TWSE balance sheet fetch failed: {e}")
+
+        # Step 3: Combine into Financial-compatible records
+        results = []
+        for key, inc in income_map.items():
+            revenue = inc["revenue"]
+            gross_profit = inc["gross_profit"]
+            op_income = inc["operating_income"]
+            gross_margin = (gross_profit / revenue * 100) if revenue else None
+            op_margin = (op_income / revenue * 100) if revenue else None
+
+            roe_val = None
+            debt_ratio_val = None
+            bs = balance_map.get(key)
+            if bs:
+                total_assets = bs["total_assets"]
+                liabilities = bs["liabilities"]
+                equity = bs["equity"]
+                debt_ratio_val = (liabilities / total_assets * 100) if total_assets else None
+                net_income = inc["net_income"]
+                roe_val = (net_income / equity * 100) if equity else None
+
+            results.append({
+                "stock_id": inc["stock_id"],
+                "report_date": inc["report_date"],
+                "eps": inc["eps"],
+                "gross_margin": round(gross_margin, 4) if gross_margin else None,
+                "operating_margin": round(op_margin, 4) if op_margin else None,
+                "roe": round(roe_val, 4) if roe_val else None,
+                "debt_ratio": round(debt_ratio_val, 4) if debt_ratio_val else None,
+                "operating_cash_flow": None,  # TWSE has no cash flow endpoint
+                "free_cash_flow": None,
+            })
+
+        logger.info(f"TWSE quarterly financials: {len(results)} combined records")
+        return results
 
     def fetch_stock_history(
         self, stock_id: str, months: int = 8

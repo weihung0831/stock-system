@@ -197,6 +197,11 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
             pipeline_log.status = "success"
             logger.info("Pipeline completed successfully")
 
+        # Clear right-side signal cache so new data is reflected immediately
+        from app.routers.right_side_signals import _cache, _cache_date
+        _cache.clear()
+        logger.info("Cleared right-side signal cache")
+
         db.commit()
 
         return {

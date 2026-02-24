@@ -114,11 +114,11 @@ def _fetch_finmind_prices_batch(
     stock_ids: List[str],
     start_date: str,
     end_date: str,
-) -> int:
+) -> tuple[int, bool]:
     """Fetch historical prices via FinMind per-stock API.
 
-    Stops early if FinMind quota is exhausted (402) and commits
-    whatever was saved so far.
+    Returns:
+        (saved_count, quota_exhausted) tuple.
     """
     from app.services.finmind_collector import FinMindQuotaExhausted
 
@@ -136,7 +136,7 @@ def _fetch_finmind_prices_batch(
                 f"saved {saved} so far. Remaining stocks need TWSE fallback."
             )
             db.commit()
-            return saved
+            return saved, True
 
         if df is None or df.empty:
             continue
@@ -162,7 +162,7 @@ def _fetch_finmind_prices_batch(
             db.commit()
 
     db.commit()
-    return saved
+    return saved, False
 
 
 def _fetch_twse_history_batch(
@@ -214,8 +214,14 @@ def _fetch_finmind_institutional_batch(
     stock_ids: List[str],
     start_date: str,
     end_date: str,
-) -> int:
-    """Fetch historical institutional data via FinMind per-stock API."""
+) -> tuple[int, bool]:
+    """Fetch historical institutional data via FinMind per-stock API.
+
+    Returns:
+        (saved_count, quota_exhausted) tuple.
+    """
+    from app.services.finmind_collector import FinMindQuotaExhausted
+
     saved = 0
     total = len(stock_ids)
     for i, sid in enumerate(stock_ids):
@@ -225,7 +231,6 @@ def _fetch_finmind_institutional_batch(
             df = finmind.fetch_institutional(sid, start_date, end_date)
             if df is None or df.empty:
                 continue
-            # FinMind returns per-institution rows; group by date
             for trade_date, grp in df.groupby('date'):
                 existing = db.query(Institutional).filter_by(
                     stock_id=sid, trade_date=trade_date
@@ -263,11 +268,15 @@ def _fetch_finmind_institutional_batch(
                 saved += 1
             if i % 20 == 0:
                 db.commit()
+        except FinMindQuotaExhausted:
+            logger.warning(f"FinMind quota exhausted at inst {i}/{total}, saved {saved}")
+            db.commit()
+            return saved, True
         except Exception as e:
             logger.warning(f"FinMind institutional error for {sid}: {e}")
             continue
     db.commit()
-    return saved
+    return saved, False
 
 
 def _fetch_finmind_margin_batch(
@@ -276,8 +285,14 @@ def _fetch_finmind_margin_batch(
     stock_ids: List[str],
     start_date: str,
     end_date: str,
-) -> int:
-    """Fetch historical margin trading data via FinMind per-stock API."""
+) -> tuple[int, bool]:
+    """Fetch historical margin trading data via FinMind per-stock API.
+
+    Returns:
+        (saved_count, quota_exhausted) tuple.
+    """
+    from app.services.finmind_collector import FinMindQuotaExhausted
+
     saved = 0
     total = len(stock_ids)
     for i, sid in enumerate(stock_ids):
@@ -291,7 +306,6 @@ def _fetch_finmind_margin_batch(
                 trade_date = row.get('date')
                 if not trade_date:
                     continue
-                # Skip non-numeric stock IDs
                 row_sid = str(row.get('stock_id', sid))
                 if not row_sid.isdigit():
                     continue
@@ -315,18 +329,28 @@ def _fetch_finmind_margin_batch(
                 saved += 1
             if i % 20 == 0:
                 db.commit()
+        except FinMindQuotaExhausted:
+            logger.warning(f"FinMind quota exhausted at margin {i}/{total}, saved {saved}")
+            db.commit()
+            return saved, True
         except Exception as e:
             logger.warning(f"FinMind margin error for {sid}: {e}")
             continue
     db.commit()
-    return saved
+    return saved, False
 
 
 def _fetch_financials(
     finmind: 'FinMindCollector', db: Session,
     stock_ids: List[str], target_date: date,
-) -> int:
-    """Fetch quarterly financial data from FinMind (3 datasets)."""
+) -> tuple[int, bool]:
+    """Fetch quarterly financial data from FinMind (3 datasets).
+
+    Returns:
+        (saved_count, quota_exhausted) tuple.
+    """
+    from app.services.finmind_collector import FinMindQuotaExhausted
+
     logger.info(f"Step G: Fetching financials for {len(stock_ids)} stocks")
     fin_start = (target_date - timedelta(days=730)).strftime("%Y-%m-%d")
     fin_end = target_date.strftime("%Y-%m-%d")
@@ -414,13 +438,17 @@ def _fetch_financials(
             if i % 10 == 0:
                 db.commit()
 
+        except FinMindQuotaExhausted:
+            logger.warning(f"FinMind quota exhausted at financials {i}/{len(stock_ids)}, saved {saved}")
+            db.commit()
+            return saved, True
         except Exception as e:
             logger.warning(f"Financial fetch error for {sid}: {e}")
             continue
 
     db.commit()
     logger.info(f"Financials saved: {saved}")
-    return saved
+    return saved, False
 
 
 def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
@@ -440,6 +468,7 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         finmind = FinMindCollector(token=settings.FINMIND_TOKEN)
         twse = TWSECollector()
         target_date = date.fromisoformat(date_str)
+        finmind_exhausted = False  # Global quota flag
 
         # --- Step A: Fetch and save stock list ---
         logger.info("Step A: Fetching stock list from FinMind...")
@@ -523,9 +552,12 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
                 f"Step C: Backfill {len(need_backfill)}/{len(all_target_ids)} "
                 f"stocks via FinMind (6 months)"
             )
-            saved_hist = _fetch_finmind_prices_batch(
+            saved_hist, exhausted = _fetch_finmind_prices_batch(
                 finmind, db, need_backfill, fm_start, date_str
             )
+            if exhausted:
+                finmind_exhausted = True
+                logger.warning("FinMind quota exhausted during Step C")
             logger.info(f"Historical prices saved: {saved_hist}")
 
             # Check if any still need more data, use TWSE STOCK_DAY as fallback
@@ -533,9 +565,10 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
             if still_need:
                 logger.info(
                     f"Step C fallback: {len(still_need)} stocks via TWSE STOCK_DAY "
-                    f"(~{len(still_need) * 24}s estimated)"
+                    f"(~{len(still_need) * 6}s estimated)"
                 )
-                saved_hist += _fetch_twse_history_batch(twse, db, still_need)
+                # Only fetch 2 months (enough for 20+ trading days) to speed up
+                saved_hist += _fetch_twse_history_batch(twse, db, still_need, months=2)
         else:
             logger.info("Step C: All target stocks have 30+ days data")
 
@@ -560,10 +593,16 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         logger.info(f"TWSE T86 institutional saved: {saved_inst}")
 
         # D-2: FinMind per-stock institutional for priority+top stocks (30 days)
-        inst_start = (target_date - timedelta(days=45)).strftime("%Y-%m-%d")
-        fm_inst_saved = _fetch_finmind_institutional_batch(
-            finmind, db, all_target_ids, inst_start, date_str
-        )
+        fm_inst_saved = 0
+        if not finmind_exhausted:
+            inst_start = (target_date - timedelta(days=45)).strftime("%Y-%m-%d")
+            fm_inst_saved, exhausted = _fetch_finmind_institutional_batch(
+                finmind, db, all_target_ids, inst_start, date_str
+            )
+            if exhausted:
+                finmind_exhausted = True
+        else:
+            logger.info("D-2: Skipped FinMind institutional (quota exhausted)")
         saved_inst += fm_inst_saved
         logger.info(f"Institutional total saved: {saved_inst} (FinMind: {fm_inst_saved})")
 
@@ -590,10 +629,16 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         logger.info(f"TWSE margin saved: {saved_margin}")
 
         # E-2: FinMind per-stock margin for priority+top stocks (15 days)
-        margin_start = (target_date - timedelta(days=25)).strftime("%Y-%m-%d")
-        fm_margin_saved = _fetch_finmind_margin_batch(
-            finmind, db, all_target_ids, margin_start, date_str
-        )
+        fm_margin_saved = 0
+        if not finmind_exhausted:
+            margin_start = (target_date - timedelta(days=25)).strftime("%Y-%m-%d")
+            fm_margin_saved, exhausted = _fetch_finmind_margin_batch(
+                finmind, db, all_target_ids, margin_start, date_str
+            )
+            if exhausted:
+                finmind_exhausted = True
+        else:
+            logger.info("E-2: Skipped FinMind margin (quota exhausted)")
         saved_margin += fm_margin_saved
         logger.info(f"Margin total saved: {saved_margin} (FinMind: {fm_margin_saved})")
 
@@ -620,60 +665,66 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         db.commit()
         logger.info(f"TWSE revenue saved: {saved_rev}")
 
-        # F-2: FinMind revenue for target stocks (last 18 months for YoY calc)
-        # Only process stocks with YoY=0 or missing revenue
-        rev_start = (target_date - timedelta(days=550)).strftime("%Y-%m-%d")
+        # F-2: FinMind revenue supplement (only when quota available)
+        # F-1 now covers both listed+OTC with pre-calculated YoY/MoM.
+        # F-2 only needed for historical gap-filling, skip when quota exhausted.
         fm_rev_saved = 0
-        # Use all_target_ids (top 100 + priority), filter to 4-digit stocks
-        rev_target_ids = [
-            sid for sid in all_target_ids
-            if sid.isdigit() and len(sid) == 4
-        ]
-        logger.info(f"F-2: Processing revenue YoY for {len(rev_target_ids)} stocks")
-        for sid in rev_target_ids:
-            df = finmind.fetch_revenue(sid, rev_start, date_str)
-            if df is None or df.empty:
-                continue
-            # Sort by date ascending for YoY/MoM calculation
-            df = df.sort_values('date')
-            rev_map = {}
-            for _, row in df.iterrows():
-                rev_date_str = str(row['date'])
-                rev_val = int(row.get('revenue', 0))
-                rev_map[rev_date_str] = rev_val
+        if not finmind_exhausted:
+            from app.services.finmind_collector import FinMindQuotaExhausted
+            rev_start = (target_date - timedelta(days=550)).strftime("%Y-%m-%d")
+            rev_target_ids = [
+                sid for sid in all_target_ids
+                if sid.isdigit() and len(sid) == 4
+            ]
+            logger.info(f"F-2: FinMind revenue supplement for {len(rev_target_ids)} stocks")
+            for sid in rev_target_ids:
+                try:
+                    df = finmind.fetch_revenue(sid, rev_start, date_str)
+                except FinMindQuotaExhausted:
+                    logger.warning("FinMind quota exhausted during F-2 revenue")
+                    finmind_exhausted = True
+                    break
+                if df is None or df.empty:
+                    continue
+                df = df.sort_values('date')
+                rev_map = {}
+                for _, row in df.iterrows():
+                    rev_date_str = str(row['date'])
+                    rev_val = int(row.get('revenue', 0))
+                    rev_map[rev_date_str] = rev_val
 
-            for _, row in df.iterrows():
-                rev_date = row['date']
-                existing = db.query(Revenue).filter_by(
-                    stock_id=sid, revenue_date=rev_date
-                ).first()
-                revenue_val = int(row.get('revenue', 0))
+                for _, row in df.iterrows():
+                    rev_date = row['date']
+                    existing = db.query(Revenue).filter_by(
+                        stock_id=sid, revenue_date=rev_date
+                    ).first()
+                    revenue_val = int(row.get('revenue', 0))
 
-                # Calculate YoY: same month last year
-                from dateutil.relativedelta import relativedelta
-                rev_dt = datetime.strptime(str(rev_date), "%Y-%m-%d")
-                yoy_dt = (rev_dt - relativedelta(years=1)).strftime("%Y-%m-%d")
-                mom_dt = (rev_dt - relativedelta(months=1)).strftime("%Y-%m-%d")
-                yoy_rev = rev_map.get(yoy_dt, 0)
-                mom_rev = rev_map.get(mom_dt, 0)
-                yoy = ((revenue_val - yoy_rev) / yoy_rev * 100) if yoy_rev > 0 else 0
-                mom = ((revenue_val - mom_rev) / mom_rev * 100) if mom_rev > 0 else 0
+                    from dateutil.relativedelta import relativedelta
+                    rev_dt = datetime.strptime(str(rev_date), "%Y-%m-%d")
+                    yoy_dt = (rev_dt - relativedelta(years=1)).strftime("%Y-%m-%d")
+                    mom_dt = (rev_dt - relativedelta(months=1)).strftime("%Y-%m-%d")
+                    yoy_rev = rev_map.get(yoy_dt, 0)
+                    mom_rev = rev_map.get(mom_dt, 0)
+                    yoy = ((revenue_val - yoy_rev) / yoy_rev * 100) if yoy_rev > 0 else 0
+                    mom = ((revenue_val - mom_rev) / mom_rev * 100) if mom_rev > 0 else 0
 
-                if existing:
-                    # Update YoY/MoM if they were 0
-                    if float(existing.revenue_yoy) == 0 and yoy != 0:
-                        existing.revenue_yoy = round(yoy, 2)
-                        existing.revenue_mom = round(mom, 2)
-                else:
-                    db.add(Revenue(
-                        stock_id=sid,
-                        revenue_date=rev_date,
-                        revenue=revenue_val,
-                        revenue_yoy=round(yoy, 2),
-                        revenue_mom=round(mom, 2),
-                    ))
-                    fm_rev_saved += 1
-        db.commit()
+                    if existing:
+                        if float(existing.revenue_yoy) == 0 and yoy != 0:
+                            existing.revenue_yoy = round(yoy, 2)
+                            existing.revenue_mom = round(mom, 2)
+                    else:
+                        db.add(Revenue(
+                            stock_id=sid,
+                            revenue_date=rev_date,
+                            revenue=revenue_val,
+                            revenue_yoy=round(yoy, 2),
+                            revenue_mom=round(mom, 2),
+                        ))
+                        fm_rev_saved += 1
+            db.commit()
+        else:
+            logger.info("F-2: Skipped FinMind revenue (quota exhausted, F-1 TWSE covers current month)")
         saved_rev += fm_rev_saved
         logger.info(f"FinMind revenue saved: {fm_rev_saved} (total: {saved_rev})")
 
@@ -691,12 +742,10 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         db.commit()
         logger.info(f"PER/PBR updated: {updated_per}")
 
-        # --- Step G: Fetch quarterly financials from FinMind ---
-        # Fetch for all target stocks (top 100 + priority), skip those already in DB
+        # --- Step G: Fetch quarterly financials ---
         existing_fin_ids = set(
             r[0] for r in db.query(Financial.stock_id).distinct().all()
         )
-        # Only fetch for pure numeric stock IDs (skip ETFs like 0050, 0056, 00919)
         fin_target_ids = [
             sid for sid in all_target_ids
             if sid not in existing_fin_ids
@@ -707,7 +756,40 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
             f"Step G: {len(fin_target_ids)} new stocks need financials "
             f"(already have {len(existing_fin_ids)})"
         )
-        saved_fin = _fetch_financials(finmind, db, fin_target_ids, target_date)
+
+        saved_fin = 0
+        if not finmind_exhausted:
+            saved_fin, exhausted = _fetch_financials(finmind, db, fin_target_ids, target_date)
+            if exhausted:
+                finmind_exhausted = True
+        else:
+            logger.info("Step G: FinMind quota exhausted, using TWSE fallback")
+
+        # G fallback: TWSE quarterly financials (streaming, today's filers only)
+        if finmind_exhausted:
+            logger.info("Step G fallback: Fetching TWSE quarterly financials...")
+            twse_fin_data = twse.fetch_quarterly_financials()
+            twse_fin_saved = 0
+            for item in twse_fin_data:
+                existing = db.query(Financial).filter_by(
+                    stock_id=item["stock_id"], report_date=item["report_date"]
+                ).first()
+                if not existing:
+                    db.add(Financial(
+                        stock_id=item["stock_id"],
+                        report_date=item["report_date"],
+                        eps=item["eps"],
+                        gross_margin=item["gross_margin"],
+                        operating_margin=item["operating_margin"],
+                        roe=item["roe"],
+                        debt_ratio=item["debt_ratio"],
+                        operating_cash_flow=None,
+                        free_cash_flow=None,
+                    ))
+                    twse_fin_saved += 1
+            db.commit()
+            saved_fin += twse_fin_saved
+            logger.info(f"TWSE quarterly financials saved: {twse_fin_saved}")
 
         total_prices = saved_twse + saved_hist
         msg = (f"TWSE: {saved_twse}, Hist: {saved_hist} "
