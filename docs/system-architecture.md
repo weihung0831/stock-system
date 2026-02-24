@@ -112,6 +112,18 @@
 
 ## 🔄 每日 Pipeline（3 步驟）
 
+### 🚀 執行模式：Incremental vs Initial
+
+```
+Pipeline 自動偵測執行模式：
+  ├─ Incremental（增量）：DB 有近 5 天股價 → 跳過 FinMind 逐檔歷史，僅用 TWSE 批次 API
+  │   → 執行時間：~5 分鐘
+  └─ Initial（首次/回補）：DB 無近期資料 → 完整跑所有步驟含 FinMind 歷史回補
+      → 執行時間：~50 分鐘
+
+偵測邏輯：查詢 DailyPrice 表最新 trade_date，若距目標日 ≤5 天 → Incremental
+```
+
 ### ⬇️ Step 1：資料抓取 `data_fetch_steps.py`
 
 ```
@@ -127,6 +139,7 @@ A. 股票清單 (FinMind)
 B. 當日收盤 (TWSE bulk，1次 API)
    ├─ 主要：STOCK_DAY_ALL (OpenAPI) → 全市場 ~1300 檔
    ├─ 備援：MI_INDEX (連假後 OpenAPI 延遲時自動切換)
+   ├─ 批次查重：預載已存在 stock_id + price keys → O(1) 重複檢查
    └─ → DailyPrice 表
 
 C. 歷史回補 (TWSE STOCK_DAY，逐檔)
@@ -134,18 +147,27 @@ C. 歷史回補 (TWSE STOCK_DAY，逐檔)
    ├─ 過濾：只補不足 120 天的
    └─ 每檔抓 8 個月 → DailyPrice 表 (3秒/次限速)
 
-D. 三大法人 (TWSE T86 bulk，1次 API)
-   └─ 全市場外資/投信/自營買賣超 → Institutional 表
+D-1. 三大法人 (TWSE T86 bulk，1次 API)
+     ├─ 全市場外資/投信/自營買賣超 → Institutional 表
+     └─ 批次查重：預載目標日已存在 stock_id → O(1) 重複檢查
 
-E. 融資融券 (TWSE MI_MARGN bulk，1次 API)
-   └─ 全市場融資餘額/融券餘額 → MarginTrading 表
+D-2. 法人歷史 (FinMind，逐檔) [Incremental 模式跳過]
+     └─ 45 天歷史法人資料
+
+E-1. 融資融券 (TWSE MI_MARGN bulk，1次 API)
+     ├─ 全市場融資餘額/融券餘額 → MarginTrading 表
+     └─ 批次查重：預載目標日已存在 stock_id → O(1) 重複檢查
+
+E-2. 融資融券歷史 (FinMind，逐檔) [Incremental 模式跳過]
+     └─ 25 天歷史融資融券資料
 
 F-1. 月營收 (TWSE bulk，雙端點)
      ├─ t187ap05_L → 上市公司 (~1065 檔，含台積電)
      ├─ t187ap05_P → 上櫃公司 (~293 檔)
-     └─ TWSE 端點已預計算 YoY / MoM 百分比 → Revenue 表
+     ├─ TWSE 端點已預計算 YoY / MoM 百分比 → Revenue 表
+     └─ 批次查重：預載目標月已存在 stock_id → O(1) 重複檢查
 
-F-2. 營收 YoY/MoM (FinMind，逐檔；若 finmind_exhausted 則跳過)
+F-2. 營收 YoY/MoM (FinMind，逐檔) [Incremental 模式跳過]
      ├─ 抓 18 個月營收算 YoY = (本月 - 去年同月) / 去年同月
      └─ 更新 Revenue.revenue_yoy / revenue_mom
 
@@ -153,11 +175,12 @@ F-3. PER/PBR/殖利率 (TWSE BWIBBU bulk)
      └─ 全市場估值 → Stock.per / pbr / dividend_yield
 
 G. 季財報
-   ├─ 主要路徑 (FinMind，逐檔，3 個 dataset；若 finmind_exhausted 則跳過)
+   ├─ 主要路徑 (FinMind，逐檔，3 個 dataset) [Incremental 模式 或 finmind_exhausted 跳過]
+   │  ├─ 對象：近 6 個月無財報的股票（而非僅新股）
    │  ├─ 損益表 → EPS / 毛利率 / 營業利益率
    │  ├─ 資產負債表 → 負債比 / ROE
    │  └─ 現金流量表 → 營業現金流 / 自由現金流
-   └─ 備援路徑 (TWSE 串流端點，finmind_exhausted=True 時啟用)
+   └─ 備援路徑 (TWSE 串流端點，Incremental 或 finmind_exhausted 時啟用)
       ├─ t187ap06_L_ci → 損益表 (EPS / Revenue / GrossProfit / OperatingIncome)
       ├─ t187ap07_L_ci → 資產負債表 (TotalAssets / Liabilities / Equity)
       └─ 注意：TWSE 無現金流資料，operating_cash_flow / free_cash_flow 設為 null
@@ -278,11 +301,16 @@ LLM 分析已從 Pipeline 步驟 3 改為隨需呼叫
 ```
 交易日自訂時間 (APScheduler，預設 PM 4:30，可由使用者調整)
     │
-    ├─ 檢測交易日狀態
+    ├─ 檢測交易日狀態（使用 now_taipei().date() 台北時區）
     │  ├─ 交易日：正常執行 Pipeline (3 步驟)
     │  └─ 非交易日：略過 (不產生 pipeline_log，減少 DB 寫入)
     │
+    ├─ 自動偵測 Incremental/Initial 模式
+    │  ├─ Incremental：跳過 FinMind 逐檔歷史 → ~5 分鐘完成
+    │  └─ Initial：完整回補 → ~50 分鐘
+    │
     ├─ 1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR、營收、財報
+    │     （批次 IN 查詢查重，消除 N+1 問題）
     ├─ 2. hard_filter → 篩出 ~500 檔候選股 (FALLBACK_TOP_N=500)
     └─ 3. scoring
        └─ 三因子加權評分 → 排名寫入 DB
@@ -394,7 +422,6 @@ cd frontend && npm run dev
 |------|------|------|
 | 技術面 <120 天 = 0 分 | technical_scorer | 部分候選股直接 0 分 |
 | PE 評分固定 50 | fundamental_scorer L251-255 | 本益比指標未啟用 |
-| 財報只抓新股 | data_fetch_steps L520-529 | 已有財報不更新最新季 |
 | FinMind 免費額度有限 (402 錯誤) | finmind_collector.py | 超額時自動切換 TWSE 備援，當日 FinMind 資料可能不完整 |
 | TWSE 季報備援無現金流資料 | data_fetch_steps.py (Step G 備援) | operating_cash_flow / free_cash_flow 為 null |
 | TWSE 季報為串流端點 | twse_collector.py fetch_quarterly_financials | 僅提供最近申報者，非完整歷史季報 |
@@ -626,4 +653,4 @@ cd frontend && npm run dev
 - Services 計數更正：24 個（非先前文件記載的 25 個）
 
 **最後更新**: 2026-02-24
-**版本**: 2.14
+**版本**: 2.15

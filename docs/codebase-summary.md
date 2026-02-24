@@ -560,6 +560,16 @@ Pipeline 流程   ✅ test_daily_pipeline.py
 
 ## 📅 近期更新摘要
 
+### 2026-02-24: Pipeline 效能優化 — 每日排程從 50 分鐘降至 5 分鐘
+
+**後端改進**
+- `daily_pipeline.py`: `date.today()` 改為 `now_taipei().date()`，修正 UTC 伺服器時區判斷錯誤
+- `data_fetch_steps.py`:
+  - 新增 Incremental 模式偵測（DB 有近 5 天股價 → 跳過 D-2/E-2/F-2/G 歷史抓取）
+  - 批次 DB 查重：B/D-1/E-1/F-1 改用 `IN` 查詢預載已存在 keys，消除 N+1（~4000 次 SELECT → 4 次）
+  - Step G 季報：改檢查「近 6 個月有無財報」，確保新季度財報被正確抓入
+  - 每日排程：TWSE 批次 API 涵蓋當日資料，FinMind per-stock 歷史僅首次建置需要
+
 ### 2026-02-24: FinMind 402 全域旗標 + TWSE 雙端點月營收 + 評分前資料驗證
 
 **後端改進**
@@ -891,5 +901,5 @@ Pipeline 流程   ✅ test_daily_pipeline.py
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
 **最後更新**: 2026-02-24
-**版本**: 3.5
-**狀態**: FinMind 402 全域旗標跳過備援 + TWSE 雙端點月營收 + 評分前資料驗證閘，297 個測試全部通過
+**版本**: 3.6
+**狀態**: Pipeline 效能優化（50分→5分）+ Incremental 模式 + 批次查重消除 N+1 + 時區修正，297 個測試全部通過
