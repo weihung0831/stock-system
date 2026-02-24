@@ -72,27 +72,31 @@ def _stocks_needing_backfill(
 
 
 def _save_twse_prices(db: Session, prices: List[Dict]) -> int:
-    """Save TWSE latest prices to DB, skip duplicates."""
+    """Save TWSE latest prices to DB, skip duplicates (batch check)."""
+    if not prices:
+        return 0
+
+    # Batch: pre-fetch existing price keys and stock IDs
+    trade_date = prices[0]["trade_date"]
+    existing_price_ids = set(
+        r[0] for r in db.query(DailyPrice.stock_id)
+        .filter(DailyPrice.trade_date == trade_date).all()
+    )
+    existing_stock_ids = set(
+        r[0] for r in db.query(Stock.stock_id).all()
+    )
+
     saved = 0
     for p in prices:
         sid = p["stock_id"]
-        # Ensure stock exists
-        stock = db.query(Stock).filter_by(stock_id=sid).first()
-        if not stock:
-            db.add(Stock(
-                stock_id=sid,
-                stock_name=sid,
-                market="TWSE",
-            ))
-            db.flush()
+        if sid not in existing_stock_ids:
+            db.add(Stock(stock_id=sid, stock_name=sid, market="TWSE"))
+            existing_stock_ids.add(sid)
 
-        existing = db.query(DailyPrice).filter_by(
-            stock_id=sid, trade_date=p["trade_date"]
-        ).first()
-        if not existing:
+        if sid not in existing_price_ids:
             db.add(DailyPrice(
                 stock_id=sid,
-                trade_date=p["trade_date"],
+                trade_date=trade_date,
                 open=p["open"],
                 high=p["high"],
                 low=p["low"],
@@ -470,6 +474,16 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         target_date = date.fromisoformat(date_str)
         finmind_exhausted = False  # Global quota flag
 
+        # Detect incremental (daily) vs initial run
+        from sqlalchemy import func as sqlfunc_detect
+        latest_db_date = db.query(sqlfunc_detect.max(DailyPrice.trade_date)).scalar()
+        is_incremental = (
+            latest_db_date is not None
+            and (target_date - date.fromisoformat(str(latest_db_date))).days <= 5
+        )
+        if is_incremental:
+            logger.info("Incremental mode: will skip heavy historical fetches")
+
         # --- Step A: Fetch and save stock list ---
         logger.info("Step A: Fetching stock list from FinMind...")
         stocks = finmind.fetch_stock_list()
@@ -580,21 +594,26 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         logger.info(f"Step D-1: TWSE bulk institutional for {inst_date}")
         saved_inst = 0
         inst_data = twse.fetch_institutional_all(inst_date)
+        # Batch: pre-fetch existing institutional stock IDs for this date
+        existing_inst_ids = set(
+            r[0] for r in db.query(Institutional.stock_id)
+            .filter(Institutional.trade_date == inst_date).all()
+        )
         for item in inst_data:
-            existing = db.query(Institutional).filter_by(
-                stock_id=item["stock_id"], trade_date=item["trade_date"]
-            ).first()
-            if not existing:
-                db.add(Institutional(**item))
-                saved_inst += 1
-            if saved_inst % 500 == 0 and saved_inst > 0:
+            if item["stock_id"] in existing_inst_ids:
+                continue
+            db.add(Institutional(**item))
+            saved_inst += 1
+            if saved_inst % 500 == 0:
                 db.commit()
         db.commit()
         logger.info(f"TWSE T86 institutional saved: {saved_inst}")
 
-        # D-2: FinMind per-stock institutional for priority+top stocks (30 days)
+        # D-2: FinMind per-stock institutional (skip on daily — D-1 covers today)
         fm_inst_saved = 0
-        if not finmind_exhausted:
+        if is_incremental:
+            logger.info("D-2: Skipped (incremental mode, D-1 covers today)")
+        elif not finmind_exhausted:
             inst_start = (target_date - timedelta(days=45)).strftime("%Y-%m-%d")
             fm_inst_saved, exhausted = _fetch_finmind_institutional_batch(
                 finmind, db, all_target_ids, inst_start, date_str
@@ -611,26 +630,31 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         logger.info("Step E-1: TWSE bulk margin data")
         saved_margin = 0
         margin_data = twse.fetch_margin_all()
+        # Batch: pre-fetch existing margin stock IDs for this date
+        existing_margin_ids = set(
+            r[0] for r in db.query(MarginTrading.stock_id)
+            .filter(MarginTrading.trade_date == inst_date).all()
+        )
         for item in margin_data:
-            existing = db.query(MarginTrading).filter_by(
-                stock_id=item["stock_id"], trade_date=inst_date
-            ).first()
-            if not existing:
-                db.add(MarginTrading(
-                    stock_id=item["stock_id"],
-                    trade_date=inst_date,
-                    margin_balance=item["margin_balance"],
-                    short_balance=item["short_balance"],
-                ))
-                saved_margin += 1
-            if saved_margin % 500 == 0 and saved_margin > 0:
+            if item["stock_id"] in existing_margin_ids:
+                continue
+            db.add(MarginTrading(
+                stock_id=item["stock_id"],
+                trade_date=inst_date,
+                margin_balance=item["margin_balance"],
+                short_balance=item["short_balance"],
+            ))
+            saved_margin += 1
+            if saved_margin % 500 == 0:
                 db.commit()
         db.commit()
         logger.info(f"TWSE margin saved: {saved_margin}")
 
-        # E-2: FinMind per-stock margin for priority+top stocks (15 days)
+        # E-2: FinMind per-stock margin (skip on daily — E-1 covers today)
         fm_margin_saved = 0
-        if not finmind_exhausted:
+        if is_incremental:
+            logger.info("E-2: Skipped (incremental mode, E-1 covers today)")
+        elif not finmind_exhausted:
             margin_start = (target_date - timedelta(days=25)).strftime("%Y-%m-%d")
             fm_margin_saved, exhausted = _fetch_finmind_margin_batch(
                 finmind, db, all_target_ids, margin_start, date_str
@@ -649,27 +673,35 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
 
         # F-1: TWSE bulk revenue (companies that already filed)
         rev_data = twse.fetch_monthly_revenue()
+        # Batch: pre-fetch existing revenue keys for this month
+        if rev_data:
+            rev_month = rev_data[0]["revenue_date"]
+            existing_rev_ids = set(
+                r[0] for r in db.query(Revenue.stock_id)
+                .filter(Revenue.revenue_date == rev_month).all()
+            )
+        else:
+            existing_rev_ids = set()
         for r in rev_data:
-            existing = db.query(Revenue).filter_by(
-                stock_id=r["stock_id"], revenue_date=r["revenue_date"]
-            ).first()
-            if not existing:
-                db.add(Revenue(
-                    stock_id=r["stock_id"],
-                    revenue_date=r["revenue_date"],
-                    revenue=r["revenue"],
-                    revenue_yoy=r["revenue_yoy"],
-                    revenue_mom=r["revenue_mom"],
-                ))
-                saved_rev += 1
+            if r["stock_id"] in existing_rev_ids:
+                continue
+            db.add(Revenue(
+                stock_id=r["stock_id"],
+                revenue_date=r["revenue_date"],
+                revenue=r["revenue"],
+                revenue_yoy=r["revenue_yoy"],
+                revenue_mom=r["revenue_mom"],
+            ))
+            saved_rev += 1
         db.commit()
         logger.info(f"TWSE revenue saved: {saved_rev}")
 
-        # F-2: FinMind revenue supplement (only when quota available)
-        # F-1 now covers both listed+OTC with pre-calculated YoY/MoM.
-        # F-2 only needed for historical gap-filling, skip when quota exhausted.
+        # F-2: FinMind revenue supplement (historical gap-filling only)
+        # F-1 covers current month. F-2 only needed on initial run.
         fm_rev_saved = 0
-        if not finmind_exhausted:
+        if is_incremental:
+            logger.info("F-2: Skipped (incremental mode, F-1 covers current month)")
+        elif not finmind_exhausted:
             from app.services.finmind_collector import FinMindQuotaExhausted
             rev_start = (target_date - timedelta(days=550)).strftime("%Y-%m-%d")
             rev_target_ids = [
@@ -743,30 +775,37 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         logger.info(f"PER/PBR updated: {updated_per}")
 
         # --- Step G: Fetch quarterly financials ---
-        existing_fin_ids = set(
-            r[0] for r in db.query(Financial.stock_id).distinct().all()
+        # Find stocks missing recent quarterly data (last 6 months)
+        from sqlalchemy import func as sqlfunc_g
+        recent_cutoff = (target_date - timedelta(days=180)).strftime("%Y-%m-%d")
+        stocks_with_recent_fin = set(
+            r[0] for r in db.query(Financial.stock_id)
+            .filter(Financial.report_date >= recent_cutoff)
+            .distinct().all()
         )
         fin_target_ids = [
             sid for sid in all_target_ids
-            if sid not in existing_fin_ids
+            if sid not in stocks_with_recent_fin
             and sid.isdigit()
             and len(sid) == 4
         ]
         logger.info(
-            f"Step G: {len(fin_target_ids)} new stocks need financials "
-            f"(already have {len(existing_fin_ids)})"
+            f"Step G: {len(fin_target_ids)} stocks need financials update "
+            f"({len(stocks_with_recent_fin)} already have recent data)"
         )
 
         saved_fin = 0
-        if not finmind_exhausted:
+        if is_incremental:
+            logger.info("Step G: Incremental mode, using TWSE daily filers only")
+        elif not finmind_exhausted:
             saved_fin, exhausted = _fetch_financials(finmind, db, fin_target_ids, target_date)
             if exhausted:
                 finmind_exhausted = True
         else:
             logger.info("Step G: FinMind quota exhausted, using TWSE fallback")
 
-        # G fallback: TWSE quarterly financials (streaming, today's filers only)
-        if finmind_exhausted:
+        # G supplement: TWSE quarterly financials (today's filers, always run)
+        if is_incremental or finmind_exhausted:
             logger.info("Step G fallback: Fetching TWSE quarterly financials...")
             twse_fin_data = twse.fetch_quarterly_financials()
             twse_fin_saved = 0

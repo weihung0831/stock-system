@@ -102,7 +102,7 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
         Result dict with status and details
     """
     # Early exit for scheduled triggers on non-trading days (no log created)
-    today = date.today()
+    today = now_taipei().date()
     if trigger_type != "manual" and not is_trading_day(today):
         logger.info(f"Skipping pipeline: {today} is not a trading day (no log created)")
         return {"status": "skipped", "reason": "Not a trading day"}
