@@ -99,7 +99,7 @@ txt(s, 1, 1.8, 11, 1.2, "台股智慧選股系統", sz=52, color=GOLD, bold=True
 bar(s, 4.5, 3.2, 4)
 txt(s, 1, 3.5, 11, 0.8, "指標公式與評分邏輯", sz=28, color=WHITE, align=PP_ALIGN.CENTER)
 txt(s, 1, 4.8, 11, 0.5, "完整公式對照手冊", sz=18, color=DIM, align=PP_ALIGN.CENTER)
-txt(s, 1, 6.2, 11, 0.4, "v3.4  |  2026 年 2 月", sz=14, color=DIM, align=PP_ALIGN.CENTER)
+txt(s, 1, 6.2, 11, 0.4, "v3.5  |  2026 年 2 月", sz=14, color=DIM, align=PP_ALIGN.CENTER)
 
 # ========== Slide 2: 評分系統總覽 ==========
 s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -226,7 +226,7 @@ txt(s, 0.8, 0.4, 11, 0.7, "Step 2B  基本面評分 (fundamental_score)", sz=34,
 bar(s, 0.8, 1.0, 3)
 
 # Mode selection
-txt(s, 0.8, 1.2, 11, 0.4, "三種評分模式（自動判斷資料可用性）", sz=18, color=WHITE)
+txt(s, 0.8, 1.2, 11, 0.4, "三種評分模式（自動判斷資料可用性）  |  ⚠️ 至少需 2 個有效因子方進行評分", sz=16, color=WHITE)
 
 # Mode 1: Full financial
 card(s, 0.8, 1.8, 3.8, 5.2, fill=RGBColor(0x1E, 0x2E, 0x4A))
@@ -672,9 +672,9 @@ txt(s, 0.8, 0.4, 11, 0.7, "每日自動更新流程", sz=34, color=GOLD, bold=Tr
 bar(s, 0.8, 1.0, 3)
 
 times = [
-    ("Step 1", "資料收集", "全市場收盤價\n法人、融資融券\n營收、財報", BLUE),
+    ("Step 1", "資料收集", "TWSE 全市場收盤價\n法人/融資融券/營收\nFinMind 額度用盡\n自動切 TWSE 備援", BLUE),
     ("Step 2", "候選股篩選", "量能異常偵測\n+ Top 500 保底\n→ ~500 檔候選", GREEN),
-    ("Step 3", "三因子評分", "籌碼+基本面\n+技術面\n加權排名", GOLD),
+    ("Step 3", "三因子評分", "籌碼+基本面\n+技術面\n≥2因子有效才評分", GOLD),
     ("完成", "結果上線", "Dashboard\n顯示最新\n排名結果", TEAL),
 ]
 
@@ -692,14 +692,14 @@ for i, (time, title, desc, color) in enumerate(times):
 
 card(s, 1, 5.5, 11.3, 1.2, fill=RGBColor(0x2A, 0x2A, 0x45))
 txt(s, 1.3, 5.6, 10.7, 0.5, "💡  全自動運作，無需手動操作", sz=20, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
-txt(s, 1.3, 6.1, 10.7, 0.4, "系統自動偵測交易日，非交易日自動略過  |  排程時間可在設定頁面調整  |  AI 報告為手動生成", sz=14, color=DIM, align=PP_ALIGN.CENTER)
+txt(s, 1.3, 6.1, 10.7, 0.4, "交易日自動偵測  |  FinMind 402 額度耗盡自動切 TWSE 全量備援  |  AI 報告為手動生成", sz=14, color=DIM, align=PP_ALIGN.CENTER)
 
 # ========== Slide 13: 結尾 ==========
 s = prs.slides.add_slide(prs.slide_layouts[6])
 bg_fill(s)
 txt(s, 1, 2, 11, 1, "讓數據說話", sz=48, color=GOLD, bold=True, align=PP_ALIGN.CENTER)
 bar(s, 4.5, 3.2, 4)
-txt(s, 1, 3.5, 11, 0.8, "台股智慧選股系統 v3.4", sz=24, color=WHITE, align=PP_ALIGN.CENTER)
+txt(s, 1, 3.5, 11, 0.8, "台股智慧選股系統 v3.5", sz=24, color=WHITE, align=PP_ALIGN.CENTER)
 txt(s, 1, 4.8, 11, 0.5, "三因子量化評分  ×  AI 智慧分析  ×  動能信號偵測", sz=18, color=DIM, align=PP_ALIGN.CENTER)
 
 # Save

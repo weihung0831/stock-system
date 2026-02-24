@@ -18,7 +18,7 @@ cd backend && pytest --cov=app --cov-report=term-missing
 ## Architecture
 
 - `backend/app/routers/` — 13 個 API 路由
-- `backend/app/services/` — 25 個業務服務
+- `backend/app/services/` — 24 個業務服務
 - `backend/app/models/` — 15 個 ORM 模型
 - `backend/app/tasks/` — Pipeline 任務
 - `frontend/src/views/` — 13 個頁面
@@ -35,7 +35,7 @@ cd backend && pytest --cov=app --cov-report=term-missing
 
 ## Testing
 
-- 301 個測試, 57% 覆蓋率
+- 297 個測試, 57% 覆蓋率
 - 測試檔案在 `backend/tests/`
 - 使用 SQLite in-memory 測試資料庫
 - 不可用 mock 繞過測試，必須修正實際問題

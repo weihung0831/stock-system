@@ -10,7 +10,7 @@ stock-system/
 │   │   ├── config.py                 # 配置管理 (環境變數)
 │   │   ├── database.py               # SQLAlchemy ORM 設定
 │   │   ├── dependencies.py           # 依賴注入
-│   │   ├── models/                   # 14個 ORM 模型
+│   │   ├── models/                   # 14 個 ORM 模型 (含 sector_tag, system_setting)
 │   │   │   ├── base.py               # 基類 (TimestampMixin)
 │   │   │   ├── stock.py              # 股票主檔
 │   │   │   ├── daily_price.py        # 每日價格
@@ -23,6 +23,8 @@ stock-system/
 │   │   │   ├── llm_report.py         # AI 分析報告 (含 right_side_analysis 欄位)
 │   │   │   ├── report_usage.py       # 報告使用追蹤 (每日限額記錄)
 │   │   │   ├── user.py               # 使用者帳戶 (含 membership_tier, email)
+│   │   │   ├── sector_tag.py         # 產業分類標籤
+│   │   │   ├── system_setting.py     # 系統設定鍵值
 │   │   │   └── pipeline_log.py       # 流程執行日誌
 │   │   ├── schemas/                  # Pydantic 驗證模式
 │   │   │   ├── auth.py               # 認證 (LoginRequest, RegisterRequest, Token, UserResponse)
@@ -45,7 +47,7 @@ stock-system/
 │   │   │   ├── chat.py               # /api/chat (AI 聊天助手，含會員限流+配額查詢)
 │   │   │   ├── sector_tags.py        # /api/sector-tags/* (產業分類標籤)
 │   │   │   └── right_side_signals.py # /api/right-side-signals/* (右側買法信號)
-│   │   ├── services/                 # 25 個業務邏輯服務
+│   │   ├── services/                 # 24 個業務邏輯服務
 │   │   │   ├── auth_service.py       # JWT & Bcrypt 認證
 │   │   │   ├── finmind_collector.py  # FinMind API 整合
 │   │   │   ├── news_collector.py     # Google News RSS 爬蟲
@@ -76,7 +78,7 @@ stock-system/
 │   │       ├── analysis_steps.py     # 評分與即時 LLM 分析步驟（含按需新聞抓取）
 │   │       ├── pipeline_status.py    # 進度與日誌
 │   │       └── __init__.py
-│   ├── tests/                        # 單元測試 (301 個測試)
+│   ├── tests/                        # 單元測試 (297 個測試，20 個測試檔)
 │   │   ├── conftest.py               # Pytest 設定與固件
 │   │   ├── test_auth_service.py      # 認證測試 (156 行)
 │   │   ├── test_models.py            # 模型測試 (496 行)
@@ -88,7 +90,11 @@ stock-system/
 │   │   ├── test_finmind_collector.py # FinMind 收集器測試 (22 個測試)
 │   │   ├── test_chat_service.py      # 聊天服務測試 (22 個測試：build_stock_context/chat_with_assistant/router/限流整合)
 │   │   ├── test_chat_rate_limiter.py # 聊天限流測試 (7 個測試：每分鐘限制/每日限制/重置邏輯)
-│   │   └── test_report_cache.py      # 報告快取測試 (5 個測試：24h 快取命中/未命中/邊界)
+│   │   ├── test_report_cache.py      # 報告快取測試 (5 個測試：24h 快取命中/未命中/邊界)
+│   │   ├── test_scoring_engine.py     # 評分引擎測試
+│   │   ├── test_right_side_signal_detector.py # 右側信號偵測器測試
+│   │   ├── test_dependencies.py       # 依賴注入測試
+│   │   └── test_daily_pipeline.py     # 每日 Pipeline 測試
 │   ├── requirements.txt               # Python 依賴
 │   ├── .env.example                  # 環境變數範本
 │   └── pytest.ini                    # Pytest 設定
@@ -196,7 +202,7 @@ stock-system/
 ├── TESTING_STATUS.md                 # 測試狀態報告
 └── README.md                         # (待建立) 專案入門指南
 
-總計: ~150 個檔案, ~15,000 行代碼
+總計: ~160 個檔案, ~25,581 行代碼 (後端 ~15,210 + 前端 ~10,371)
 ```
 
 ## ⚙️ 核心模組說明
@@ -271,8 +277,9 @@ TWSECollector (TWSE 官方 API)
 ├─ fetch_institutional_all() → 全市場法人買賣 (T86)
 ├─ fetch_margin_all() → 全市場融資融券 (MI_MARGN)
 ├─ fetch_per_ratio() → 全市場估值 (BWIBBU_ALL)
-├─ fetch_monthly_revenue() → 月營收 (t187ap05_P)
-└─ fetch_stock_history() → 個股歷史資料
+├─ fetch_monthly_revenue() → 月營收 (t187ap05_L 上市 ~1065 家 + t187ap05_P 上櫃 ~293 家)
+└─ fetch_quarterly_financials() → 季度財報 TWSE 備援 (FinMind 402 額度耗盡時啟用，串流 EPS/毛利率/營益率/ROE/負債比；現金流設 null)
+├─ fetch_stock_history() → 個股歷史資料
 
 NewsCollector (Google News RSS)
 └─ fetch_news() → News 表
@@ -280,6 +287,10 @@ NewsCollector (Google News RSS)
 RateLimiter (自訂)
 ├─ 限制 FinMind API 呼叫頻率
 └─ 避免超額請求
+
+FinMind 402 全域旗標
+├─ 任一 FinMind 呼叫回傳 402 → 設定 finmind_exhausted = True
+└─ 後續所有 FinMind 呼叫立即跳過，切換 TWSE 備援
 ```
 
 **相關檔案**:
@@ -509,7 +520,7 @@ tailwindcss (可選)
 ## 🧪 測試覆蓋
 
 ```
-總計: 301 個測試, 100% 通過率
+總計: 297 個測試, 20 個測試檔, 100% 通過率
 
 認證服務        ✅ 156 行代碼，100% 覆蓋
 模型           ✅ 496 行代碼，93-100% 覆蓋
@@ -522,6 +533,10 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 聊天服務        ✅ 22 個測試，涵蓋 build_stock_context/chat_with_assistant/router/限流整合
 聊天限流        ✅ 7 個測試，涵蓋每分鐘/日限制/重置邏輯/會員差異
 報告快取        ✅ 5 個測試，涵蓋 24h 快取命中/未命中/邊界
+評分引擎        ✅ test_scoring_engine.py
+右側信號偵測    ✅ test_right_side_signal_detector.py
+依賴注入        ✅ test_dependencies.py
+Pipeline 流程   ✅ test_daily_pipeline.py
 會員系統        ✅ ~34 個測試，涵蓋註冊/驗證/等級管理/限流（新增）
 
 持續擴展:
@@ -544,6 +559,21 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 ---
 
 ## 📅 近期更新摘要
+
+### 2026-02-24: FinMind 402 全域旗標 + TWSE 雙端點月營收 + 評分前資料驗證
+
+**後端改進**
+- `finmind_collector.py`: 任一 FinMind API 呼叫收到 402 回應時，設定全域 `finmind_exhausted = True`，後續所有 FinMind 呼叫立即跳過，避免無效重試浪費額度
+- `twse_collector.py` `fetch_monthly_revenue()`: 改為同時抓取兩個端點
+  - `t187ap05_L` (上市公司 ~1065 家，含台積電等主板股)
+  - `t187ap05_P` (上櫃公司 ~293 家)
+  - 舊版僅抓 OTC 端點，導致台積電等上市大盤股月營收缺失
+- `twse_collector.py` `fetch_quarterly_financials()`: FinMind 額度耗盡時的季報備援
+  - 串流 TWSE OpenAPI 取得 EPS、毛利率、營益率、ROE、負債比
+  - 現金流資料 TWSE 無提供，設為 null
+- `scoring_engine.py`: 評分前新增資料完整性驗證閘，最少 2 個有效因子才進行評分，避免無意義評分結果
+- `main.py`: 排程器啟動順序修正 — 排程器先啟動，再依設定決定是否暫停 (原邏輯反轉)
+- `daily_pipeline.py`: 信號快取清除包入 try/except，防止快取模組異動時 Pipeline 失敗
 
 ### 2026-02-24: 篩選端點批次查詢優化 (N+1 查詢 → 3 次 SQL)
 
@@ -861,5 +891,5 @@ FinMind 收集器  ✅ 22 個測試，100% 覆蓋
 - `bcrypt` 4.1.1 → 4.2.0, 新增 `requests`
 
 **最後更新**: 2026-02-24
-**版本**: 3.4
-**狀態**: 篩選端點 N+1 優化完成 (3 次 SQL)，移除死代碼，AI 報告整合右側買法信號，301 個測試全部通過
+**版本**: 3.5
+**狀態**: FinMind 402 全域旗標跳過備援 + TWSE 雙端點月營收 + 評分前資料驗證閘，297 個測試全部通過

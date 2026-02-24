@@ -50,15 +50,15 @@
 │  ├─ chat.py         POST /api/chat (含會員限流) + GET /api/chat/quota │
 │  └─ right_side_signals.py  右側買法信號檢測 & 篩選             │
 │                                                             │
-│  Services (核心業務邏輯)                                       │
+│  Services (核心業務邏輯，共 24 個)                               │
 │  ├─ scoring_engine.py      評分引擎 (協調三因子)                 │
 │  │   ├─ chip_scorer.py     籌碼面評分                          │
 │  │   ├─ fundamental_scorer.py 基本面評分                       │
 │  │   └─ technical_scorer.py   技術面評分                       │
 │  ├─ hard_filter.py         硬篩選 (量能異常 + Top N)            │
 │  ├─ on_demand_data_fetcher.py 按需資料抓取 (非 Pipeline 股票)   │
-│  ├─ twse_collector.py      TWSE 資料收集 (免費)                 │
-│  ├─ finmind_collector.py   FinMind 資料收集 (財報/營收)          │
+│  ├─ twse_collector.py      TWSE 資料收集 (免費，含上市+上櫃營收)  │
+│  ├─ finmind_collector.py   FinMind 資料收集 (有額度限制，402 例外) │
 │  ├─ news_collector.py      新聞抓取                            │
 │  ├─ llm_analyzer.py        LLM 分析 (Gemini)                  │
 │  ├─ gemini_client.py       Gemini API 客戶端                   │
@@ -69,7 +69,8 @@
 │  ├─ backtest_service.py    回測邏輯                            │
 │  ├─ stock_service.py       股票查詢服務 (含權證過濾)              │
 │  ├─ auth_service.py        JWT 認證服務                        │
-│  └─ rate_limiter.py        API 限速器                          │
+│  ├─ rate_limiter.py        API 限速器                          │
+│  └─ prompt_templates.py    LLM 提示詞範本                       │
 │                                                             │
 │  Tasks (排程任務)                                              │
 │  ├─ daily_pipeline.py      Pipeline 協調器 (3步驟)              │
@@ -114,9 +115,14 @@
 ### ⬇️ Step 1：資料抓取 `data_fetch_steps.py`
 
 ```
+【全域旗標】data_fetch_steps.py 維護 finmind_exhausted 旗標
+  └─ 任一 FinMind 呼叫回傳 HTTP 402 → 旗標設為 True
+     → 後續所有 FinMind 步驟 (C/D/E/F-2/G FinMind 路徑) 自動跳過
+
 A. 股票清單 (FinMind)
    ├─ 全市場股票 → stock_id + stock_name + industry → Stock 表
-   └─ 過濾已下市股票（date 欄位 < 30 天前的排除）
+   ├─ 過濾已下市股票（date 欄位 < 30 天前的排除）
+   └─ FinMindQuotaExhausted 例外：finmind_collector.py 偵測 402 時拋出
 
 B. 當日收盤 (TWSE bulk，1次 API)
    ├─ 主要：STOCK_DAY_ALL (OpenAPI) → 全市場 ~1300 檔
@@ -134,21 +140,28 @@ D. 三大法人 (TWSE T86 bulk，1次 API)
 E. 融資融券 (TWSE MI_MARGN bulk，1次 API)
    └─ 全市場融資餘額/融券餘額 → MarginTrading 表
 
-F-1. 月營收 (TWSE bulk)
-     └─ 已公告公司的當月營收 → Revenue 表
+F-1. 月營收 (TWSE bulk，雙端點)
+     ├─ t187ap05_L → 上市公司 (~1065 檔，含台積電)
+     ├─ t187ap05_P → 上櫃公司 (~293 檔)
+     └─ TWSE 端點已預計算 YoY / MoM 百分比 → Revenue 表
 
-F-2. 營收 YoY/MoM (FinMind，逐檔)
+F-2. 營收 YoY/MoM (FinMind，逐檔；若 finmind_exhausted 則跳過)
      ├─ 抓 18 個月營收算 YoY = (本月 - 去年同月) / 去年同月
      └─ 更新 Revenue.revenue_yoy / revenue_mom
 
 F-3. PER/PBR/殖利率 (TWSE BWIBBU bulk)
      └─ 全市場估值 → Stock.per / pbr / dividend_yield
 
-G. 季財報 (FinMind，逐檔，3 個 dataset)
-   ├─ 損益表 → EPS / 毛利率 / 營業利益率
-   ├─ 資產負債表 → 負債比 / ROE
-   ├─ 現金流量表 → 營業現金流 / 自由現金流
-   └─ → Financial 表
+G. 季財報
+   ├─ 主要路徑 (FinMind，逐檔，3 個 dataset；若 finmind_exhausted 則跳過)
+   │  ├─ 損益表 → EPS / 毛利率 / 營業利益率
+   │  ├─ 資產負債表 → 負債比 / ROE
+   │  └─ 現金流量表 → 營業現金流 / 自由現金流
+   └─ 備援路徑 (TWSE 串流端點，finmind_exhausted=True 時啟用)
+      ├─ t187ap06_L_ci → 損益表 (EPS / Revenue / GrossProfit / OperatingIncome)
+      ├─ t187ap07_L_ci → 資產負債表 (TotalAssets / Liabilities / Equity)
+      └─ 注意：TWSE 無現金流資料，operating_cash_flow / free_cash_flow 設為 null
+   → Financial 表
 ```
 
 ### 🔍 Step 2：硬篩選 `hard_filter.py`
@@ -342,7 +355,7 @@ Dashboard → GET /screening/results → ScoreResult 表 (依 rank 排序)
 | TWSE 官方 | 每日收盤、法人、融資融券、PER/PBR | 免費 | bulk API 無限速 |
 | TWSE 假期 API | 年度交易假期表 | 免費 | 自動快取 |
 | TWSE STOCK_DAY | 個股歷史日K | 免費 | 3秒/次限速 |
-| FinMind | 股票清單、月營收、季財報 | 免費 | 有額度限制 (402) |
+| FinMind | 股票清單、月營收、季財報 | 免費 | 有額度限制 (402)，超額時全域旗標跳過，自動切換 TWSE 備援 |
 | Gemini API | AI 分析摘要 | 免費額度 | 按需呼叫 |
 | Google News RSS | 台股新聞 | 免費 | 每次最多 20 篇 |
 
@@ -382,6 +395,9 @@ cd frontend && npm run dev
 | 技術面 <120 天 = 0 分 | technical_scorer | 部分候選股直接 0 分 |
 | PE 評分固定 50 | fundamental_scorer L251-255 | 本益比指標未啟用 |
 | 財報只抓新股 | data_fetch_steps L520-529 | 已有財報不更新最新季 |
+| FinMind 免費額度有限 (402 錯誤) | finmind_collector.py | 超額時自動切換 TWSE 備援，當日 FinMind 資料可能不完整 |
+| TWSE 季報備援無現金流資料 | data_fetch_steps.py (Step G 備援) | operating_cash_flow / free_cash_flow 為 null |
+| TWSE 季報為串流端點 | twse_collector.py fetch_quarterly_financials | 僅提供最近申報者，非完整歷史季報 |
 
 ---
 
@@ -594,5 +610,20 @@ cd frontend && npm run dev
 - LLM 分析全面升級（所有評分股票）
 - 依賴更新：bcrypt 4.2.0, 新增 requests
 
+### 🆕 2026-02-24: FinMind 402 全域旗標 + TWSE 雙端點營收 + 季報備援
+
+**後端更新**
+- `data_fetch_steps.py`: 新增 `finmind_exhausted` 全域旗標；任一 FinMind 步驟回傳 402 時設為 True，後續 FinMind 步驟（Steps C/D/E/F-2/G 主路徑）全部跳過
+- `finmind_collector.py`: HTTP 402 時拋出 `FinMindQuotaExhausted` 例外，供 data_fetch_steps.py 捕捉並設旗標
+- `twse_collector.py` `fetch_monthly_revenue()`: 改為同時抓取兩個端點
+  - `t187ap05_L` (上市，~1065 檔，含台積電)
+  - `t187ap05_P` (上櫃，~293 檔)
+  - 原本僅抓上櫃端點；TWSE 端點已含預計算 YoY / MoM 百分比
+- `twse_collector.py` `fetch_quarterly_financials()` (新方法): Step G 備援路徑
+  - `t187ap06_L_ci` 損益表 → EPS / Revenue / GrossProfit / OperatingIncome
+  - `t187ap07_L_ci` 資產負債表 → TotalAssets / Liabilities / Equity
+  - 無現金流資料，cash flow 欄位設為 null
+- Services 計數更正：24 個（非先前文件記載的 25 個）
+
 **最後更新**: 2026-02-24
-**版本**: 2.13
+**版本**: 2.14

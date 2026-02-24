@@ -40,14 +40,14 @@ npm run dev
 
 ```
 stock-system/
-├── backend/           # FastAPI 後端 (25 服務, 13 路由, 15 模型)
+├── backend/           # FastAPI 後端 (24 服務, 13 路由, 15 模型)
 │   ├── app/
 │   │   ├── models/    # ORM 模型
 │   │   ├── routers/   # API 路由
 │   │   ├── services/  # 業務邏輯
 │   │   ├── schemas/   # Pydantic 驗證
 │   │   └── tasks/     # Pipeline 任務
-│   └── tests/         # 301 個測試
+│   └── tests/         # 297 個測試
 ├── frontend/          # Vue 3 前端 (13 視圖, 22 元件)
 │   └── src/
 │       ├── views/     # 頁面
@@ -70,4 +70,4 @@ cd backend
 pytest --tb=short
 ```
 
-目前 301 個測試，57% 覆蓋率，100% 通過率。
+目前 297 個測試，57% 覆蓋率，100% 通過率。
