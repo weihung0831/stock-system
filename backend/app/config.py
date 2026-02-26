@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440
     CORS_ORIGINS: str = "http://localhost:5173"
+    CRON_SECRET: str = ""
 
     model_config = {
         "env_file": ".env"

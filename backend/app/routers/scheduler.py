@@ -19,6 +19,7 @@ from app.tasks.pipeline_status import (
     is_pipeline_running
 )
 from app.models.system_setting import SystemSetting
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,29 @@ def _run_pipeline_in_background():
         logger.info(f"Background pipeline completed: {result}")
     except Exception as e:
         logger.error(f"Background pipeline failed: {e}", exc_info=True)
+
+
+@router.post("/cron-trigger", response_model=TriggerResponse)
+def cron_trigger_pipeline(
+    secret: str = Query(..., description="Cron secret key"),
+    db: Session = Depends(get_db)
+):
+    """
+    External cron trigger endpoint, protected by CRON_SECRET.
+    Use this with cron-job.org or similar services.
+    Example: POST /api/scheduler/cron-trigger?secret=YOUR_SECRET
+    """
+    if not settings.CRON_SECRET or secret != settings.CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+
+    if is_pipeline_running(db):
+        return TriggerResponse(message="Pipeline already running", status="skipped")
+
+    thread = threading.Thread(target=_run_pipeline_in_background, daemon=True)
+    thread.start()
+    logger.info("Pipeline triggered by external cron")
+
+    return TriggerResponse(message="Pipeline triggered by cron", status="started")
 
 
 @router.post("/trigger", response_model=TriggerResponse)
