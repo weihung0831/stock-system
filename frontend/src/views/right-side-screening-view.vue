@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { screenRightSideSignals } from '@/api/right-side-signals-api'
+import { getLatestReports } from '@/api/reports-api'
 import type { RightSideScreenItem } from '@/types/right-side-signals'
 
 const router = useRouter()
@@ -9,6 +10,7 @@ const loading = ref(false)
 const items = ref<RightSideScreenItem[]>([])
 const minSignals = ref(2)
 const errorMsg = ref('')
+const reportStockIds = ref<Set<string>>(new Set())
 
 /* Extra filter toggles */
 const filterBreakout = ref(false)
@@ -95,10 +97,13 @@ async function doScreen() {
   }
 }
 
-const scoreClass = (s: number) => s >= 60 ? 'score-high' : s >= 35 ? 'score-mid' : 'score-low'
+const scoreClass = (s: number) => s >= 69.95 ? 'score-high' : s >= 49.95 ? 'score-mid' : 'score-low'
 
 // Load on mount
 doScreen()
+getLatestReports().then(reports => {
+  reportStockIds.value = new Set(reports.map(r => r.stock_id))
+}).catch(() => {})
 </script>
 
 <template>
@@ -209,7 +214,14 @@ doScreen()
             >
               <td class="rank-num">{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
               <td class="stock-code">{{ item.stock_id }}</td>
-              <td class="stock-name">{{ item.stock_name }}</td>
+              <td class="stock-name">
+                {{ item.stock_name }}
+                <span
+                  v-if="reportStockIds.has(item.stock_id)"
+                  class="ai-report-badge"
+                  @click.stop="router.push(`/reports?stock=${item.stock_id}`)"
+                >AI</span>
+              </td>
               <td>
                 <span :class="['score-pill', scoreClass(item.score)]">{{ item.score }}</span>
               </td>
@@ -607,6 +619,24 @@ doScreen()
   background: rgba(239, 68, 68, 0.1);
   color: var(--down);
   border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.ai-report-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--bg-dark);
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border-radius: 3px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: box-shadow 0.15s;
+}
+.ai-report-badge:hover {
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
 }
 
 .empty-state {
