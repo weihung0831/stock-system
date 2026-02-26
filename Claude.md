@@ -17,8 +17,8 @@ cd backend && pytest --cov=app --cov-report=term-missing
 
 ## Architecture
 
-- `backend/app/routers/` — 13 個 API 路由
-- `backend/app/services/` — 24 個業務服務
+- `backend/app/routers/` — 14 個 API 路由 (新增 scheduler cron-trigger)
+- `backend/app/services/` — 25 個業務服務
 - `backend/app/models/` — 15 個 ORM 模型
 - `backend/app/tasks/` — Pipeline 任務
 - `frontend/src/views/` — 13 個頁面

@@ -35,14 +35,16 @@
                            ▼
 ┌── Backend (FastAPI + Python) ───────────────────────────────┐
 │                                                             │
-│  Routers (API 端點)                                          │
+│  Routers (API 端點，共 14 個)                                │
 │  ├─ screening.py    GET/PUT 篩選結果 & 權重                    │
 │  ├─ stocks.py       股票列表 & 個股資料                         │
 │  ├─ chip_stats.py   籌碼統計 API                              │
 │  ├─ custom_screening.py  自訂篩選條件                          │
 │  ├─ backtest.py     回測 API                                 │
 │  ├─ reports.py      LLM 報告 API (含 24h 快取 + 會員限流)       │
-│  ├─ scheduler.py    手動觸發 Pipeline                          │
+│  ├─ scheduler.py    手動觸發 Pipeline + 外部 Cron 觸發端點      │
+│  │                  ├─ POST /api/scheduler/run (即時觸發)      │
+│  │                  └─ POST /api/scheduler/cron-trigger (Zeabur 備援) │
 │  ├─ auth.py         POST/auth/register/login/refresh (含會員系統) │
 │  ├─ admin.py        GET/PATCH /api/admin/users/* (會員管理) │
 │  ├─ data.py         資料管理                                   │
@@ -267,7 +269,12 @@ total_score = chip x 權重% + fundamental x 權重% + technical x 權重%
 預設權重：chip=40 / fundamental=35 / technical=25 (可由使用者調整)
 ```
 
-→ 排序 → 寫入 ScoreResult 表（含 rank）
+→ 排序 → 寫入 ScoreResult 表（含 rank、chip_score、fundamental_score、technical_score）
+
+**評分一致性保證**
+- Dashboard / 篩選列表 / 個股詳情頁 **統一讀取** Pipeline 預存結果（score_result 表）
+- 個股詳情頁不再重新計算評分，改為直接讀取 Pipeline 結果，確保頁面間分數一致
+- 詳細數據（技術指標、法人分析等）仍由個股詳情頁實時計算供展示用
 
 #### 🤖 LLM 分析（隨需呼叫）
 
@@ -298,29 +305,58 @@ LLM 分析已從 Pipeline 步驟 3 改為隨需呼叫
 
 ## ⏰ 日常運作流程
 
+### 內部排程 + 外部 Cron 觸發
+
 ```
-交易日自訂時間 (APScheduler，預設 PM 4:30，可由使用者調整)
+【內部 APScheduler】
+交易日自訂時間 (預設 PM 4:30，可由使用者調整 → SystemSetting 表)
     │
     ├─ 檢測交易日狀態（使用 now_taipei().date() 台北時區）
     │  ├─ 交易日：正常執行 Pipeline (3 步驟)
     │  └─ 非交易日：略過 (不產生 pipeline_log，減少 DB 寫入)
     │
-    ├─ 自動偵測 Incremental/Initial 模式
-    │  ├─ Incremental：跳過 FinMind 逐檔歷史 → ~5 分鐘完成
-    │  └─ Initial：完整回補 → ~50 分鐘
-    │
-    ├─ 1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR、營收、財報
-    │     （批次 IN 查詢查重，消除 N+1 問題）
-    ├─ 2. hard_filter → 篩出 ~500 檔候選股 (FALLBACK_TOP_N=500)
-    └─ 3. scoring
-       └─ 三因子加權評分 → 排名寫入 DB
+    └─ [Execute Pipeline...]
 
-    **注**: LLM 分析已改為隨需呼叫 (POST /api/reports/{stock_id}/generate)
-          不再是 Pipeline 自動步驟，改為使用者點擊時按需生成
+【外部 Cron 觸發（Zeabur 備援方案）】
+外部排程服務 (cron-job.org, weekdays 16:30)
     │
-    ▼
+    └─ POST /api/scheduler/cron-trigger?secret=CRON_SECRET
+       ├─ Server 驗證 ?secret 參數
+       ├─ 通過驗證 → 同步觸發內部 Pipeline 協調器
+       └─ Zeabur 容器休眠時由外部 cron 接管，確保排程可靠執行
+
+```
+
+### Pipeline 執行細節
+
+```
+1. data_fetch  → 抓最新收盤、法人、融資、PER/PBR、營收、財報
+   （批次 IN 查詢查重，消除 N+1 問題）
+
+2. hard_filter → 篩出 ~500 檔候選股 (FALLBACK_TOP_N=500)
+
+3. scoring
+   ├─ 三因子加權評分 → 排名寫入 DB
+   ├─ 評分結果：每檔股票儲存至 score_result 表
+   │  ├─ rank: 排名
+   │  ├─ score: 總分 (0-100)
+   │  ├─ chip_score, fundamental_score, technical_score: 各因子分數
+   │  └─ updated_at: 評分時間戳
+   └─ **新增**: 評分結果立即可被個股詳情頁讀取
+       (之前個股詳情頁會重新計算，現改為讀取 Pipeline 預存結果，保證分數一致)
+
+**注**:
+- LLM 分析已改為隨需呼叫 (POST /api/reports/{stock_id}/generate)
+  不再是 Pipeline 自動步驟，改為使用者點擊時按需生成
+- 外部 cron 觸發端點確保 Zeabur 容器自動喚醒時 Pipeline 可靠執行
+```
+
+### 使用者操作流程
+
+```
 使用者開 Dashboard → 看到最新排名 + 過濾篩選
   ├─ Top 30 排名 + 產業分類篩選
+  ├─ 評分色彩統一：≥70 綠色 / ≥50 黃色 / <50 紅色
   └─ 點擊「產生 AI 分析」→ 即時呼叫 Gemini 產出摘要
 ```
 

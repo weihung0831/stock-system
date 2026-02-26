@@ -40,10 +40,10 @@ npm run dev
 
 ```
 stock-system/
-├── backend/           # FastAPI 後端 (24 服務, 13 路由, 15 模型)
+├── backend/           # FastAPI 後端 (25 服務, 14 路由, 15 模型)
 │   ├── app/
 │   │   ├── models/    # ORM 模型
-│   │   ├── routers/   # API 路由
+│   │   ├── routers/   # API 路由 (新增 Cron 觸發端點)
 │   │   ├── services/  # 業務邏輯
 │   │   ├── schemas/   # Pydantic 驗證
 │   │   └── tasks/     # Pipeline 任務
@@ -55,8 +55,8 @@ stock-system/
 │       ├── stores/    # Pinia 狀態
 │       ├── api/       # API 客戶端
 │       └── types/     # TypeScript 型別
-├── scripts/           # PPT 生成等工具腳本
-└── docs/              # 技術文件 (6 份)
+├── scripts/           # 工具腳本
+└── docs/              # 技術文件
 ```
 
 ## 文件
