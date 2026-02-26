@@ -38,7 +38,7 @@ const ringOffset = (score: number) => CIRC - (CIRC * Math.min(score, 100) / 100)
             :stroke-dashoffset="ringOffset(f.score)"
           />
         </svg>
-        <div class="ring-value">{{ f.score.toFixed(0) }}</div>
+        <div class="ring-value">{{ f.score.toFixed(1) }}</div>
       </div>
     </div>
   </div>

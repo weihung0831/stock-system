@@ -297,7 +297,18 @@ def get_stock_score(
             fetch_result = fetcher.fetch_missing_data(stock_id)
             logger.info(f"On-demand fetch for {stock_id}: {fetch_result}")
 
-        # Calculate fresh score
+        # Try pre-stored scores first (consistent with dashboard/screening)
+        latest_date = db.query(
+            sqlfunc.max(ScoreResult.score_date)
+        ).scalar()
+        stored = None
+        if latest_date:
+            stored = db.query(ScoreResult).filter(
+                ScoreResult.stock_id == stock_id,
+                ScoreResult.score_date == latest_date,
+            ).first()
+
+        # Calculate details breakdown (always needed for detail view)
         engine = ScoringEngine()
         result = engine.score_single_stock(db, stock_id)
 
@@ -306,6 +317,13 @@ def get_stock_score(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to calculate score"
             )
+
+        # Override scores with pre-stored values for consistency
+        if stored:
+            result["chip_score"] = round(float(stored.chip_score), 2)
+            result["fundamental_score"] = round(float(stored.fundamental_score), 2)
+            result["technical_score"] = round(float(stored.technical_score), 2)
+            result["total_score"] = round(float(stored.total_score), 2)
 
         result["stock_name"] = stock.stock_name
         result["industry"] = stock.industry
