@@ -100,6 +100,7 @@ def get_latest_reports(
             report.stock_name = stock_name or report.stock_id
             results.append(report)
 
+        logger.info(f"Returning {len(results)} latest reports")
         return results
 
     except Exception as e:

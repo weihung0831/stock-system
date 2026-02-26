@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, watch } from 'vue'
 import { getLatestReports } from '@/api/reports-api'
 import type { LLMReport } from '@/types/report'
 import { useRouter } from 'vue-router'
@@ -80,6 +80,11 @@ async function fetchReports() {
 onMounted(() => {
   fetchReports()
 })
+
+// 當元件被 keep-alive 快取後重新激活時也刷新
+onActivated(() => {
+  fetchReports()
+})
 </script>
 
 <template>
@@ -142,6 +147,9 @@ onMounted(() => {
             @click="confidenceFilter = '低'"
           >低</div>
         </div>
+        <button class="refresh-btn" :disabled="loading" @click="fetchReports" title="重新載入報告">
+          <span :class="{ spinning: loading }">↻</span>
+        </button>
       </div>
     </div>
 
@@ -183,8 +191,8 @@ onMounted(() => {
         <div class="report-preview">
           <div class="rec-label">建議:</div>
           <ul class="rec-list">
-            <li v-for="(line, idx) in report.recommendation.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
-              {{ line.trim() }}
+            <li v-for="(line, idx) in report.recommendation.split('。').map(s => s.trim()).filter(s => s.length > 0)" :key="idx">
+              {{ line }}。
             </li>
           </ul>
         </div>
@@ -193,40 +201,41 @@ onMounted(() => {
           <div class="detail-section">
             <h4>💰 籌碼分析</h4>
             <ul class="detail-list">
-              <li v-for="(line, idx) in report.chip_analysis.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
-                {{ line.trim() }}
+              <li v-for="(line, idx) in report.chip_analysis.split('。').map(s => s.trim()).filter(s => s.length > 0)" :key="idx">
+                {{ line }}。
               </li>
             </ul>
           </div>
           <div class="detail-section">
             <h4>📊 基本面分析</h4>
             <ul class="detail-list">
-              <li v-for="(line, idx) in report.fundamental_analysis.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
-                {{ line.trim() }}
+              <li v-for="(line, idx) in report.fundamental_analysis.split('。').map(s => s.trim()).filter(s => s.length > 0)" :key="idx">
+                {{ line }}。
               </li>
             </ul>
           </div>
           <div class="detail-section">
             <h4>📈 技術面分析</h4>
             <ul class="detail-list">
-              <li v-for="(line, idx) in report.technical_analysis.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
-                {{ line.trim() }}
+              <li v-for="(line, idx) in report.technical_analysis.split('。').map(s => s.trim()).filter(s => s.length > 0)" :key="idx">
+                {{ line }}。
+              </li>
+            </ul>
+          </div>
+          <div class="detail-section" v-if="report.right_side_analysis">
+            <h4>🎯 右側買法信號</h4>
+            <ul class="detail-list right-side">
+              <li v-for="(line, idx) in report.right_side_analysis.split('。').map(s => s.trim()).filter(s => s.length > 0)" :key="'rs'+idx">
+                {{ line }}。
               </li>
             </ul>
           </div>
           <div class="detail-section">
             <h4>📰 新聞情緒</h4>
+            <p v-if="report.news_sentiment"><strong>情緒:</strong> {{ report.news_sentiment }}</p>
             <ul class="detail-list">
-              <li v-for="(line, idx) in report.news_sentiment.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
-                {{ line.trim() }}
-              </li>
-            </ul>
-          </div>
-          <div class="detail-section" v-if="report.news_summary">
-            <h4>📰 新聞摘要</h4>
-            <ul class="detail-list">
-              <li v-for="(line, idx) in report.news_summary.split(/[。；\n]/).filter(l => l.trim())" :key="idx">
-                {{ line.trim() }}
+              <li v-for="(line, idx) in report.news_summary.split('。').map(s => s.trim()).filter(s => s.length > 0)" :key="'n'+idx">
+                {{ line }}。
               </li>
             </ul>
           </div>
@@ -234,6 +243,14 @@ onMounted(() => {
             <h4 style="color: var(--down)">⚠️ 風險警示</h4>
             <ul class="risk-list">
               <li v-for="(alert, idx) in report.risk_alerts" :key="idx">{{ alert }}</li>
+            </ul>
+          </div>
+          <div class="detail-section">
+            <h4 style="color: var(--amber)">💡 投資建議</h4>
+            <ul class="detail-list recommend">
+              <li v-for="(line, idx) in report.recommendation.split('。').map(s => s.trim()).filter(s => s.length > 0)" :key="'rec'+idx">
+                {{ line }}。
+              </li>
             </ul>
           </div>
         </div>
@@ -279,6 +296,25 @@ onMounted(() => {
 }
 .search-input:focus { border-color: var(--amber); }
 .search-input::placeholder { color: var(--text-muted); }
+
+.refresh-btn {
+  margin-left: auto;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.refresh-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); }
+.refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.refresh-btn .spinning { animation: spin 0.8s linear infinite; display: inline-block; }
 
 /* Confidence tab color overrides */
 .cat-tab.conf-high.active { background: var(--up); border-color: var(--up); }
@@ -440,6 +476,14 @@ onMounted(() => {
 
 .detail-list li:last-child {
   margin-bottom: 0;
+}
+
+.detail-list.right-side li {
+  color: var(--text-secondary);
+}
+.detail-list.recommend li {
+  color: var(--amber);
+  font-weight: 500;
 }
 
 .risk-list {
