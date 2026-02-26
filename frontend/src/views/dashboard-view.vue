@@ -11,13 +11,20 @@ const screeningStore = useScreeningStore()
 const sectorTagsStore = useSectorTagsStore()
 const reportStockIds = ref<Set<string>>(new Set())
 const activeSector = ref('all')
+const allStrongFilter = ref(false)
 
 /* ========== Sector filtering ========== */
 const sectorFiltered = computed(() => {
-  if (activeSector.value === 'all') return screeningStore.results
-  const tag = sectorTagsStore.tags.find(t => t.name === activeSector.value)
-  const keyword = tag?.keywords || activeSector.value
-  return screeningStore.results.filter(r => r.industry?.includes(keyword))
+  let list = screeningStore.results
+  if (activeSector.value !== 'all') {
+    const tag = sectorTagsStore.tags.find(t => t.name === activeSector.value)
+    const keyword = tag?.keywords || activeSector.value
+    list = list.filter(r => r.industry?.includes(keyword))
+  }
+  if (allStrongFilter.value) {
+    list = list.filter(r => r.chip_score >= 70 && r.fundamental_score >= 70 && r.technical_score >= 70)
+  }
+  return list
 })
 
 /* ========== Pagination ========== */
@@ -90,12 +97,15 @@ const statCards = computed(() => {
 /* ========== Category tabs ========== */
 const categoryTabs = computed(() => {
   // For "all" tab: show count from top30 (limited by topN)
-  const all = { key: 'all', label: '全部', color: '', count: Math.min(screeningStore.results.length, topN) }
+  const baseList = allStrongFilter.value
+    ? screeningStore.results.filter(r => r.chip_score >= 70 && r.fundamental_score >= 70 && r.technical_score >= 70)
+    : screeningStore.results
+  const all = { key: 'all', label: '全部', color: '', count: Math.min(baseList.length, topN) }
 
   // For sector tabs: show count of stocks in that sector (also limited by topN)
   const tagTabs = sectorTagsStore.tags.map(tag => {
     const keyword = tag.keywords || tag.name
-    const sectorCount = screeningStore.results.filter(r => r.industry?.includes(keyword)).length
+    const sectorCount = baseList.filter(r => r.industry?.includes(keyword)).length
     return {
       key: tag.name,
       label: tag.name,
@@ -125,7 +135,7 @@ function sortIcon(key: string): string {
 }
 
 /* ========== Score class helpers ========== */
-const scoreClass = (v: number) => v >= 80 ? 'score-high' : v >= 65 ? 'score-mid' : 'score-low'
+const scoreClass = (v: number) => v >= 69.95 ? 'score-high' : v >= 49.95 ? 'score-mid' : 'score-low'
 const rankClass = (i: number) => i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''
 
 const formatChange = (row: ScoreResult) => {
@@ -164,9 +174,15 @@ onMounted(async () => {
 
     <!-- Section header: title + category tabs -->
     <div class="section-header">
-      <div class="section-title" style="margin-bottom: 0">
+      <div class="section-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
         每日精選排行
         <span class="badge">TOP {{ top30.length }}</span>
+        <button
+          :class="['strong-filter-btn', { active: allStrongFilter }]"
+          @click="allStrongFilter = !allStrongFilter; currentPage = 1"
+        >
+          三指標 ≥ 70
+        </button>
       </div>
 
       <!-- Desktop: tabs -->
@@ -239,7 +255,7 @@ onMounted(async () => {
                 @click.stop="router.push(`/reports?stock=${row.stock_id}`)"
               >AI</span>
             </td>
-            <td class="total-score">{{ row.total_score.toFixed(1) }}</td>
+            <td><span :class="['score-pill', scoreClass(row.total_score)]">{{ row.total_score.toFixed(1) }}</span></td>
             <td style="font-family: var(--font-mono)">${{ row.close_price?.toFixed(2) ?? '-' }}</td>
             <td :class="['price-change', row.change_percent >= 0 ? 'up' : 'down']" style="font-family: var(--font-mono)">
               {{ formatChange(row) }}
@@ -417,6 +433,29 @@ onMounted(async () => {
   color: var(--amber);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.strong-filter-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.strong-filter-btn:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.strong-filter-btn.active {
+  background: var(--amber);
+  color: var(--bg-dark);
+  border-color: var(--amber);
 }
 
 .ai-report-badge {

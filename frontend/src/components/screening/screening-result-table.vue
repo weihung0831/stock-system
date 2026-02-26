@@ -74,7 +74,7 @@ const visiblePages = computed(() => {
   return pages
 })
 
-const scoreClass = (v: number) => v >= 80 ? 'score-high' : v >= 65 ? 'score-mid' : 'score-low'
+const scoreClass = (v: number) => v >= 69.95 ? 'score-high' : v >= 49.95 ? 'score-mid' : 'score-low'
 
 const formatChange = (row: ScoreResult) => {
   const pct = row.change_percent ?? 0
@@ -136,7 +136,7 @@ function openStock(row: ScoreResult) {
               @click.stop="router.push(`/reports?stock=${row.stock_id}`)"
             >AI</span>
           </td>
-          <td class="total-score">{{ row.total_score.toFixed(1) }}</td>
+          <td><span :class="['score-pill', scoreClass(row.total_score)]">{{ row.total_score.toFixed(1) }}</span></td>
           <td style="font-family: var(--font-mono)">${{ row.close_price?.toFixed(2) ?? '-' }}</td>
           <td :class="['price-change', (row.change_percent ?? 0) >= 0 ? 'up' : 'down']" style="font-family: var(--font-mono)">
             {{ formatChange(row) }}

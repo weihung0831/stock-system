@@ -85,6 +85,8 @@ function returnClass(val: number | null): string {
 function navigateToStock(stockId: string) {
   router.push(`/stock/${stockId}`)
 }
+
+const scoreClass = (v: number) => v >= 69.95 ? 'score-high' : v >= 49.95 ? 'score-mid' : 'score-low'
 </script>
 
 <template>
@@ -130,7 +132,7 @@ function navigateToStock(stockId: string) {
             </td>
             <td>{{ row.stock_name }}</td>
             <td class="num">
-              <span class="total-score">{{ row.total_score.toFixed(2) }}</span>
+              <span :class="['score-pill', scoreClass(row.total_score)]">{{ row.total_score.toFixed(2) }}</span>
             </td>
             <td class="num">
               <span v-if="row.return_5d != null" :class="['return-val', returnClass(row.return_5d)]">
