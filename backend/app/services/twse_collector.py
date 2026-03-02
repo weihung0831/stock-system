@@ -130,8 +130,10 @@ class TWSECollector:
                     close = float(clean_num(row[8]) or 0)
                     if close == 0:
                         continue
+                    name = str(row[1]).strip() if len(row) > 1 else code
                     results.append({
                         "stock_id": code,
+                        "stock_name": name,
                         "trade_date": date_str,
                         "open": open_p,
                         "high": high,
