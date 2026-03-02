@@ -1,6 +1,6 @@
 """Tests for daily pipeline orchestration."""
 import pytest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy.orm import Session
 
@@ -178,11 +178,9 @@ class TestRunDailyPipeline:
 
     def test_run_daily_pipeline_skips_weekend(self, test_db):
         """Test pipeline skips on weekends for scheduled trigger."""
-        with patch("app.tasks.daily_pipeline.date") as mock_date:
-            # Saturday, Jan 6, 2024
-            mock_date.today.return_value = date(2024, 1, 6)
-            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
-
+        # Mock now_taipei to return a Saturday
+        saturday = datetime(2024, 1, 6, 16, 30, 0)
+        with patch("app.tasks.daily_pipeline.now_taipei", return_value=saturday):
             result = run_daily_pipeline(trigger_type="scheduled")
 
             assert result["status"] == "skipped"

@@ -86,12 +86,22 @@ def _save_twse_prices(db: Session, prices: List[Dict]) -> int:
         r[0] for r in db.query(Stock.stock_id).all()
     )
 
+    # Batch-load stocks whose name equals their ID (need name fix)
+    nameless_ids = set(
+        r[0] for r in db.query(Stock.stock_id)
+        .filter(Stock.stock_name == Stock.stock_id).all()
+    )
+
     saved = 0
     for p in prices:
         sid = p["stock_id"]
+        stock_name = p.get("stock_name", sid)
         if sid not in existing_stock_ids:
-            db.add(Stock(stock_id=sid, stock_name=sid, market="TWSE"))
+            db.add(Stock(stock_id=sid, stock_name=stock_name, market="TWSE"))
             existing_stock_ids.add(sid)
+        elif sid in nameless_ids and stock_name != sid:
+            db.query(Stock).filter_by(stock_id=sid).update({"stock_name": stock_name})
+            nameless_ids.discard(sid)
 
         if sid not in existing_price_ids:
             db.add(DailyPrice(
@@ -493,7 +503,7 @@ def step_fetch_stock_data(db: Session, date_str: str) -> Dict[str, Any]:
         seen_ids = set()
         for s in stocks:
             sid = s['stock_id']
-            if sid.isdigit() and sid not in seen_ids:
+            if sid and sid[0].isdigit() and sid not in seen_ids:
                 seen_ids.add(sid)
                 existing = db.query(Stock).filter_by(stock_id=sid).first()
                 market_type = s.get('type', '未知')

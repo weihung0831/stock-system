@@ -56,6 +56,7 @@ class TWSECollector:
                 try:
                     results.append({
                         "stock_id": code,
+                        "stock_name": item.get("Name", code).strip(),
                         "trade_date": trade_date,
                         "open": float(item.get("OpeningPrice", 0) or 0),
                         "high": float(item.get("HighestPrice", 0) or 0),
