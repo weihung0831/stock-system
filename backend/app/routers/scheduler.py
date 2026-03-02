@@ -87,7 +87,7 @@ def _run_pipeline_in_background():
         logger.error(f"Background pipeline failed: {e}", exc_info=True)
 
 
-@router.post("/cron-trigger", response_model=TriggerResponse)
+@router.api_route("/cron-trigger", methods=["GET", "POST"], response_model=TriggerResponse)
 def cron_trigger_pipeline(
     secret: str = Query(..., description="Cron secret key"),
     db: Session = Depends(get_db)
