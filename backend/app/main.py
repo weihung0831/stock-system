@@ -51,6 +51,19 @@ async def lifespan(app: FastAPI):
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
 
+    # Auto-migrate: add missing columns
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT top_sectors_json FROM system_settings LIMIT 1"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN top_sectors_json TEXT NULL"))
+                conn.commit()
+                logger.info("Auto-migrated: added top_sectors_json column")
+            except Exception:
+                pass
+
     # Migrations
     from sqlalchemy import inspect, text
     insp = inspect(engine)

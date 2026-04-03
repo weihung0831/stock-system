@@ -45,19 +45,6 @@ def _score_result_to_dict(r: ScoreResult) -> dict:
 router = APIRouter(prefix="/api/screening", tags=["screening"])
 
 
-@router.get("/migrate-v2")
-def migrate_v2():
-    """One-time: add top_sectors_json column. Delete after use."""
-    from app.database import engine
-    from sqlalchemy import text
-    with engine.connect() as conn:
-        try:
-            conn.execute(text('ALTER TABLE system_settings ADD COLUMN top_sectors_json TEXT NULL'))
-            conn.commit()
-            return {"result": "OK"}
-        except Exception as e:
-            return {"result": f"SKIP: {str(e)[:100]}"}
-
 
 
 def _build_score_responses(
