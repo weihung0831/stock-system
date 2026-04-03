@@ -15,8 +15,8 @@
 
 | 層級 | 技術 |
 |------|------|
-| 後端 | Python 3.9 · FastAPI · SQLAlchemy · MySQL |
-| 前端 | Vue 3 · TypeScript · Vite · ECharts |
+| 後端 | Python 3.9 · FastAPI · SQLAlchemy · MySQL · Pydantic v2 |
+| 前端 | Vue 3 · TypeScript · Vite · ECharts · Element Plus · Pinia |
 | AI | Google Gemini API |
 | 資料源 | FinMind · TWSE · Google News RSS |
 
@@ -25,6 +25,7 @@
 ```bash
 # 後端
 cd backend
+source venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 
@@ -40,14 +41,14 @@ npm run dev
 
 ```
 stock-system/
-├── backend/           # FastAPI 後端 (25 服務, 14 路由, 15 模型)
+├── backend/           # FastAPI 後端 (23+ 服務, 14 路由, 17 模型)
 │   ├── app/
 │   │   ├── models/    # ORM 模型
-│   │   ├── routers/   # API 路由 (新增 Cron 觸發端點)
-│   │   ├── services/  # 業務邏輯
+│   │   ├── routers/   # API 路由
+│   │   ├── services/  # 業務邏輯 + momentum/ 動能子模組
 │   │   ├── schemas/   # Pydantic 驗證
 │   │   └── tasks/     # Pipeline 任務
-│   └── tests/         # 297 個測試
+│   └── tests/         # 360 個測試
 ├── frontend/          # Vue 3 前端 (13 視圖, 22 元件)
 │   └── src/
 │       ├── views/     # 頁面
@@ -70,4 +71,4 @@ cd backend
 pytest --tb=short
 ```
 
-目前 297 個測試，57% 覆蓋率，100% 通過率。
+目前 360 個測試，100% 通過率。
