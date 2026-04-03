@@ -24,8 +24,29 @@ from app.models.system_setting import SystemSetting
 logger = logging.getLogger(__name__)
 
 
+def _score_result_to_dict(r: ScoreResult) -> dict:
+    """ScoreResult ORM -> dict for _build_score_responses."""
+    return {
+        'stock_id': r.stock_id,
+        'score_date': str(r.score_date),
+        'total_score': float(r.total_score),
+        'momentum_score': float(r.momentum_score or 0),
+        'classification': r.classification or '',
+        'rank': r.rank,
+        'buy_price': float(r.buy_price) if r.buy_price else None,
+        'stop_price': float(r.stop_price) if r.stop_price else None,
+        'add_price': float(r.add_price) if r.add_price else None,
+        'target_price': float(r.target_price) if r.target_price else None,
+        'sector_name': r.sector_name,
+        'sector_rank': r.sector_rank,
+        'market_status': r.market_status,
+    }
+
+router = APIRouter(prefix="/api/screening", tags=["screening"])
+
+
 @router.get("/migrate-momentum")
-def migrate_momentum(db: Annotated[Session, Depends(get_db)]):
+def migrate_momentum(db: Session = Depends(get_db)):
     """One-time migration endpoint. Delete after use."""
     from sqlalchemy import text
     results = []
@@ -56,27 +77,6 @@ def migrate_momentum(db: Annotated[Session, Depends(get_db)]):
                 results.append(f"SKIP: {str(e)[:80]}")
         conn.commit()
     return {"results": results}
-
-
-def _score_result_to_dict(r: ScoreResult) -> dict:
-    """ScoreResult ORM -> dict for _build_score_responses."""
-    return {
-        'stock_id': r.stock_id,
-        'score_date': str(r.score_date),
-        'total_score': float(r.total_score),
-        'momentum_score': float(r.momentum_score or 0),
-        'classification': r.classification or '',
-        'rank': r.rank,
-        'buy_price': float(r.buy_price) if r.buy_price else None,
-        'stop_price': float(r.stop_price) if r.stop_price else None,
-        'add_price': float(r.add_price) if r.add_price else None,
-        'target_price': float(r.target_price) if r.target_price else None,
-        'sector_name': r.sector_name,
-        'sector_rank': r.sector_rank,
-        'market_status': r.market_status,
-    }
-
-router = APIRouter(prefix="/api/screening", tags=["screening"])
 
 
 def _build_score_responses(
