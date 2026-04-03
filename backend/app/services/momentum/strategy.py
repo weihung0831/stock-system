@@ -247,19 +247,21 @@ class MomentumStrategy:
         self.db.commit()
 
     def _save_top_sectors(self, top_sectors: list) -> None:
-        """將族群排名儲存到 JSON 檔案供 API 讀取。"""
+        """將族群排名儲存到 SystemSetting.top_sectors_json 供 API 讀取。"""
         import json
-        import os
-
         import math
+        from app.models.system_setting import SystemSetting
+
         data = []
         for s in top_sectors:
             val = float(s[1]) * 100
             if math.isnan(val) or math.isinf(val):
                 val = 0.0
             data.append({"name": s[0], "return_pct": round(val, 2)})
-        path = os.path.join(os.path.dirname(__file__), "..", "..", "config", "top_sectors_cache.json")
-        path = os.path.normpath(path)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
+
+        setting = self.db.query(SystemSetting).first()
+        if setting:
+            setting.top_sectors_json = json.dumps(data, ensure_ascii=False)
+        else:
+            self.db.add(SystemSetting(id=1, top_sectors_json=json.dumps(data, ensure_ascii=False)))
+        self.db.commit()

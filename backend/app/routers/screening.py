@@ -180,15 +180,13 @@ def get_results(
         score_data = [_score_result_to_dict(r) for r in results]
         items = _build_score_responses(db, score_data)
 
-        # 讀取後端算好的族群排名
+        # 讀取後端算好的族群排名（從 DB）
         top_sectors = []
         try:
-            import json, os
-            cache_path = os.path.join(os.path.dirname(__file__), "..", "config", "top_sectors_cache.json")
-            cache_path = os.path.normpath(cache_path)
-            if os.path.exists(cache_path):
-                with open(cache_path, "r", encoding="utf-8") as f:
-                    top_sectors = [SectorRankItem(**s) for s in json.load(f)]
+            import json
+            setting = db.query(SystemSetting).first()
+            if setting and setting.top_sectors_json:
+                top_sectors = [SectorRankItem(**s) for s in json.loads(setting.top_sectors_json)]
         except Exception:
             pass
 

@@ -1,5 +1,5 @@
 """System-wide settings model (single-row table)."""
-from sqlalchemy import Column, Integer, Float, String
+from sqlalchemy import Column, Integer, Float, String, Text
 from app.database import Base
 from app.models.base import TimestampMixin
 
@@ -17,3 +17,4 @@ class SystemSetting(Base, TimestampMixin):
     scheduler_enabled = Column(Integer, nullable=False, default=1)  # 1=enabled, 0=disabled
     scheduler_hour = Column(Integer, nullable=False, default=16)
     scheduler_minute = Column(Integer, nullable=False, default=30)
+    top_sectors_json = Column(Text, nullable=True)  # JSON string of ranked sectors
