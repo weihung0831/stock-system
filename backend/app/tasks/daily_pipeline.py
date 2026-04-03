@@ -139,7 +139,7 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
         result = step_fetch_stock_data(db, date_str)
         # Also fetch TAIEX market index for momentum strategy
         try:
-            _fetch_taiex_daily(db, days=150)
+            _fetch_taiex_daily(db, days=90)
         except Exception as e:
             logger.warning(f"TAIEX fetch warning: {e}")
         if result["success"]:
