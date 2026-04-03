@@ -16,6 +16,7 @@ from app.models.margin_trading import MarginTrading
 from app.models.revenue import Revenue
 from app.models.financial import Financial
 from app.models.news import News
+from app.models.market_index import MarketIndex
 
 logger = logging.getLogger(__name__)
 
@@ -919,3 +920,151 @@ def step_fetch_news(db: Session) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"News fetch failed: {e}", exc_info=True)
         return {"success": False, "message": f"Error: {str(e)}"}
+
+
+def _fetch_taiex_daily(
+    db: Session,
+    days: int = 90,
+) -> Dict[str, Any]:
+    """Fetch TAIEX index daily OHLCV data.
+
+    Primary: FinMind TaiwanStockTotalReturnIndex (TAIEX).
+    Fallback: TWSE MI_INDEX endpoint.
+
+    Args:
+        db: Database session.
+        days: Number of calendar days to look back (default 90 for ~60 trading days).
+
+    Returns:
+        Result dict with success flag and message.
+    """
+    from app.services.finmind_collector import FinMindQuotaExhausted
+
+    target_date = date.today()
+    start_date = (target_date - timedelta(days=days)).strftime("%Y-%m-%d")
+    end_date = target_date.strftime("%Y-%m-%d")
+
+    logger.info(f"Fetching TAIEX index data from {start_date} to {end_date}")
+
+    saved = 0
+
+    # --- Primary: FinMind ---
+    try:
+        token = getattr(settings, "FINMIND_TOKEN", "") or ""
+        if token:
+            collector = FinMindCollector(token=token)
+            df = collector._get(
+                "TaiwanStockTotalReturnIndex",
+                start_date=start_date,
+                end_date=end_date,
+            )
+            if df is not None and not df.empty:
+                # Filter to TAIEX only (price_index == '發行量加權股價指數')
+                if 'price_index' in df.columns:
+                    taiex = df[df['price_index'].str.contains('發行量加權', na=False)]
+                    if taiex.empty:
+                        taiex = df.head(0)  # empty
+                else:
+                    taiex = df
+
+                saved = _upsert_market_index(db, taiex, source="finmind")
+                if saved > 0:
+                    msg = f"FinMind: upserted {saved} TAIEX records"
+                    logger.info(msg)
+                    return {"success": True, "message": msg}
+
+            logger.warning("FinMind TAIEX data empty, trying fallback")
+    except FinMindQuotaExhausted:
+        logger.warning("FinMind quota exhausted, trying TWSE fallback")
+    except Exception as e:
+        logger.warning(f"FinMind TAIEX fetch error: {e}, trying TWSE fallback")
+
+    # --- Fallback: TWSE MI_INDEX ---
+    try:
+        twse = TWSECollector()
+        records = twse.fetch_market_index(months=days // 30 + 1)
+        if records:
+            saved = _upsert_market_index_from_twse(db, records)
+            msg = f"TWSE fallback: upserted {saved} TAIEX records"
+            logger.info(msg)
+            return {"success": True, "message": msg}
+        logger.warning("TWSE TAIEX fallback also returned empty data")
+    except Exception as e:
+        logger.error(f"TWSE TAIEX fallback failed: {e}", exc_info=True)
+
+    return {"success": False, "message": "Both FinMind and TWSE TAIEX fetch failed"}
+
+
+def _upsert_market_index(
+    db: Session,
+    df: 'pd.DataFrame',
+    source: str = "finmind",
+) -> int:
+    """Upsert TAIEX data from FinMind DataFrame into MarketIndex table."""
+    saved = 0
+    for _, row in df.iterrows():
+        trade_date = row.get('date')
+        if trade_date is None:
+            continue
+
+        existing = db.query(MarketIndex).filter_by(date=trade_date).first()
+        close_val = row.get('close', 0)
+        # FinMind TaiwanStockTotalReturnIndex: open/max/min are trading values (billions),
+        # not index points. Only 'close' is the actual index value.
+        values = {
+            "open": close_val,
+            "high": close_val,
+            "low": close_val,
+            "close": close_val,
+            "volume": None,
+        }
+
+        if existing:
+            for k, v in values.items():
+                setattr(existing, k, v)
+        else:
+            db.add(MarketIndex(date=trade_date, **values))
+        saved += 1
+
+        if saved % 100 == 0:
+            db.commit()
+
+    db.commit()
+    return saved
+
+
+def _upsert_market_index_from_twse(
+    db: Session,
+    records: List[Dict],
+) -> int:
+    """Upsert TAIEX data from TWSE records into MarketIndex table."""
+    saved = 0
+    for rec in records:
+        trade_date = rec.get("date")
+        if trade_date is None:
+            continue
+
+        existing = db.query(MarketIndex).filter_by(date=trade_date).first()
+        close_val = rec.get("close", 0)
+        # TWSE MI_INDEX: open/high/low may be trading values, not index points.
+        # Use close for all OHLC to ensure values fit DECIMAL(10,2).
+        values = {
+            "open": close_val,
+            "high": close_val,
+            "low": close_val,
+            "close": close_val,
+            "volume": None,
+        }
+
+        if existing:
+            for k, v in values.items():
+                setattr(existing, k, v)
+        else:
+            db.add(MarketIndex(date=trade_date, **values))
+        saved += 1
+
+        if saved % 100 == 0:
+            db.commit()
+
+    db.commit()
+    return saved

@@ -587,3 +587,73 @@ class TWSECollector:
 
         logger.info(f"TWSE history: {len(results)} days for {stock_id}")
         return results
+
+    def fetch_market_index(self, months: int = 4) -> List[Dict]:
+        """Fetch TAIEX daily index data via TWSE FMTQIK endpoint.
+
+        Args:
+            months: Number of months to look back.
+
+        Returns:
+            List of dicts with date, open, high, low, close, volume.
+        """
+        results: List[Dict] = []
+        today = date.today()
+
+        for m in range(months):
+            target = today.replace(day=1) - timedelta(days=30 * m)
+            twse_date = f"{target.year}{target.month:02d}01"
+
+            try:
+                resp = requests.get(
+                    "https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK",
+                    params={"date": twse_date, "response": "json"},
+                    timeout=30,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                if resp.status_code != 200:
+                    logger.warning(f"TWSE FMTQIK error: {resp.status_code}")
+                    time.sleep(3)
+                    continue
+
+                data = resp.json()
+                rows = data.get("data", [])
+                if not rows:
+                    time.sleep(3)
+                    continue
+
+                def clean_num(s: str) -> str:
+                    return s.replace(",", "").strip() if isinstance(s, str) else str(s)
+
+                for row in rows:
+                    try:
+                        # row: [日期, 成交股數, 成交金額, 成交筆數, 加權指數, 漲跌點數]
+                        # or [日期, 開盤指數, 最高指數, 最低指數, 收盤指數, 成交股數]
+                        roc_date = row[0].strip()
+                        parts = roc_date.split("/")
+                        if len(parts) == 3:
+                            y = int(parts[0]) + 1911
+                            trade_date = date(y, int(parts[1]), int(parts[2]))
+                        else:
+                            continue
+
+                        # FMTQIK fields: 日期/開盤指數/最高指數/最低指數/收盤指數
+                        results.append({
+                            "date": trade_date,
+                            "open": float(clean_num(row[1])),
+                            "high": float(clean_num(row[2])),
+                            "low": float(clean_num(row[3])),
+                            "close": float(clean_num(row[4])),
+                            "volume": None,
+                        })
+                    except (ValueError, IndexError):
+                        continue
+
+                time.sleep(3)
+
+            except Exception as e:
+                logger.warning(f"TWSE FMTQIK error for {twse_date}: {e}")
+                continue
+
+        logger.info(f"TWSE FMTQIK: fetched {len(results)} TAIEX index records")
+        return results
