@@ -141,6 +141,7 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
         try:
             _fetch_taiex_daily(db, days=90)
         except Exception as e:
+            db.rollback()
             logger.warning(f"TAIEX fetch warning: {e}")
         if result["success"]:
             pipeline_log.steps_completed = 1

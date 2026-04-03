@@ -1024,6 +1024,7 @@ def _upsert_market_index(
                 setattr(existing, k, v)
         else:
             db.add(MarketIndex(date=trade_date, **values))
+            db.flush()
         saved += 1
 
         if saved % 100 == 0:
@@ -1061,6 +1062,7 @@ def _upsert_market_index_from_twse(
                 setattr(existing, k, v)
         else:
             db.add(MarketIndex(date=trade_date, **values))
+            db.flush()
         saved += 1
 
         if saved % 100 == 0:
