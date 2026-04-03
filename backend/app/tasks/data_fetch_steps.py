@@ -924,7 +924,7 @@ def step_fetch_news(db: Session) -> Dict[str, Any]:
 
 def _fetch_taiex_daily(
     db: Session,
-    days: int = 90,
+    days: int = 300,
 ) -> Dict[str, Any]:
     """Fetch TAIEX index daily OHLCV data.
 
@@ -933,7 +933,7 @@ def _fetch_taiex_daily(
 
     Args:
         db: Database session.
-        days: Number of calendar days to look back (default 90 for ~60 trading days).
+        days: Number of calendar days to look back (default 300 for ~200 trading days).
 
     Returns:
         Result dict with success flag and message.
