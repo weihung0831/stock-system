@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models.pipeline_log import PipelineLog
-from app.tasks.data_fetch_steps import step_fetch_stock_data
+from app.tasks.data_fetch_steps import step_fetch_stock_data, _fetch_taiex_daily
 from app.tasks.analysis_steps import step_hard_filter, step_scoring
 
 logger = logging.getLogger(__name__)
@@ -134,9 +134,14 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
         date_str = target_date.strftime("%Y-%m-%d")
         errors = []
 
-        # Step 1: Fetch stock data
-        logger.info("Step 1/3: Fetching stock data")
+        # Step 1: Fetch stock data + TAIEX
+        logger.info("Step 1/3: Fetching stock data + TAIEX")
         result = step_fetch_stock_data(db, date_str)
+        # Also fetch TAIEX market index for momentum strategy
+        try:
+            _fetch_taiex_daily(db, days=150)
+        except Exception as e:
+            logger.warning(f"TAIEX fetch warning: {e}")
         if result["success"]:
             pipeline_log.steps_completed = 1
             db.commit()
