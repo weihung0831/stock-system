@@ -44,20 +44,20 @@ async function handleFilterChange(filters: any) {
         <div class="stat-change up">符合條件股票數</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">最高總分</div>
+        <div class="stat-label">最高動能分數</div>
         <div class="stat-value" style="color: var(--amber)">
-          {{ results.length ? results[0]!.total_score.toFixed(1) : '-' }}
+          {{ results.length ? results[0]!.momentum_score.toFixed(1) : '-' }}
         </div>
         <div class="stat-change up">
           {{ results.length ? `${results[0]!.stock_id} ${results[0]!.stock_name}` : '' }}
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">高籌碼分數</div>
+        <div class="stat-label">BUY 訊號</div>
         <div class="stat-value" style="color: var(--up)">
-          {{ results.filter(r => r.chip_score >= 60).length }}
+          {{ results.filter(r => r.classification === 'BUY').length }}
         </div>
-        <div class="stat-change up">籌碼分 ≥ 60</div>
+        <div class="stat-change up">可進場標的數</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">功能說明</div>
@@ -104,9 +104,7 @@ async function handleFilterChange(filters: any) {
 </template>
 
 <style scoped>
-.screening-page {
-  padding: 24px 28px;
-}
+.screening-page { padding: 24px 28px; }
 
 .section-header {
   display: flex;
@@ -145,9 +143,7 @@ async function handleFilterChange(filters: any) {
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .empty-state {
   text-align: center;

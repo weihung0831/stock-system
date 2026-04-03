@@ -4,10 +4,8 @@ import { useSectorTagsStore } from '@/stores/sector-tags-store'
 
 interface FilterForm {
   industry: string
-  min_total_score: number
-  min_chip_score: number
-  min_fundamental_score: number
-  min_technical_score: number
+  min_momentum_score: number
+  classification: string
   min_close_price: number | undefined
   max_close_price: number | undefined
 }
@@ -20,10 +18,8 @@ const sectorTagsStore = useSectorTagsStore()
 
 const form = reactive<FilterForm>({
   industry: '全部',
-  min_total_score: 0,
-  min_chip_score: 0,
-  min_fundamental_score: 0,
-  min_technical_score: 0,
+  min_momentum_score: 0,
+  classification: '全部',
   min_close_price: undefined,
   max_close_price: undefined,
 })
@@ -39,20 +35,29 @@ const industries = computed(() => [
   ...sectorTagsStore.tags.map((t) => ({ label: t.name, value: t.name })),
 ])
 
+const classificationOptions = [
+  { label: '全部', value: '全部' },
+  { label: 'BUY', value: 'BUY' },
+  { label: 'WATCH', value: 'WATCH' },
+  { label: 'EARLY', value: 'EARLY' },
+  { label: 'IGNORE', value: 'IGNORE' },
+]
+
 function handleSubmit() {
   const filters = { ...form }
   if (filters.industry === '全部') {
     delete (filters as any).industry
+  }
+  if (filters.classification === '全部') {
+    delete (filters as any).classification
   }
   emit('filter-change', filters)
 }
 
 function handleReset() {
   form.industry = '全部'
-  form.min_total_score = 0
-  form.min_chip_score = 0
-  form.min_fundamental_score = 0
-  form.min_technical_score = 0
+  form.min_momentum_score = 0
+  form.classification = '全部'
   form.min_close_price = undefined
   form.max_close_price = undefined
 }
@@ -71,36 +76,22 @@ function handleReset() {
         </select>
       </div>
 
-      <!-- Score sliders -->
+      <!-- Classification select -->
       <div class="filter-item">
-        <label class="filter-label">總分最低值</label>
-        <div class="range-group">
-          <input type="range" v-model.number="form.min_total_score" min="0" max="100" step="5" class="filter-range" />
-          <span class="range-value">{{ form.min_total_score }}</span>
-        </div>
+        <label class="filter-label">分類訊號</label>
+        <select v-model="form.classification" class="filter-select">
+          <option v-for="item in classificationOptions" :key="item.value" :value="item.value">
+            {{ item.label }}
+          </option>
+        </select>
       </div>
 
+      <!-- Momentum score slider -->
       <div class="filter-item">
-        <label class="filter-label">籌碼分數最低值</label>
+        <label class="filter-label">動能分數最低值</label>
         <div class="range-group">
-          <input type="range" v-model.number="form.min_chip_score" min="0" max="100" step="5" class="filter-range" />
-          <span class="range-value">{{ form.min_chip_score }}</span>
-        </div>
-      </div>
-
-      <div class="filter-item">
-        <label class="filter-label">基本面分數最低值</label>
-        <div class="range-group">
-          <input type="range" v-model.number="form.min_fundamental_score" min="0" max="100" step="5" class="filter-range" />
-          <span class="range-value">{{ form.min_fundamental_score }}</span>
-        </div>
-      </div>
-
-      <div class="filter-item">
-        <label class="filter-label">技術面分數最低值</label>
-        <div class="range-group">
-          <input type="range" v-model.number="form.min_technical_score" min="0" max="100" step="5" class="filter-range" />
-          <span class="range-value">{{ form.min_technical_score }}</span>
+          <input type="range" v-model.number="form.min_momentum_score" min="0" max="100" step="5" class="filter-range" />
+          <span class="range-value">{{ form.min_momentum_score }}</span>
         </div>
       </div>
 
@@ -138,10 +129,7 @@ function handleReset() {
 </template>
 
 <style scoped>
-.filter-form {
-  padding: 20px 24px;
-  margin-bottom: 20px;
-}
+.filter-form { padding: 20px 24px; margin-bottom: 20px; }
 
 .filter-grid {
   display: grid;
@@ -149,11 +137,7 @@ function handleReset() {
   gap: 16px 28px;
 }
 
-.filter-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.filter-item { display: flex; flex-direction: column; gap: 6px; }
 
 .filter-label {
   font-size: 0.78rem;
@@ -175,20 +159,10 @@ function handleReset() {
   transition: border-color 0.15s;
 }
 .filter-select:focus,
-.filter-input:focus {
-  border-color: var(--amber);
-}
-.filter-select option {
-  background: var(--bg-card);
-  color: var(--text);
-}
+.filter-input:focus { border-color: var(--amber); }
+.filter-select option { background: var(--bg-card); color: var(--text); }
 
-/* Range slider */
-.range-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.range-group { display: flex; align-items: center; gap: 12px; }
 
 .filter-range {
   flex: 1;
@@ -210,9 +184,7 @@ function handleReset() {
   cursor: pointer;
   transition: box-shadow 0.15s;
 }
-.filter-range::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 8px var(--amber-glow);
-}
+.filter-range::-webkit-slider-thumb:hover { box-shadow: 0 0 8px var(--amber-glow); }
 .filter-range::-moz-range-thumb {
   width: 16px;
   height: 16px;
@@ -231,21 +203,10 @@ function handleReset() {
   color: var(--amber);
 }
 
-/* Price range */
-.price-range {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.price-range .filter-input {
-  width: 120px;
-}
-.range-sep {
-  color: var(--text-muted);
-  font-weight: 500;
-}
+.price-range { display: flex; align-items: center; gap: 10px; }
+.price-range .filter-input { width: 120px; }
+.range-sep { color: var(--text-muted); font-weight: 500; }
 
-/* Buttons */
 .filter-actions {
   display: flex;
   justify-content: center;
@@ -265,38 +226,16 @@ function handleReset() {
   transition: all 0.15s;
   font-family: var(--font-sans);
 }
-.btn-primary {
-  background: var(--amber);
-  color: var(--bg-dark);
-  border-color: var(--amber);
-}
-.btn-primary:hover {
-  background: var(--amber-dim);
-  box-shadow: 0 0 12px var(--amber-glow);
-}
-.btn-ghost {
-  background: transparent;
-  color: var(--text-secondary);
-  border-color: var(--border);
-}
-.btn-ghost:hover {
-  border-color: var(--border-light);
-  color: var(--text);
-}
+.btn-primary { background: var(--amber); color: var(--bg-dark); border-color: var(--amber); }
+.btn-primary:hover { background: var(--amber-dim); box-shadow: 0 0 12px var(--amber-glow); }
+.btn-ghost { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+.btn-ghost:hover { border-color: var(--border-light); color: var(--text); }
 
-/* Number input hide spinners */
 .filter-input[type='number']::-webkit-inner-spin-button,
-.filter-input[type='number']::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.filter-input[type='number'] {
-  -moz-appearance: textfield;
-}
+.filter-input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.filter-input[type='number'] { -moz-appearance: textfield; }
 
 @media (max-width: 768px) {
-  .filter-grid {
-    grid-template-columns: 1fr;
-  }
+  .filter-grid { grid-template-columns: 1fr; }
 }
 </style>

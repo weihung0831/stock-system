@@ -17,8 +17,8 @@ const emit = defineEmits<{
 const router = useRouter()
 
 /* Sort state */
-const sortKey = ref<string>('rank')
-const sortOrder = ref<'asc' | 'desc'>('asc')
+const sortKey = ref<string>('momentum_score')
+const sortOrder = ref<'asc' | 'desc'>('desc')
 
 function toggleSort(key: string) {
   if (sortKey.value === key) {
@@ -55,6 +55,19 @@ const formatPercent = (val: number) => {
   const sign = val >= 0 ? '+' : ''
   return `${sign}${val.toFixed(2)}%`
 }
+
+const scoreClass = (v: number) => v >= 69.95 ? 'score-high' : v >= 49.95 ? 'score-mid' : 'score-low'
+
+const classificationBadge = (cls: string) => {
+  switch (cls) {
+    case 'BUY': return 'cls-buy'
+    case 'WATCH': return 'cls-watch'
+    case 'EARLY': return 'cls-early'
+    default: return 'cls-ignore'
+  }
+}
+
+const formatPrice = (v: number | null) => v != null ? v.toFixed(2) : '-'
 </script>
 
 <template>
@@ -65,12 +78,13 @@ const formatPercent = (val: number) => {
           <th class="sortable" @click="toggleSort('rank')"># <span class="sort-icon">{{ sortIcon('rank') }}</span></th>
           <th class="sortable" @click="toggleSort('stock_id')">代號 <span class="sort-icon">{{ sortIcon('stock_id') }}</span></th>
           <th class="sortable" @click="toggleSort('stock_name')">名稱 <span class="sort-icon">{{ sortIcon('stock_name') }}</span></th>
+          <th>分類</th>
+          <th class="num sortable" @click="toggleSort('momentum_score')">動能 <span class="sort-icon">{{ sortIcon('momentum_score') }}</span></th>
           <th class="num sortable" @click="toggleSort('close_price')">收盤價 <span class="sort-icon">{{ sortIcon('close_price') }}</span></th>
           <th class="num sortable" @click="toggleSort('change_percent')">漲跌 <span class="sort-icon">{{ sortIcon('change_percent') }}</span></th>
-          <th class="num sortable" @click="toggleSort('chip_score')">籌碼 <span class="sort-icon">{{ sortIcon('chip_score') }}</span></th>
-          <th class="num sortable" @click="toggleSort('fundamental_score')">基本面 <span class="sort-icon">{{ sortIcon('fundamental_score') }}</span></th>
-          <th class="num sortable" @click="toggleSort('technical_score')">技術面 <span class="sort-icon">{{ sortIcon('technical_score') }}</span></th>
-          <th class="num sortable" @click="toggleSort('total_score')">總分 <span class="sort-icon">{{ sortIcon('total_score') }}</span></th>
+          <th class="num">進場</th>
+          <th class="num">停損</th>
+          <th class="num">目標</th>
         </tr>
       </thead>
       <tbody>
@@ -94,16 +108,17 @@ const formatPercent = (val: number) => {
               @click.stop="router.push(`/reports?stock=${row.stock_id}`)"
             >AI</span>
           </td>
+          <td><span :class="['cls-badge', classificationBadge(row.classification)]">{{ row.classification }}</span></td>
+          <td class="num"><span :class="['score-pill', scoreClass(row.momentum_score)]">{{ row.momentum_score.toFixed(1) }}</span></td>
           <td class="num">${{ row.close_price.toFixed(2) }}</td>
           <td class="num">
             <span :class="['price-change', row.change_percent >= 0 ? 'up' : 'down']">
               {{ row.change_percent >= 0 ? '▲' : '▼' }} {{ formatPercent(row.change_percent) }}
             </span>
           </td>
-          <td class="num"><span class="score-pill chip">{{ row.chip_score.toFixed(1) }}</span></td>
-          <td class="num"><span class="score-pill fundamental">{{ row.fundamental_score.toFixed(1) }}</span></td>
-          <td class="num"><span class="score-pill technical">{{ row.technical_score.toFixed(1) }}</span></td>
-          <td class="num"><span class="total-score">{{ row.total_score.toFixed(1) }}</span></td>
+          <td class="num" style="font-family: var(--font-mono)">{{ formatPrice(row.buy_price) }}</td>
+          <td class="num" style="font-family: var(--font-mono)">{{ formatPrice(row.stop_price) }}</td>
+          <td class="num" style="font-family: var(--font-mono)">{{ formatPrice(row.target_price) }}</td>
         </tr>
       </tbody>
     </table>
@@ -111,40 +126,31 @@ const formatPercent = (val: number) => {
 </template>
 
 <style scoped>
-.table-scroll {
-  overflow-x: auto;
-}
+.table-scroll { overflow-x: auto; }
 
-.sortable {
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-}
-.sortable:hover {
-  color: var(--amber);
-}
+.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable:hover { color: var(--amber); }
+.sort-icon { font-size: 0.7rem; color: var(--text-muted); margin-left: 2px; }
+.sortable:hover .sort-icon { color: var(--amber); }
 
-.sort-icon {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-left: 2px;
-}
-.sortable:hover .sort-icon {
-  color: var(--amber);
-}
+.clickable-row { cursor: pointer; }
+.clickable-row:hover td { background: rgba(229, 169, 26, 0.06); }
 
-.clickable-row {
-  cursor: pointer;
-}
-.clickable-row:hover td {
-  background: rgba(229, 169, 26, 0.06);
-}
+.rank-cell { font-family: var(--font-mono); color: var(--text-muted); font-size: 0.82rem; }
 
-.rank-cell {
+.cls-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
   font-family: var(--font-mono);
-  color: var(--text-muted);
-  font-size: 0.82rem;
+  letter-spacing: 0.03em;
 }
+.cls-buy { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.cls-watch { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+.cls-early { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.cls-ignore { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
 
 .ai-badge {
   display: inline-block;
@@ -161,7 +167,5 @@ const formatPercent = (val: number) => {
   line-height: 1.4;
   transition: box-shadow 0.15s;
 }
-.ai-badge:hover {
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
-}
+.ai-badge:hover { box-shadow: 0 0 8px rgba(139, 92, 246, 0.6); }
 </style>

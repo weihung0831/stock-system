@@ -432,6 +432,7 @@ input, select, button { font-family: inherit; font-size: inherit; }
 .detail-header { display: flex; align-items: flex-end; gap: 20px; margin-bottom: 24px; flex-wrap: wrap; }
 .detail-header .stock-title { font-size: 1.8rem; font-weight: 900; letter-spacing: -0.03em; }
 .detail-header .stock-code-lg { font-family: var(--font-mono); font-size: 1rem; color: var(--amber); font-weight: 600; }
+.detail-header .sector-badge { font-size: 0.75rem; padding: 2px 10px; border-radius: 10px; background: rgba(255,255,255,0.08); color: var(--text-secondary); font-weight: 500; }
 .detail-header .stock-price { font-family: var(--font-mono); font-size: 2rem; font-weight: 700; }
 .detail-header .stock-price-change { font-family: var(--font-mono); font-size: 1rem; padding: 4px 12px;
   border-radius: 6px; font-weight: 600; }
@@ -442,7 +443,7 @@ input, select, button { font-family: inherit; font-size: inherit; }
 .chart-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); }
 
 /* ========== Factor score rings ========== */
-.factor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+.factor-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px; }
 .factor-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 20px; text-align: center; transition: transform 0.2s, border-color 0.2s; }
 .factor-card:hover { transform: translateY(-2px); border-color: var(--border-light); }
@@ -560,7 +561,7 @@ input, select, button { font-family: inherit; font-size: inherit; }
   .detail-header { gap: 12px; }
   .detail-header .stock-title { font-size: 1.4rem; }
   .detail-header .stock-price { font-size: 1.5rem; }
-  .factor-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .factor-grid { grid-template-columns: 1fr; gap: 10px; }
   .factor-card { padding: 14px; }
   .factor-ring { width: 80px; height: 80px; }
   .factor-ring .ring-value { font-size: 1.1rem; }

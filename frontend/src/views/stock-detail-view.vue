@@ -145,7 +145,7 @@ watch(() => route.params.id, () => {
         <div>
           <div style="display: flex; align-items: center; gap: 10px">
             <div class="stock-code-lg">{{ stockId }}</div>
-            <SectorTag v-if="scoreResult?.industry" :industry="scoreResult.industry" />
+            <span v-if="scoreResult?.sector_name" class="sector-badge">{{ scoreResult.sector_name }}</span>
           </div>
           <div class="stock-title">{{ scoreResult?.stock_name || stockId }}</div>
         </div>

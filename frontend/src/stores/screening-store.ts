@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getResults, runScreening as apiRunScreening } from '@/api/screening-api'
-import type { ScoreResult, ScreeningWeights } from '@/types/screening'
+import type { ScoreResult, SectorRankItem } from '@/types/screening'
 
 export const useScreeningStore = defineStore('screening', () => {
   const results = ref<ScoreResult[]>([])
+  const topSectors = ref<SectorRankItem[]>([])
+  const marketStatus = ref<string>('')
   const latestDate = ref<string>('')
   const updatedAt = ref<string>('')
   const loading = ref(false)
@@ -12,7 +14,10 @@ export const useScreeningStore = defineStore('screening', () => {
   async function fetchResults(date?: string) {
     loading.value = true
     try {
-      results.value = await getResults(date)
+      const resp = await getResults(date)
+      results.value = resp.items ?? []
+      topSectors.value = resp.top_sectors ?? []
+      marketStatus.value = resp.market_status ?? ''
       if (results.value.length > 0) {
         latestDate.value = results.value[0]?.score_date ?? ''
         updatedAt.value = new Date().toLocaleTimeString('zh-TW', {
@@ -24,15 +29,15 @@ export const useScreeningStore = defineStore('screening', () => {
     }
   }
 
-  async function runScreening(weights: ScreeningWeights, threshold: number) {
+  async function runScreening(threshold: number) {
     loading.value = true
     try {
-      await apiRunScreening({ weights, threshold })
+      await apiRunScreening({ threshold })
       await fetchResults()
     } finally {
       loading.value = false
     }
   }
 
-  return { results, latestDate, updatedAt, loading, fetchResults, runScreening }
+  return { results, topSectors, marketStatus, latestDate, updatedAt, loading, fetchResults, runScreening }
 })

@@ -220,33 +220,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Sector Tags CRUD -->
-    <div class="settings-card tags-card">
-      <h3>標籤分類管理</h3>
-      <!-- Tag form -->
-      <div class="tag-form">
-        <input v-model="tagForm.name" class="tag-input" placeholder="標籤名稱" />
-        <input v-model="tagForm.keywords" class="tag-input" placeholder="關鍵字（產業比對用）" />
-        <input v-model="tagForm.color" type="color" class="tag-color" />
-        <input v-model.number="tagForm.sort_order" type="number" class="tag-input tag-sort" placeholder="排序" />
-        <button class="btn-primary btn-sm" @click="handleSaveTag">
-          {{ editingTagId !== null ? '更新' : '新增' }}
-        </button>
-        <button v-if="editingTagId !== null" class="btn-text" @click="resetTagForm">取消</button>
-      </div>
-      <!-- Tag list -->
-      <div class="tag-list">
-        <div v-for="tag in sectorTagsStore.tags" :key="tag.id" class="tag-row">
-          <span class="tag-dot" :style="{ background: tag.color }" />
-          <span class="tag-name">{{ tag.name }}</span>
-          <span class="tag-kw">{{ tag.keywords }}</span>
-          <span class="tag-order">#{{ tag.sort_order }}</span>
-          <button class="btn-text" @click="startEditTag(tag)">編輯</button>
-          <button class="btn-text danger" @click="handleDeleteTag(tag.id)">刪除</button>
-        </div>
-        <div v-if="sectorTagsStore.tags.length === 0" class="tag-empty">尚無標籤</div>
-      </div>
-    </div>
+    <!-- 族群分類已改用 custom_sectors.json，舊的標籤管理已移除 -->
 
     <!-- Execution logs card (full width) -->
     <div v-if="recentLogs.length > 0" class="settings-card logs-card">

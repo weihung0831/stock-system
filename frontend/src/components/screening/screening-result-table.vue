@@ -56,7 +56,6 @@ function handlePageChange(page: number) {
   currentPage.value = page
 }
 
-// Show first, last, and nearby pages with ellipsis for compact pagination
 const visiblePages = computed(() => {
   const total = totalPages.value
   const cur = currentPage.value
@@ -75,6 +74,17 @@ const visiblePages = computed(() => {
 })
 
 const scoreClass = (v: number) => v >= 69.95 ? 'score-high' : v >= 49.95 ? 'score-mid' : 'score-low'
+
+const classificationBadge = (cls: string) => {
+  switch (cls) {
+    case 'BUY': return 'cls-buy'
+    case 'WATCH': return 'cls-watch'
+    case 'EARLY': return 'cls-early'
+    default: return 'cls-ignore'
+  }
+}
+
+const formatPrice = (v: number | null) => v != null ? v.toFixed(2) : '-'
 
 const formatChange = (row: ScoreResult) => {
   const pct = row.change_percent ?? 0
@@ -100,8 +110,9 @@ function openStock(row: ScoreResult) {
           <th class="sortable-th" @click="toggleSort('stock_name')">
             名稱 <span class="sort-icon">{{ sortIcon('stock_name') }}</span>
           </th>
-          <th class="sortable-th" @click="toggleSort('total_score')">
-            總分 <span class="sort-icon">{{ sortIcon('total_score') }}</span>
+          <th>分類</th>
+          <th class="sortable-th" @click="toggleSort('momentum_score')">
+            動能 <span class="sort-icon">{{ sortIcon('momentum_score') }}</span>
           </th>
           <th class="sortable-th" @click="toggleSort('close_price')">
             收盤價 <span class="sort-icon">{{ sortIcon('close_price') }}</span>
@@ -109,15 +120,9 @@ function openStock(row: ScoreResult) {
           <th class="sortable-th" @click="toggleSort('change_percent')">
             漲跌 <span class="sort-icon">{{ sortIcon('change_percent') }}</span>
           </th>
-          <th class="sortable-th" @click="toggleSort('chip_score')">
-            籌碼 <span class="sort-icon">{{ sortIcon('chip_score') }}</span>
-          </th>
-          <th class="sortable-th" @click="toggleSort('fundamental_score')">
-            基本面 <span class="sort-icon">{{ sortIcon('fundamental_score') }}</span>
-          </th>
-          <th class="sortable-th" @click="toggleSort('technical_score')">
-            技術面 <span class="sort-icon">{{ sortIcon('technical_score') }}</span>
-          </th>
+          <th>進場</th>
+          <th>停損</th>
+          <th>目標</th>
         </tr>
       </thead>
       <tbody>
@@ -136,17 +141,18 @@ function openStock(row: ScoreResult) {
               @click.stop="router.push(`/reports?stock=${row.stock_id}`)"
             >AI</span>
           </td>
-          <td><span :class="['score-pill', scoreClass(row.total_score)]">{{ row.total_score.toFixed(1) }}</span></td>
+          <td><span :class="['cls-badge', classificationBadge(row.classification)]">{{ row.classification }}</span></td>
+          <td><span :class="['score-pill', scoreClass(row.momentum_score)]">{{ row.momentum_score.toFixed(1) }}</span></td>
           <td style="font-family: var(--font-mono)">${{ row.close_price?.toFixed(2) ?? '-' }}</td>
           <td :class="['price-change', (row.change_percent ?? 0) >= 0 ? 'up' : 'down']" style="font-family: var(--font-mono)">
             {{ formatChange(row) }}
           </td>
-          <td><span :class="['score-pill', scoreClass(row.chip_score)]">{{ row.chip_score.toFixed(1) }}</span></td>
-          <td><span :class="['score-pill', scoreClass(row.fundamental_score)]">{{ row.fundamental_score.toFixed(1) }}</span></td>
-          <td><span :class="['score-pill', scoreClass(row.technical_score)]">{{ row.technical_score.toFixed(1) }}</span></td>
+          <td style="font-family: var(--font-mono)">{{ formatPrice(row.buy_price) }}</td>
+          <td style="font-family: var(--font-mono)">{{ formatPrice(row.stop_price) }}</td>
+          <td style="font-family: var(--font-mono)">{{ formatPrice(row.target_price) }}</td>
         </tr>
         <tr v-if="results.length === 0">
-          <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px">
+          <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 40px">
             尚無資料
           </td>
         </tr>
@@ -157,7 +163,7 @@ function openStock(row: ScoreResult) {
     <div v-if="totalPages > 1" class="pagination">
       <button class="page-btn" :disabled="currentPage === 1" @click="handlePageChange(currentPage - 1)">‹</button>
       <template v-for="(p, i) in visiblePages" :key="i">
-        <span v-if="p === '...'" class="page-ellipsis">…</span>
+        <span v-if="p === '...'" class="page-ellipsis">...</span>
         <button
           v-else
           :class="['page-btn', { active: p === currentPage }]"
@@ -170,43 +176,32 @@ function openStock(row: ScoreResult) {
 </template>
 
 <style scoped>
-.sortable-th {
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-  transition: color 0.15s;
-}
-.sortable-th:hover {
-  color: var(--amber);
-}
-.sort-icon {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-left: 2px;
-}
-.sortable-th:hover .sort-icon {
-  color: var(--amber);
-}
+.sortable-th { cursor: pointer; user-select: none; white-space: nowrap; transition: color 0.15s; }
+.sortable-th:hover { color: var(--amber); }
+.sort-icon { font-size: 0.7rem; color: var(--text-muted); margin-left: 2px; }
+.sortable-th:hover .sort-icon { color: var(--amber); }
 
-/* Pagination */
-.pagination {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  padding: 16px 0 8px;
-}
-
-.page-btn {
-  min-width: 32px;
-  height: 32px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
+.cls-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
   font-family: var(--font-mono);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
+  letter-spacing: 0.03em;
+}
+.cls-buy { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.cls-watch { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+.cls-early { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.cls-ignore { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+
+.pagination { display: flex; justify-content: center; gap: 4px; padding: 16px 0 8px; }
+.page-btn {
+  min-width: 32px; height: 32px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: transparent; color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 13px;
+  cursor: pointer; transition: all 0.15s;
 }
 .page-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); }
 .page-btn.active { background: var(--amber); color: var(--bg-dark); border-color: var(--amber); font-weight: 700; }
@@ -214,20 +209,12 @@ function openStock(row: ScoreResult) {
 .page-ellipsis { color: var(--text-muted); font-size: 13px; padding: 0 4px; user-select: none; }
 
 .ai-report-badge {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 5px;
-  font-size: 10px;
-  font-weight: 700;
-  font-family: var(--font-mono);
+  display: inline-block; margin-left: 6px; padding: 1px 5px;
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
   color: var(--bg-dark);
   background: linear-gradient(135deg, #8b5cf6, #6366f1);
-  border-radius: 3px;
-  cursor: pointer;
-  vertical-align: middle;
+  border-radius: 3px; cursor: pointer; vertical-align: middle;
   transition: box-shadow 0.15s;
 }
-.ai-report-badge:hover {
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
-}
+.ai-report-badge:hover { box-shadow: 0 0 8px rgba(139, 92, 246, 0.6); }
 </style>
