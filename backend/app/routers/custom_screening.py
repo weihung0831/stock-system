@@ -1,6 +1,6 @@
 """Custom screening router for advanced filtering."""
 import logging
-from typing import Annotated, Optional
+from typing import Annotated, List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -22,11 +22,10 @@ router = APIRouter(
 class CustomScreeningRequest(BaseModel):
     """Request model for custom screening."""
     industry: Optional[str] = Field(None, description="Industry filter")
-    min_total_score: Optional[float] = Field(None, ge=0, le=100, description="Minimum total score")
-    min_chip_score: Optional[float] = Field(None, ge=0, le=100, description="Minimum chip score")
-    min_fundamental_score: Optional[float] = Field(None, ge=0, le=100, description="Minimum fundamental score")
-    min_technical_score: Optional[float] = Field(None, ge=0, le=100, description="Minimum technical score")
-    score_date: Optional[date] = Field(None, description="Target score date (default: latest)")
+    min_total_score: Optional[float] = Field(None, ge=0, le=100)
+    min_momentum_score: Optional[float] = Field(None, ge=0, le=100)
+    classification: Optional[str] = Field(None, description="BUY/HOLD/SELL filter")
+    score_date: Optional[date] = Field(None, description="Target score date")
 
 
 @router.post("")
@@ -35,30 +34,14 @@ def custom_screening(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    """
-    Perform custom screening with multiple filter criteria.
-
-    Requires authentication.
-
-    Args:
-        request: Custom screening filter criteria
-        db: Database session
-        current_user: Authenticated user
-
-    Returns:
-        List of matching stocks sorted by total_score
-    """
+    """Perform custom screening with multiple filter criteria."""
     try:
-        # Convert request to dict for service
         filters = {
             "industry": request.industry,
             "min_total_score": request.min_total_score,
-            "min_chip_score": request.min_chip_score,
-            "min_fundamental_score": request.min_fundamental_score,
-            "min_technical_score": request.min_technical_score,
+            "min_momentum_score": request.min_momentum_score,
+            "classification": request.classification,
         }
-
-        # Remove None values
         filters = {k: v for k, v in filters.items() if v is not None}
 
         results = custom_screen(

@@ -1,4 +1,4 @@
-"""Screening router for multi-factor stock screening."""
+"""Screening router for momentum-based stock screening."""
 import logging
 from typing import Annotated, List
 from datetime import date
@@ -13,20 +13,34 @@ from app.models.score_result import ScoreResult
 from app.models.stock import Stock
 from app.models.daily_price import DailyPrice
 from app.schemas.screening import (
-    ScreeningRequest,
     ScoreResultResponse,
-    ScoreDetailResponse,
     ScreeningResultsResponse,
     ScreeningSettingsResponse,
     ScreeningSettingsUpdate,
+    SectorRankItem,
 )
-from app.services.scoring_engine import ScoringEngine
 from app.models.system_setting import SystemSetting
-from app.models.institutional import Institutional
-from app.models.revenue import Revenue
-from app.models.financial import Financial
 
 logger = logging.getLogger(__name__)
+
+
+def _score_result_to_dict(r: ScoreResult) -> dict:
+    """ScoreResult ORM -> dict for _build_score_responses."""
+    return {
+        'stock_id': r.stock_id,
+        'score_date': str(r.score_date),
+        'total_score': float(r.total_score),
+        'momentum_score': float(r.momentum_score or 0),
+        'classification': r.classification or '',
+        'rank': r.rank,
+        'buy_price': float(r.buy_price) if r.buy_price else None,
+        'stop_price': float(r.stop_price) if r.stop_price else None,
+        'add_price': float(r.add_price) if r.add_price else None,
+        'target_price': float(r.target_price) if r.target_price else None,
+        'sector_name': r.sector_name,
+        'sector_rank': r.sector_rank,
+        'market_status': r.market_status,
+    }
 
 router = APIRouter(prefix="/api/screening", tags=["screening"])
 
@@ -39,8 +53,7 @@ def _build_score_responses(
 
     Args:
         db: Database session
-        score_data: List of dicts with keys: stock_id, score_date,
-            chip_score, fundamental_score, technical_score, total_score, rank
+        score_data: List of dicts with momentum strategy fields
     """
     if not score_data:
         return []
@@ -54,7 +67,6 @@ def _build_score_responses(
     }
 
     # Batch query: latest 2 prices per stock using window function
-    # Subquery: rank prices by trade_date desc per stock
     price_subq = (
         db.query(
             DailyPrice.stock_id,
@@ -96,74 +108,23 @@ def _build_score_responses(
             stock_id=sid,
             stock_name=stock.stock_name if stock else None,
             score_date=d['score_date'],
-            chip_score=d['chip_score'],
-            fundamental_score=d['fundamental_score'],
-            technical_score=d['technical_score'],
             total_score=d['total_score'],
+            momentum_score=d.get('momentum_score', 0.0),
+            classification=d.get('classification', ''),
             rank=d['rank'],
             industry=stock.industry if stock else None,
             close_price=close_price,
             change_percent=change_pct,
+            buy_price=d.get('buy_price'),
+            stop_price=d.get('stop_price'),
+            add_price=d.get('add_price'),
+            target_price=d.get('target_price'),
+            sector_name=d.get('sector_name'),
+            sector_rank=d.get('sector_rank'),
+            market_status=d.get('market_status'),
         ))
 
     return items
-
-
-@router.post("/run", response_model=ScreeningResultsResponse)
-def run_screening(
-    request: ScreeningRequest,
-    db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)]
-):
-    """
-    Trigger multi-factor screening with custom weights.
-
-    Args:
-        request: Screening request with weights and threshold
-        db: Database session
-        current_user: Authenticated user
-
-    Returns:
-        Screening results with scores and rankings
-    """
-    try:
-        logger.info(f"User {current_user.username} triggered screening")
-
-        engine = ScoringEngine()
-        results = engine.run_screening(
-            db=db,
-            weights=request.weights,
-            threshold=request.threshold
-        )
-
-        # Convert to batch-friendly format
-        score_data = [
-            {
-                'stock_id': r['stock_id'],
-                'score_date': str(date.today()),
-                'chip_score': r['chip_score'],
-                'fundamental_score': r['fundamental_score'],
-                'technical_score': r['technical_score'],
-                'total_score': r['total_score'],
-                'rank': idx + 1,
-            }
-            for idx, r in enumerate(results)
-        ]
-        items = _build_score_responses(db, score_data)
-
-        return ScreeningResultsResponse(
-            items=items,
-            total=len(items),
-            threshold=request.threshold,
-            weights=request.weights
-        )
-
-    except Exception as e:
-        logger.error(f"Error running screening: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="篩選執行失敗，請稍後再試"
-        )
 
 
 @router.get("/results", response_model=ScreeningResultsResponse)
@@ -172,19 +133,8 @@ def get_results(
     current_user: Annotated[User, Depends(get_current_user)],
     score_date: str = None
 ):
-    """
-    Get latest screening results ranking.
-
-    Args:
-        score_date: Optional date filter (YYYY-MM-DD), defaults to today
-        db: Database session
-        current_user: Authenticated user
-
-    Returns:
-        Screening results sorted by rank
-    """
+    """Get latest screening results ranking."""
     try:
-        # Parse date
         if score_date:
             try:
                 query_date = date.fromisoformat(score_date)
@@ -194,14 +144,12 @@ def get_results(
                     detail="Invalid date format. Use YYYY-MM-DD"
                 )
         else:
-            # Default to latest available score date
             query_date = db.query(
                 sqlfunc.max(ScoreResult.score_date)
             ).scalar()
             if not query_date:
                 return ScreeningResultsResponse(
-                    items=[], total=0, threshold=2.5,
-                    weights={"chip": 40, "fundamental": 35, "technical": 25}
+                    items=[], total=0, threshold=2.5
                 )
 
         # Query score results (top 30 for dashboard)
@@ -215,40 +163,40 @@ def get_results(
 
         if not results:
             return ScreeningResultsResponse(
-                items=[],
-                total=0,
-                threshold=2.5,
-                weights={"chip": 40, "fundamental": 35, "technical": 25}
+                items=[], total=0, threshold=2.5
             )
 
-        # Get weights from first result
+        # Check market status — if DOWNTREND, return empty with marker
         first_result = results[0]
-        weights = {
-            "chip": float(first_result.chip_weight),
-            "fundamental": float(first_result.fundamental_weight),
-            "technical": float(first_result.technical_weight)
-        }
+        market_status = first_result.market_status
+        if market_status == "DOWNTREND":
+            return ScreeningResultsResponse(
+                items=[], total=0, threshold=2.5,
+                market_status="DOWNTREND",
+            )
 
         # Batch-build response items (3 SQL instead of N*2)
-        score_data = [
-            {
-                'stock_id': r.stock_id,
-                'score_date': str(r.score_date),
-                'chip_score': float(r.chip_score),
-                'fundamental_score': float(r.fundamental_score),
-                'technical_score': float(r.technical_score),
-                'total_score': float(r.total_score),
-                'rank': r.rank,
-            }
-            for r in results
-        ]
+        score_data = [_score_result_to_dict(r) for r in results]
         items = _build_score_responses(db, score_data)
+
+        # 讀取後端算好的族群排名
+        top_sectors = []
+        try:
+            import json, os
+            cache_path = os.path.join(os.path.dirname(__file__), "..", "config", "top_sectors_cache.json")
+            cache_path = os.path.normpath(cache_path)
+            if os.path.exists(cache_path):
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    top_sectors = [SectorRankItem(**s) for s in json.load(f)]
+        except Exception:
+            pass
 
         return ScreeningResultsResponse(
             items=items,
             total=len(items),
             threshold=2.5,
-            weights=weights
+            market_status=market_status,
+            top_sectors=top_sectors,
         )
 
     except HTTPException:
@@ -261,81 +209,48 @@ def get_results(
         )
 
 
-@router.get("/results/{stock_id}", response_model=ScoreDetailResponse)
+@router.get("/results/{stock_id}", response_model=ScoreResultResponse)
 def get_stock_score(
     stock_id: str,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    fetch_data: bool = True
 ):
-    """
-    Get single stock score details with breakdown.
-    Auto-fetches missing data from FinMind if fetch_data=True.
+    """Get score for a single stock."""
+    result = (
+        db.query(ScoreResult)
+        .filter(ScoreResult.stock_id == stock_id)
+        .order_by(ScoreResult.score_date.desc())
+        .first()
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="找不到該股票的評分資料")
 
-    Args:
-        stock_id: Stock ID
-        db: Database session
-        current_user: Authenticated user
-        fetch_data: If True, fetch missing data on-demand before scoring
+    items = _build_score_responses(db, [_score_result_to_dict(result)])
+    if not items:
+        raise HTTPException(status_code=404, detail="找不到該股票的評分資料")
+    return items[0]
 
-    Returns:
-        Detailed score breakdown for the stock
-    """
+
+@router.post("/run")
+def run_screening(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """手動觸發動能策略評分。"""
     try:
-        # Verify stock exists
-        stock = db.query(Stock).filter(Stock.stock_id == stock_id).first()
-        if not stock:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Stock {stock_id} not found"
-            )
-
-        # On-demand fetch missing data before scoring
-        if fetch_data:
-            from app.services.on_demand_data_fetcher import OnDemandDataFetcher
-            fetcher = OnDemandDataFetcher(db)
-            fetch_result = fetcher.fetch_missing_data(stock_id)
-            logger.info(f"On-demand fetch for {stock_id}: {fetch_result}")
-
-        # Try pre-stored scores first (consistent with dashboard/screening)
-        latest_date = db.query(
-            sqlfunc.max(ScoreResult.score_date)
-        ).scalar()
-        stored = None
-        if latest_date:
-            stored = db.query(ScoreResult).filter(
-                ScoreResult.stock_id == stock_id,
-                ScoreResult.score_date == latest_date,
-            ).first()
-
-        # Calculate details breakdown (always needed for detail view)
-        engine = ScoringEngine()
-        result = engine.score_single_stock(db, stock_id)
-
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to calculate score"
-            )
-
-        # Override scores with pre-stored values for consistency
-        if stored:
-            result["chip_score"] = round(float(stored.chip_score), 2)
-            result["fundamental_score"] = round(float(stored.fundamental_score), 2)
-            result["technical_score"] = round(float(stored.technical_score), 2)
-            result["total_score"] = round(float(stored.total_score), 2)
-
-        result["stock_name"] = stock.stock_name
-        result["industry"] = stock.industry
-        return ScoreDetailResponse(**result)
-
-    except HTTPException:
-        raise
+        from app.services.momentum.strategy import MomentumStrategy
+        strategy = MomentumStrategy(db)
+        result = strategy.run()
+        return {
+            "success": True,
+            "market_status": result.get("market_status"),
+            "scored_count": len(result.get("results", [])),
+        }
     except Exception as e:
-        logger.error(f"Error getting stock score for {stock_id}: {e}", exc_info=True)
+        logger.error(f"Scoring run failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="取得股票評分失敗，請稍後再試"
+            detail=f"評分計算失敗: {str(e)}"
         )
 
 
@@ -343,11 +258,7 @@ def _get_or_create_settings(db: Session) -> SystemSetting:
     """Get system settings row, create with defaults if missing."""
     row = db.query(SystemSetting).first()
     if not row:
-        row = SystemSetting(
-            id=1, chip_weight=40,
-            fundamental_weight=35, technical_weight=25,
-            screening_threshold=2.5,
-        )
+        row = SystemSetting(id=1, screening_threshold=2.5)
         db.add(row)
         db.commit()
         db.refresh(row)
@@ -359,82 +270,9 @@ def get_screening_settings(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    """Get current screening weights and threshold."""
+    """Get current screening threshold."""
     row = _get_or_create_settings(db)
-    return ScreeningSettingsResponse(
-        weights={"chip": row.chip_weight, "fundamental": row.fundamental_weight, "technical": row.technical_weight},
-        threshold=row.screening_threshold,
-    )
-
-
-@router.get("/settings/auto-weights", response_model=ScreeningSettingsResponse)
-def auto_optimize_weights(
-    db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)]
-):
-    """
-    Auto-calculate optimal weights based on data coverage.
-
-    Analyzes how many candidate stocks have usable data for each factor,
-    then allocates weight proportionally — factors with better data coverage
-    get higher weight.
-    """
-    from datetime import timedelta
-
-    # Get candidate stocks (top 30 by volume)
-    from app.services.hard_filter import HardFilter
-    candidates = HardFilter().filter_by_volume(db, threshold=2.5)
-    if not candidates:
-        return ScreeningSettingsResponse(
-            weights={"chip": 40, "fundamental": 35, "technical": 25},
-            threshold=2.5,
-        )
-
-    total = len(candidates)
-    today = date.today()
-
-    # Chip coverage: stocks with institutional data in last 30 days
-    chip_count = db.query(sqlfunc.count(sqlfunc.distinct(Institutional.stock_id))).filter(
-        Institutional.stock_id.in_(candidates),
-        Institutional.trade_date >= today - timedelta(days=30),
-    ).scalar() or 0
-
-    # Fundamental coverage: stocks with revenue data
-    fund_count = db.query(sqlfunc.count(sqlfunc.distinct(Revenue.stock_id))).filter(
-        Revenue.stock_id.in_(candidates),
-    ).scalar() or 0
-
-    # Technical coverage: stocks with >= 120 days of price data
-    cutoff = today - timedelta(days=180)
-    tech_subq = (
-        db.query(DailyPrice.stock_id)
-        .filter(DailyPrice.stock_id.in_(candidates), DailyPrice.trade_date >= cutoff)
-        .group_by(DailyPrice.stock_id)
-        .having(sqlfunc.count(DailyPrice.id) >= 120)
-    )
-    tech_count = tech_subq.count()
-
-    # Calculate coverage ratios (min 0.1 to avoid zero weight)
-    chip_ratio = max(chip_count / total, 0.1)
-    fund_ratio = max(fund_count / total, 0.1)
-    tech_ratio = max(tech_count / total, 0.1)
-
-    # Normalize to 100, round to nearest 5
-    raw_total = chip_ratio + fund_ratio + tech_ratio
-    chip_w = round((chip_ratio / raw_total) * 100 / 5) * 5
-    fund_w = round((fund_ratio / raw_total) * 100 / 5) * 5
-    tech_w = 100 - chip_w - fund_w  # ensure sum = 100
-
-    logger.info(
-        f"Auto weights - coverage: chip={chip_count}/{total}, "
-        f"fund={fund_count}/{total}, tech={tech_count}/{total} "
-        f"→ weights: {chip_w}/{fund_w}/{tech_w}"
-    )
-
-    return ScreeningSettingsResponse(
-        weights={"chip": chip_w, "fundamental": fund_w, "technical": tech_w},
-        threshold=2.5,
-    )
+    return ScreeningSettingsResponse(threshold=row.screening_threshold)
 
 
 @router.put("/settings", response_model=ScreeningSettingsResponse)
@@ -443,17 +281,10 @@ def update_screening_settings(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    """Update screening weights and threshold, persisted for pipeline use."""
+    """Update screening threshold."""
     row = _get_or_create_settings(db)
-    if body.weights:
-        row.chip_weight = body.weights["chip"]
-        row.fundamental_weight = body.weights["fundamental"]
-        row.technical_weight = body.weights["technical"]
     if body.threshold is not None:
         row.screening_threshold = body.threshold
     db.commit()
     db.refresh(row)
-    return ScreeningSettingsResponse(
-        weights={"chip": row.chip_weight, "fundamental": row.fundamental_weight, "technical": row.technical_weight},
-        threshold=row.screening_threshold,
-    )
+    return ScreeningSettingsResponse(threshold=row.screening_threshold)

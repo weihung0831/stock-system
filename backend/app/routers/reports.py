@@ -176,10 +176,9 @@ def generate_stock_report(
         score_data = {}
         if score:
             score_data = {
-                'chip': float(score.chip_score),
-                'fundamental': float(score.fundamental_score),
-                'technical': float(score.technical_score),
                 'total': float(score.total_score),
+                'momentum': float(score.momentum_score or 0),
+                'classification': score.classification or '',
             }
 
         # Initialize LLM client and analyzer

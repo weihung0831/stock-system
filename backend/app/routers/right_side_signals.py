@@ -28,9 +28,20 @@ _cache_date: str = ""
 
 
 def _get_candidates(db: Session) -> list[str]:
-    """Get candidate stock IDs using Hard Filter (consistent with Dashboard)."""
-    from app.services.hard_filter import HardFilter
-    return HardFilter().filter_by_volume(db, threshold=2.5)
+    """Get candidate stock IDs by recent trading volume (top-500)."""
+    from sqlalchemy import func as _func, desc as _desc
+    max_date = db.query(_func.max(DailyPrice.trade_date)).scalar()
+    if not max_date:
+        return []
+    rows = (
+        db.query(DailyPrice.stock_id)
+        .filter(DailyPrice.trade_date == max_date)
+        .group_by(DailyPrice.stock_id)
+        .order_by(_desc(_func.sum(DailyPrice.volume)))
+        .limit(500)
+        .all()
+    )
+    return [r[0] for r in rows]
 
 
 def _batch_load_prices(db: Session, stock_ids: list[str]) -> dict[str, pd.DataFrame]:

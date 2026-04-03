@@ -106,13 +106,20 @@ def _build_stock_detail(db: Session, stock_id: str) -> str:
         .first()
     )
     if score:
-        lines.append(
-            f"評分: 總分 {score.total_score:.1f} | "
-            f"籌碼 {score.chip_score:.1f} | "
-            f"基本面 {score.fundamental_score:.1f} | "
-            f"技術面 {score.technical_score:.1f} | "
-            f"排名 #{score.rank}"
-        )
+        cls = score.classification or "N/A"
+        momentum = float(score.momentum_score or 0)
+        parts = [f"評分: 總分 {score.total_score:.1f} | 動能 {momentum:.1f} | 分類 {cls}"]
+        price_parts = []
+        if score.buy_price:
+            price_parts.append(f"進場 {float(score.buy_price):.1f}")
+        if score.stop_price:
+            price_parts.append(f"停損 {float(score.stop_price):.1f}")
+        if score.target_price:
+            price_parts.append(f"目標 {float(score.target_price):.1f}")
+        if price_parts:
+            parts.append(" ".join(price_parts))
+        parts.append(f"排名 #{score.rank}")
+        lines.append(" | ".join(parts))
 
     # Latest institutional data (last 5 days summary)
     inst_data = (
