@@ -45,39 +45,6 @@ def _score_result_to_dict(r: ScoreResult) -> dict:
 router = APIRouter(prefix="/api/screening", tags=["screening"])
 
 
-@router.get("/migrate-momentum")
-def migrate_momentum(db: Session = Depends(get_db)):
-    """One-time migration endpoint. Delete after use."""
-    from sqlalchemy import text
-    results = []
-    stmts = [
-        'ALTER TABLE score_results ADD COLUMN momentum_score DECIMAL(6,2) NULL',
-        'ALTER TABLE score_results ADD COLUMN classification VARCHAR(10) NULL',
-        'ALTER TABLE score_results ADD COLUMN buy_price DECIMAL(10,2) NULL',
-        'ALTER TABLE score_results ADD COLUMN stop_price DECIMAL(10,2) NULL',
-        'ALTER TABLE score_results ADD COLUMN add_price DECIMAL(10,2) NULL',
-        'ALTER TABLE score_results ADD COLUMN target_price DECIMAL(10,2) NULL',
-        'ALTER TABLE score_results ADD COLUMN sector_rank INT NULL',
-        'ALTER TABLE score_results ADD COLUMN sector_name VARCHAR(50) NULL',
-        'ALTER TABLE score_results ADD COLUMN market_status VARCHAR(10) NULL',
-        'ALTER TABLE score_results DROP COLUMN chip_score',
-        'ALTER TABLE score_results DROP COLUMN fundamental_score',
-        'ALTER TABLE score_results DROP COLUMN technical_score',
-        'ALTER TABLE score_results DROP COLUMN chip_weight',
-        'ALTER TABLE score_results DROP COLUMN fundamental_weight',
-        'ALTER TABLE score_results DROP COLUMN technical_weight',
-        'CREATE TABLE IF NOT EXISTS market_indices (id INT AUTO_INCREMENT PRIMARY KEY, date DATE NOT NULL UNIQUE, open DECIMAL(10,2) NOT NULL, high DECIMAL(10,2) NOT NULL, low DECIMAL(10,2) NOT NULL, close DECIMAL(10,2) NOT NULL, volume BIGINT DEFAULT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)',
-    ]
-    with db.get_bind().connect() as conn:
-        for s in stmts:
-            try:
-                conn.execute(text(s))
-                results.append(f"OK: {s[:50]}")
-            except Exception as e:
-                results.append(f"SKIP: {str(e)[:80]}")
-        conn.commit()
-    return {"results": results}
-
 
 def _build_score_responses(
     db: Session,
