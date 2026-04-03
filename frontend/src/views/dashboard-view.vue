@@ -92,7 +92,6 @@ const sectorGroups = computed(() => {
   // Fallback: sort by average momentum_score when top_sectors unavailable
   if (groups.length === 0 && map.size > 0) {
     for (const [name, stocks] of map) {
-      const avg = stocks.reduce((s, x) => s + x.momentum_score, 0) / stocks.length
       groups.push({ name, returnPct: 0, stocks: stocks.slice(0, 6) })
     }
     groups.sort((a, b) => {
