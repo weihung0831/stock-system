@@ -955,6 +955,7 @@ def _fetch_taiex_daily(
             collector = FinMindCollector(token=token)
             df = collector._get(
                 "TaiwanStockTotalReturnIndex",
+                data_id="TAIEX",
                 start_date=start_date,
                 end_date=end_date,
             )
