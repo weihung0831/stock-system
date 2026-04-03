@@ -20,9 +20,7 @@ class TestReportCacheEndpoint:
             db.add(stock)
         score = ScoreResult(
             stock_id=stock_id, score_date=date.today(),
-            chip_score=80, fundamental_score=75, technical_score=70,
             total_score=75.0, rank=1,
-            chip_weight=0.33, fundamental_weight=0.34, technical_weight=0.33,
         )
         db.add(score)
         db.commit()

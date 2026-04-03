@@ -386,14 +386,8 @@ class TestScoreResultModel:
         score = ScoreResult(
             stock_id="2330",
             score_date=date(2026, 2, 15),
-            chip_score=Decimal("85.50"),
-            fundamental_score=Decimal("72.30"),
-            technical_score=Decimal("68.10"),
             total_score=Decimal("76.20"),
             rank=1,
-            chip_weight=Decimal("40.00"),
-            fundamental_weight=Decimal("35.00"),
-            technical_weight=Decimal("25.00")
         )
         test_db.add(score)
         test_db.commit()
@@ -408,10 +402,7 @@ class TestScoreResultModel:
         score = ScoreResult(
             stock_id="2330",
             score_date=date(2026, 2, 15),
-            chip_score=85, fundamental_score=72,
-            technical_score=68, total_score=76,
-            rank=1, chip_weight=40,
-            fundamental_weight=35, technical_weight=25
+            total_score=76, rank=1,
         )
         test_db.add(score)
         test_db.commit()
@@ -423,10 +414,7 @@ class TestScoreResultModel:
         """Test stock_id + score_date unique constraint."""
         kwargs = dict(
             stock_id="2330", score_date=date(2026, 2, 15),
-            chip_score=85, fundamental_score=72,
-            technical_score=68, total_score=76,
-            rank=1, chip_weight=40,
-            fundamental_weight=35, technical_weight=25
+            total_score=76, rank=1,
         )
         test_db.add(ScoreResult(**kwargs))
         test_db.commit()
@@ -439,10 +427,7 @@ class TestScoreResultModel:
         """Test ScoreResult has timestamp mixin."""
         score = ScoreResult(
             stock_id="2330", score_date=date(2026, 2, 15),
-            chip_score=85, fundamental_score=72,
-            technical_score=68, total_score=76,
-            rank=1, chip_weight=40,
-            fundamental_weight=35, technical_weight=25
+            total_score=76, rank=1,
         )
         test_db.add(score)
         test_db.commit()

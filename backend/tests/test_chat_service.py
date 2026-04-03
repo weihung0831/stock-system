@@ -26,14 +26,8 @@ class TestBuildStockContext:
         score = ScoreResult(
             stock_id="2330",
             score_date=date(2026, 2, 19),
-            chip_score=80.0,
-            fundamental_score=75.0,
-            technical_score=70.0,
             total_score=75.0,
             rank=1,
-            chip_weight=0.33,
-            fundamental_weight=0.34,
-            technical_weight=0.33,
         )
         test_db.add(score)
         test_db.commit()
@@ -79,13 +73,11 @@ class TestBuildStockContext:
         scores = [
             ScoreResult(
                 stock_id="2330", score_date=date(2026, 2, 19),
-                chip_score=90, fundamental_score=85, technical_score=80, total_score=85.0,
-                rank=1, chip_weight=0.33, fundamental_weight=0.34, technical_weight=0.33,
+                total_score=85.0, rank=1,
             ),
             ScoreResult(
                 stock_id="2454", score_date=date(2026, 2, 19),
-                chip_score=70, fundamental_score=65, technical_score=60, total_score=65.0,
-                rank=2, chip_weight=0.33, fundamental_weight=0.34, technical_weight=0.33,
+                total_score=65.0, rank=2,
             ),
         ]
         test_db.add_all(scores)
@@ -146,8 +138,7 @@ class TestChatWithAssistant:
         """Test system prompt contains stock context when data exists."""
         score = ScoreResult(
             stock_id="2330", score_date=date(2026, 2, 19),
-            chip_score=80, fundamental_score=75, technical_score=70, total_score=75.0,
-            rank=1, chip_weight=0.33, fundamental_weight=0.34, technical_weight=0.33,
+            total_score=75.0, rank=1,
         )
         test_db.add(score)
         test_db.commit()

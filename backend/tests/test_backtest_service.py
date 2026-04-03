@@ -32,13 +32,7 @@ class TestBacktestServiceStockFiltering:
                 stock_id=stock_id,
                 score_date=score_date,
                 total_score=Decimal(85.0 - i * 5),
-                fundamental_score=Decimal(80.0),
-                technical_score=Decimal(90.0),
-                chip_score=Decimal(85.0),
                 rank=i + 1,
-                chip_weight=Decimal(20.0),
-                fundamental_weight=Decimal(35.0),
-                technical_weight=Decimal(25.0)
             )
             test_db.add(score)
         test_db.commit()
@@ -91,13 +85,7 @@ class TestBacktestServiceStockFiltering:
                 stock_id=stock_id,
                 score_date=score_date,
                 total_score=Decimal(100.0 - i * 10),
-                fundamental_score=Decimal(80.0),
-                technical_score=Decimal(90.0),
-                chip_score=Decimal(85.0),
                 rank=i + 1,
-                chip_weight=Decimal(20.0),
-                fundamental_weight=Decimal(35.0),
-                technical_weight=Decimal(25.0)
             )
             test_db.add(score)
         test_db.commit()
@@ -122,13 +110,7 @@ class TestBacktestServiceStockFiltering:
             stock_id="2330",
             score_date=score_date,
             total_score=Decimal(85.0),
-            fundamental_score=Decimal(80.0),
-            technical_score=Decimal(90.0),
-            chip_score=Decimal(85.0),
             rank=1,
-            chip_weight=Decimal(20.0),
-            fundamental_weight=Decimal(35.0),
-            technical_weight=Decimal(25.0)
         )
         test_db.add(score)
         test_db.commit()
@@ -153,13 +135,7 @@ class TestBacktestServiceStockFiltering:
             stock_id="2330",
             score_date=score_date,
             total_score=Decimal(85.0),
-            fundamental_score=Decimal(80.0),
-            technical_score=Decimal(90.0),
-            chip_score=Decimal(85.0),
             rank=1,
-            chip_weight=Decimal(20.0),
-            fundamental_weight=Decimal(35.0),
-            technical_weight=Decimal(25.0)
         )
         test_db.add(score)
         test_db.commit()
@@ -184,13 +160,7 @@ class TestBacktestServiceStockFiltering:
             stock_id="2330",
             score_date=score_date,
             total_score=Decimal(85.0),
-            fundamental_score=Decimal(80.0),
-            technical_score=Decimal(90.0),
-            chip_score=Decimal(85.0),
             rank=1,
-            chip_weight=Decimal(20.0),
-            fundamental_weight=Decimal(35.0),
-            technical_weight=Decimal(25.0)
         )
         test_db.add(score)
 
@@ -240,13 +210,7 @@ class TestBacktestServiceStockFiltering:
                     stock_id=stock_id,
                     score_date=score_date,
                     total_score=Decimal(90.0 - i * 5),
-                    fundamental_score=Decimal(80.0),
-                    technical_score=Decimal(90.0),
-                    chip_score=Decimal(85.0),
                     rank=i + 1,
-                    chip_weight=Decimal(20.0),
-                    fundamental_weight=Decimal(35.0),
-                    technical_weight=Decimal(25.0)
                 )
                 test_db.add(score)
         test_db.commit()
@@ -309,13 +273,7 @@ class TestBacktestServiceStockFiltering:
                 stock_id="2330",
                 score_date=score_date,
                 total_score=Decimal(85.0),
-                fundamental_score=Decimal(80.0),
-                technical_score=Decimal(90.0),
-                chip_score=Decimal(85.0),
                 rank=1,
-                chip_weight=Decimal(20.0),
-                fundamental_weight=Decimal(35.0),
-                technical_weight=Decimal(25.0)
             )
             test_db.add(score)
         test_db.commit()
