@@ -75,20 +75,31 @@ const sectorGroups = computed(() => {
     stocks.sort((a, b) => b.momentum_score - a.momentum_score)
   }
 
-  // Use backend top_sectors order (ranked by 20d sector return)
-  const sectorOrder = topSectors.value.map(s => s.name)
   const groups: { name: string; returnPct: number; stocks: ScoreResult[] }[] = []
 
-  for (const sectorName of sectorOrder) {
-    const stocks = map.get(sectorName)
-    if (stocks && stocks.length > 0) {
-      const ts = topSectors.value.find(s => s.name === sectorName)
-      groups.push({
-        name: sectorName,
-        returnPct: ts?.return_pct ?? 0,
-        stocks: stocks.slice(0, 6),
-      })
+  // Try backend top_sectors order first (ranked by 20d sector return)
+  const sectorOrder = topSectors.value.map(s => s.name)
+  if (sectorOrder.length > 0) {
+    for (const sectorName of sectorOrder) {
+      const stocks = map.get(sectorName)
+      if (stocks && stocks.length > 0) {
+        const ts = topSectors.value.find(s => s.name === sectorName)
+        groups.push({ name: sectorName, returnPct: ts?.return_pct ?? 0, stocks: stocks.slice(0, 6) })
+      }
     }
+  }
+
+  // Fallback: sort by average momentum_score when top_sectors unavailable
+  if (groups.length === 0 && map.size > 0) {
+    for (const [name, stocks] of map) {
+      const avg = stocks.reduce((s, x) => s + x.momentum_score, 0) / stocks.length
+      groups.push({ name, returnPct: 0, stocks: stocks.slice(0, 6) })
+    }
+    groups.sort((a, b) => {
+      const avgA = a.stocks.reduce((s, x) => s + x.momentum_score, 0) / a.stocks.length
+      const avgB = b.stocks.reduce((s, x) => s + x.momentum_score, 0) / b.stocks.length
+      return avgB - avgA
+    })
   }
 
   return groups.slice(0, 5)
