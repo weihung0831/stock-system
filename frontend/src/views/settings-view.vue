@@ -1,70 +1,18 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useScreeningStore } from '@/stores/screening-store'
 import { ElMessage } from 'element-plus'
 import WeightSliderGroup from '@/components/settings/weight-slider-group.vue'
 import SchedulerConfigForm from '@/components/settings/scheduler-config-form.vue'
 import { useSettingsStore } from '@/stores/settings-store'
-import { useSectorTagsStore } from '@/stores/sector-tags-store'
-import type { SectorTagCreate } from '@/api/sector-tags-api'
 import apiClient from '@/api/client'
 
 const screeningStore = useScreeningStore()
 const settingsStore = useSettingsStore()
-const sectorTagsStore = useSectorTagsStore()
-
-/* ========== Sector Tags CRUD ========== */
-const editingTagId = ref<number | null>(null)
-const tagForm = reactive<SectorTagCreate>({ name: '', color: '#3b82f6', keywords: '', sort_order: 0 })
-
-const resetTagForm = () => {
-  tagForm.name = ''
-  tagForm.color = '#3b82f6'
-  tagForm.keywords = ''
-  tagForm.sort_order = 0
-  editingTagId.value = null
-}
-
-const handleSaveTag = async () => {
-  if (!tagForm.name.trim()) {
-    ElMessage.warning('請輸入標籤名稱')
-    return
-  }
-  try {
-    if (editingTagId.value !== null) {
-      await sectorTagsStore.editTag(editingTagId.value, { ...tagForm })
-      ElMessage.success('標籤已更新')
-    } else {
-      await sectorTagsStore.addTag({ ...tagForm })
-      ElMessage.success('標籤已新增')
-    }
-    resetTagForm()
-  } catch {
-    ElMessage.error('儲存標籤失敗')
-  }
-}
-
-const startEditTag = (tag: { id: number; name: string; color: string; keywords: string; sort_order: number }) => {
-  editingTagId.value = tag.id
-  tagForm.name = tag.name
-  tagForm.color = tag.color
-  tagForm.keywords = tag.keywords
-  tagForm.sort_order = tag.sort_order
-}
-
-const handleDeleteTag = async (id: number) => {
-  try {
-    await sectorTagsStore.removeTag(id)
-    if (editingTagId.value === id) resetTagForm()
-    ElMessage.success('標籤已刪除')
-  } catch {
-    ElMessage.error('刪除失敗')
-  }
-}
 
 const handleRunScreening = async () => {
   try {
-    await screeningStore.runScreening(settingsStore.weights, settingsStore.threshold)
+    await screeningStore.runScreening(settingsStore.threshold)
     ElMessage.success('評分計算已完成')
   } catch {
     ElMessage.error('評分計算失敗')
@@ -185,7 +133,6 @@ const handleClearLogs = async () => {
 
 onMounted(() => {
   fetchLogs()
-  sectorTagsStore.fetchTags()
 })
 
 onUnmounted(() => {

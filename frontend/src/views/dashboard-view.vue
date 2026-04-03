@@ -126,10 +126,6 @@ const LOW_RESULT_THRESHOLD = 10
 
 const totalPages = computed(() => Math.ceil(overallRanking.value.length / pageSize))
 
-const pagedResults = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return classFiltered.value.slice(start, start + pageSize)
-})
 
 const handlePageChange = (page: number) => {
   currentPage.value = page
@@ -273,7 +269,7 @@ onMounted(async () => {
       </div>
 
       <div class="sector-scroll">
-        <div v-for="group in sectorGroups" :key="group.name" class="sector-chip card" @click="group.expanded = !group.expanded">
+        <div v-for="group in sectorGroups" :key="group.name" class="sector-chip card">
           <div class="sector-chip-header">
             <span class="sector-chip-name">{{ group.name }}</span>
             <span class="sector-chip-meta">

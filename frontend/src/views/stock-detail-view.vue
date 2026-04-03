@@ -9,8 +9,6 @@ import TechnicalIndicatorChart from '@/components/stock-detail/technical-indicat
 import FactorScoreCard from '@/components/stock-detail/factor-score-card.vue'
 import LlmReportPanel from '@/components/stock-detail/llm-report-panel.vue'
 import RightSideSignalCard from '@/components/stock-detail/right-side-signal-card.vue'
-import SectorTag from '@/components/shared/sector-tag.vue'
-import { useSectorTagsStore } from '@/stores/sector-tags-store'
 import type { ScoreResult } from '@/types/screening'
 import type { LLMReport } from '@/types/report'
 import { ElMessage } from 'element-plus'
@@ -18,8 +16,6 @@ import { ElMessage } from 'element-plus'
 const route = useRoute()
 const router = useRouter()
 const stockStore = useStockStore()
-const sectorTagsStore = useSectorTagsStore()
-if (sectorTagsStore.tags.length === 0) sectorTagsStore.fetchTags()
 const stockId = computed(() => route.params.id as string)
 
 const loading = ref(true)
