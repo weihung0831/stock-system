@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import HeaderStockSearch from './header-stock-search.vue'
+import NotificationBell from '../portfolio/notification-bell.vue'
 
 const route = useRoute()
 
@@ -20,6 +21,7 @@ const pageTitles: Record<string, string> = {
   '/reports': 'AI 報告',
   '/history': '歷史回測',
   '/settings': '系統設定',
+  '/portfolio': '持股監控',
 }
 
 const pageTitle = computed(() => {
@@ -49,6 +51,7 @@ const pageTitle = computed(() => {
       <HeaderStockSearch />
     </div>
     <div class="header-meta">
+      <NotificationBell />
       <div class="status-dot" />
       <span class="meta-text">系統運行中</span>
     </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, onUnmounted, computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSettingsStore } from '@/stores/settings-store'
@@ -7,6 +7,7 @@ import AppSidebar from '@/components/layout/app-sidebar.vue'
 import AppHeader from '@/components/layout/app-header.vue'
 import ScrollToTop from '@/components/shared/scroll-to-top.vue'
 import AiAssistantWidget from '@/components/ai-assistant/ai-assistant-widget.vue'
+import { useNotificationStore } from '@/stores/notification-store'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -17,12 +18,18 @@ const showUpgradeBanner = computed(() =>
 )
 const sidebarVisible = ref(false)
 
+const notificationStore = useNotificationStore()
+
 onMounted(async () => {
   if (authStore.token) {
     await authStore.fetchUser()
-    // Load screening settings from backend DB
     await settingsStore.loadFromBackend()
+    notificationStore.startPolling()
   }
+})
+
+onUnmounted(() => {
+  notificationStore.stopPolling()
 })
 
 // Toggle sidebar on mobile

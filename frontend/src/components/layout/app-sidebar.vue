@@ -29,6 +29,7 @@ const navSections = computed(() => {
         { path: '/reports', label: 'AI 報告', icon: 'doc' },
         { path: '/history', label: '歷史回測', icon: 'chart' },
         { path: '/right-side', label: '右側買法', icon: 'signal' },
+        { path: '/portfolio', label: '持股監控', icon: 'monitor' },
       ],
     },
     {
@@ -134,6 +135,10 @@ function handleMenuAction(action: string) {
           <!-- Right-side signal icon -->
           <svg v-else-if="item.icon === 'signal'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 20h.01" /><path d="M7 20v-4" /><path d="M12 20v-8" /><path d="M17 20v-12" /><path d="M22 4v16" />
+          </svg>
+          <!-- Monitor icon -->
+          <svg v-else-if="item.icon === 'monitor'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
           </svg>
           <!-- Settings icon -->
           <svg v-else-if="item.icon === 'gear'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">

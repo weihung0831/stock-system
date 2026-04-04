@@ -51,6 +51,11 @@ const router = createRouter({
       component: () => import('@/views/history-backtest-view.vue'),
     },
     {
+      path: '/portfolio',
+      name: 'portfolio-monitor',
+      component: () => import('@/views/portfolio-monitor-view.vue'),
+    },
+    {
       path: '/right-side',
       name: 'right-side-screening',
       component: () => import('@/views/right-side-screening-view.vue'),
