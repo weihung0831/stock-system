@@ -17,14 +17,14 @@ cd backend && source venv/bin/activate && pytest --cov=app --cov-report=term-mis
 
 ## Architecture
 
-- `backend/app/routers/` — 14 個 API 路由
-- `backend/app/services/` — 23 個業務服務 + `momentum/` 子模組（filters, signals, strategy）
-- `backend/app/models/` — 17 個 ORM 模型
+- `backend/app/routers/` — 16 個 API 路由
+- `backend/app/services/` — 25 個業務服務 + `momentum/` 子模組（filters, signals, strategy）
+- `backend/app/models/` — 19 個 ORM 模型
 - `backend/app/tasks/` — Pipeline 任務
-- `frontend/src/views/` — 13 個頁面
-- `frontend/src/components/` — 22 個元件
-- `frontend/src/stores/` — 5 個 Pinia store
-- `frontend/src/api/` — 12 個 API 客戶端
+- `frontend/src/views/` — 14 個頁面
+- `frontend/src/components/` — 25 個元件
+- `frontend/src/stores/` — 7 個 Pinia store
+- `frontend/src/api/` — 14 個 API 客戶端
 
 ## Code Style
 
@@ -35,7 +35,7 @@ cd backend && source venv/bin/activate && pytest --cov=app --cov-report=term-mis
 
 ## Testing
 
-- 360 個測試
+- 384 個測試
 - 測試檔案在 `backend/tests/`
 - 使用 SQLite in-memory 測試資料庫
 - 不可用 mock 繞過測試，必須修正實際問題
