@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440
     CORS_ORIGINS: str = "http://localhost:5173"
     CRON_SECRET: str = ""
+    FUGLE_API_KEY: str = ""
 
     model_config = {
         "env_file": ".env"

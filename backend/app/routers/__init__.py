@@ -12,6 +12,8 @@ from app.routers.sector_tags import router as sector_tags_router
 from app.routers.chat import router as chat_router
 from app.routers.right_side_signals import router as right_side_signals_router
 from app.routers.admin import router as admin_router
+from app.routers.portfolio import router as portfolio_router
+from app.routers.notifications import router as notifications_router
 
 __all__ = [
     "auth_router",
@@ -27,4 +29,6 @@ __all__ = [
     "chat_router",
     "right_side_signals_router",
     "admin_router",
+    "portfolio_router",
+    "notifications_router",
 ]

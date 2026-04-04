@@ -15,6 +15,8 @@ from app.models.system_setting import SystemSetting
 from app.models.sector_tag import SectorTag
 from app.models.report_usage import ReportUsage
 from app.models.market_index import MarketIndex
+from app.models.portfolio import Portfolio
+from app.models.notification import Notification
 
 __all__ = [
     "TimestampMixin",
@@ -33,4 +35,6 @@ __all__ = [
     "SectorTag",
     "ReportUsage",
     "MarketIndex",
+    "Portfolio",
+    "Notification",
 ]

@@ -22,6 +22,8 @@ from app.routers import (
     chat_router,
     right_side_signals_router,
     admin_router,
+    portfolio_router,
+    notifications_router,
 )
 from app.tasks.daily_pipeline import run_daily_pipeline
 
@@ -173,6 +175,8 @@ app.include_router(sector_tags_router)
 app.include_router(chat_router)
 app.include_router(right_side_signals_router)
 app.include_router(admin_router)
+app.include_router(portfolio_router)
+app.include_router(notifications_router)
 
 
 @app.get("/api/health")
