@@ -194,7 +194,6 @@ class TestRunDailyPipeline:
         with patch("app.tasks.daily_pipeline.date") as mock_date, \
              patch("app.tasks.daily_pipeline.SessionLocal", return_value=test_db), \
              patch("app.tasks.daily_pipeline.step_fetch_stock_data") as mock_fetch, \
-             patch("app.tasks.daily_pipeline.step_hard_filter") as mock_filter, \
              patch("app.tasks.daily_pipeline.step_scoring") as mock_score, \
              patch("app.tasks.daily_pipeline.requests.get") as mock_get:
 
@@ -207,7 +206,6 @@ class TestRunDailyPipeline:
             }
 
             mock_fetch.return_value = {"success": True}
-            mock_filter.return_value = {"success": True, "candidates": ["2330", "2454"]}
             mock_score.return_value = {"success": True}
 
             result = run_daily_pipeline(trigger_type="scheduled")
@@ -222,7 +220,6 @@ class TestRunDailyPipeline:
         with patch("app.tasks.daily_pipeline.requests.get") as mock_get, \
              patch("app.tasks.daily_pipeline.SessionLocal", return_value=test_db), \
              patch("app.tasks.daily_pipeline.step_fetch_stock_data") as mock_fetch, \
-             patch("app.tasks.daily_pipeline.step_hard_filter") as mock_filter, \
              patch("app.tasks.daily_pipeline.step_scoring") as mock_score, \
              patch("app.tasks.daily_pipeline.date") as mock_date_class:
 
@@ -237,7 +234,6 @@ class TestRunDailyPipeline:
             mock_date_class.fromisoformat = date.fromisoformat
 
             mock_fetch.return_value = {"success": True}
-            mock_filter.return_value = {"success": True, "candidates": []}
             mock_score.return_value = {"success": True}
 
             result = run_daily_pipeline(trigger_type="manual")

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.pipeline_log import PipelineLog
 from app.tasks.data_fetch_steps import step_fetch_stock_data, _fetch_taiex_daily
-from app.tasks.analysis_steps import step_hard_filter, step_scoring
+from app.tasks.analysis_steps import step_scoring
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +89,8 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
     Main daily pipeline orchestrator.
 
     Pipeline steps:
-    1. Fetch stock data (prices, institutional, margin)
-    2. Hard filter candidates by volume
-    3. Calculate composite scores
+    1. Fetch stock data (prices, institutional, margin, TAIEX)
+    2. Momentum strategy scoring (filters + scoring all stocks)
     News is fetched on-demand during LLM report generation.
 
     Args:
@@ -122,7 +121,7 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
             started_at=now_taipei(),
             status="running",
             steps_completed=0,
-            total_steps=3,
+            total_steps=2,
             trigger_type=trigger_type
         )
         db.add(pipeline_log)
@@ -135,7 +134,7 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
         errors = []
 
         # Step 1: Fetch stock data + TAIEX
-        logger.info("Step 1/3: Fetching stock data + TAIEX")
+        logger.info("Step 1/2: Fetching stock data + TAIEX")
         result = step_fetch_stock_data(db, date_str)
         # Also fetch TAIEX market index for momentum strategy
         try:
@@ -151,33 +150,16 @@ def run_daily_pipeline(trigger_type: str = "scheduled") -> dict:
             errors.append(f"Step 1: {result['message']}")
             logger.error(f"Stock data fetch failed: {result['message']}")
 
-        # Step 2: Hard filter
-        logger.info("Step 2/3: Running hard filter")
-        result = step_hard_filter(db, date_str, threshold=2.5)
-        candidates = result.get("candidates", [])
+        # Step 2: Momentum strategy scoring
+        logger.info("Step 2/2: Running momentum strategy")
+        result = step_scoring(db, date_str)
         if result["success"]:
             pipeline_log.steps_completed = 2
             db.commit()
-            logger.info(f"Hard filter completed: {len(candidates)} candidates")
+            logger.info("Scoring completed")
         else:
             errors.append(f"Step 2: {result['message']}")
-            logger.error(f"Hard filter failed: {result['message']}")
-
-        # Step 3: Momentum strategy scoring
-        if candidates:
-            logger.info("Step 3/3: Running momentum strategy")
-            result = step_scoring(db, candidates, date_str)
-            if result["success"]:
-                pipeline_log.steps_completed = 3
-                db.commit()
-                logger.info("Scoring completed")
-            else:
-                errors.append(f"Step 3: {result['message']}")
-                logger.error(f"Scoring failed: {result['message']}")
-        else:
-            logger.warning("Skipping scoring: no candidates from candidate selection")
-            pipeline_log.steps_completed = 3
-            db.commit()
+            logger.error(f"Scoring failed: {result['message']}")
 
         # Finalize pipeline log
         pipeline_log.finished_at = now_taipei()

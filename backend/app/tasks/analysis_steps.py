@@ -57,18 +57,14 @@ def step_hard_filter(db: Session, date_str: str, threshold: float = 2.5) -> Dict
 
 def step_scoring(
     db: Session,
-    stock_ids: List[str],
     date_str: str,
-    weights: Optional[Dict[str, int]] = None
 ) -> Dict[str, Any]:
     """
     Execute momentum strategy pipeline.
 
     Args:
         db: Database session
-        stock_ids: List of candidate stock IDs (kept for API compatibility)
         date_str: Date string in YYYY-MM-DD format
-        weights: Weight distribution (kept for API compatibility)
 
     Returns:
         Result dict with success status and message
