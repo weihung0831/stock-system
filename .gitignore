@@ -39,3 +39,4 @@ test_output.log
 plans/reports/
 frontend/plans/
 *.pptx
+.gstack/
