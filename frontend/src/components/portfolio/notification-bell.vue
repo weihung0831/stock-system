@@ -153,10 +153,10 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 }
 
 .dropdown {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: -8px;
-  width: 360px;
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  width: min(360px, calc(100vw - 24px));
   max-height: 440px;
   background: var(--bg-card, #1a1f2e);
   border: 1px solid var(--border, #243049);
