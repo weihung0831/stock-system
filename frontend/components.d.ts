@@ -26,6 +26,8 @@ declare module 'vue' {
     ElInput: typeof import('element-plus/es')['ElInput']
     ElInputNumber: typeof import('element-plus/es')['ElInputNumber']
     ElMain: typeof import('element-plus/es')['ElMain']
+    ElTable: typeof import('element-plus/es')['ElTable']
+    ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     FactorScoreCard: typeof import('./src/components/stock-detail/factor-score-card.vue')['default']
     FilterBuilderForm: typeof import('./src/components/screening/filter-builder-form.vue')['default']
     HeaderStockSearch: typeof import('./src/components/layout/header-stock-search.vue')['default']
@@ -48,5 +50,8 @@ declare module 'vue' {
     StockRankingTable: typeof import('./src/components/dashboard/stock-ranking-table.vue')['default']
     TechnicalIndicatorChart: typeof import('./src/components/stock-detail/technical-indicator-chart.vue')['default']
     WeightSliderGroup: typeof import('./src/components/settings/weight-slider-group.vue')['default']
+  }
+  export interface GlobalDirectives {
+    vLoading: typeof import('element-plus/es')['ElLoadingDirective']
   }
 }
