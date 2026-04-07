@@ -11,7 +11,7 @@ from app.models.portfolio import Portfolio
 from app.models.notification import Notification
 from app.models.daily_price import DailyPrice
 from app.models.score_result import ScoreResult
-from app.services.fugle_client import get_quotes, is_market_open, is_quote_available, QuoteData
+from app.services.fugle_client import get_quotes, is_market_open, QuoteData
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +129,7 @@ def get_realtime_data(user_id: int, db: Session) -> Dict[str, Any]:
     stock_ids = list({p.stock_id for p in portfolios})
     market_open = is_market_open()
 
-    quotes = get_quotes(stock_ids) if is_quote_available() else {}
+    quotes = get_quotes(stock_ids)
     any_realtime = any(q is not None for q in quotes.values())
 
     fallback_prices = {}

@@ -76,7 +76,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     fetchRealtime()
     pollingTimer = setInterval(async () => {
       await fetchRealtime()
-      if (realtimeData.value && !realtimeData.value.is_market_open && !realtimeData.value.is_realtime) {
+      if (realtimeData.value && !realtimeData.value.is_market_open) {
         stopPolling()
       }
     }, 5000)

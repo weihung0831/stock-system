@@ -30,15 +30,6 @@ def is_market_open() -> bool:
     return market_open <= now <= market_close
 
 
-def is_quote_available() -> bool:
-    """Check if Fugle API can return today's price (market hours + 1hr buffer)."""
-    now = datetime.now(TZ_TAIPEI)
-    if now.weekday() >= 5:
-        return False
-    market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
-    buffer_close = now.replace(hour=14, minute=30, second=0, microsecond=0)
-    return market_open <= now <= buffer_close
-
 
 _client_instance = None
 
