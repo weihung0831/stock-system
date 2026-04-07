@@ -138,8 +138,9 @@ class TestPortfolioRealtime:
     """Tests for real-time portfolio data endpoint."""
 
     @patch("app.services.portfolio_monitor.get_quotes")
+    @patch("app.services.portfolio_monitor.is_quote_available", return_value=True)
     @patch("app.services.portfolio_monitor.is_market_open", return_value=True)
-    def test_realtime_with_quotes(self, mock_market, mock_quotes, test_client, test_db, test_user, jwt_token):
+    def test_realtime_with_quotes(self, mock_market, mock_quote_avail, mock_quotes, test_client, test_db, test_user, jwt_token):
         test_db.add(Portfolio(
             user_id=test_user.id, stock_id="2330", stock_name="台積電",
             cost_price=900, quantity=1000, target_return_pct=20,
@@ -165,8 +166,9 @@ class TestPortfolioRealtime:
         assert item["target_reached"] is False
 
     @patch("app.services.portfolio_monitor.get_quotes")
+    @patch("app.services.portfolio_monitor.is_quote_available", return_value=False)
     @patch("app.services.portfolio_monitor.is_market_open", return_value=False)
-    def test_realtime_market_closed(self, mock_market, mock_quotes, test_client, test_db, test_user, test_daily_prices, jwt_token):
+    def test_realtime_market_closed(self, mock_market, mock_quote_avail, mock_quotes, test_client, test_db, test_user, test_daily_prices, jwt_token):
         test_db.add(Portfolio(
             user_id=test_user.id, stock_id="2330", stock_name="台積電",
             cost_price=600, quantity=100, target_return_pct=5,
@@ -185,8 +187,9 @@ class TestPortfolioRealtime:
         mock_quotes.assert_not_called()
 
     @patch("app.services.portfolio_monitor.get_quotes")
+    @patch("app.services.portfolio_monitor.is_quote_available", return_value=True)
     @patch("app.services.portfolio_monitor.is_market_open", return_value=True)
-    def test_realtime_api_failure_fallback(self, mock_market, mock_quotes, test_client, test_db, test_user, test_daily_prices, jwt_token):
+    def test_realtime_api_failure_fallback(self, mock_market, mock_quote_avail, mock_quotes, test_client, test_db, test_user, test_daily_prices, jwt_token):
         test_db.add(Portfolio(
             user_id=test_user.id, stock_id="2330", stock_name="台積電",
             cost_price=600, quantity=100, target_return_pct=5,
@@ -205,8 +208,9 @@ class TestPortfolioRealtime:
         assert len(data["items"]) == 1
 
     @patch("app.services.portfolio_monitor.get_quotes")
+    @patch("app.services.portfolio_monitor.is_quote_available", return_value=True)
     @patch("app.services.portfolio_monitor.is_market_open", return_value=True)
-    def test_target_reached_creates_notification(self, mock_market, mock_quotes, test_client, test_db, test_user, jwt_token):
+    def test_target_reached_creates_notification(self, mock_market, mock_quote_avail, mock_quotes, test_client, test_db, test_user, jwt_token):
         test_db.add(Portfolio(
             user_id=test_user.id, stock_id="2330", stock_name="台積電",
             cost_price=900, quantity=1000, target_return_pct=10,
@@ -230,8 +234,9 @@ class TestPortfolioRealtime:
         assert notif.type == "target_reached"
 
     @patch("app.services.portfolio_monitor.get_quotes")
+    @patch("app.services.portfolio_monitor.is_quote_available", return_value=True)
     @patch("app.services.portfolio_monitor.is_market_open", return_value=True)
-    def test_no_duplicate_notification_same_day(self, mock_market, mock_quotes, test_client, test_db, test_user, jwt_token):
+    def test_no_duplicate_notification_same_day(self, mock_market, mock_quote_avail, mock_quotes, test_client, test_db, test_user, jwt_token):
         p = Portfolio(
             user_id=test_user.id, stock_id="2330", stock_name="台積電",
             cost_price=900, quantity=1000, target_return_pct=10,
@@ -298,8 +303,9 @@ class TestPortfolioMomentum:
         assert resp.json()["entry_momentum_grade"] == "A"
 
     @patch("app.services.portfolio_monitor.get_quotes")
+    @patch("app.services.portfolio_monitor.is_quote_available", return_value=True)
     @patch("app.services.portfolio_monitor.is_market_open", return_value=True)
-    def test_momentum_status_in_realtime(self, mock_market, mock_quotes, test_client, test_db, test_user, jwt_token):
+    def test_momentum_status_in_realtime(self, mock_market, mock_quote_avail, mock_quotes, test_client, test_db, test_user, jwt_token):
         test_db.add(Portfolio(
             user_id=test_user.id, stock_id="2330", stock_name="台積電",
             cost_price=900, quantity=100, target_return_pct=20,
